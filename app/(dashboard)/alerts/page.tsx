@@ -4,7 +4,7 @@ import { AlertTriangle, Bell, CreditCard, Eye, MessageSquare, Smartphone, WifiOf
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getBalance, termiiConfig } from "@/lib/termii";
+import { getBalance, termiiApi, termiiConfig, whatsappReady, whatsappTemplateFor } from "@/lib/termii";
 import { formatNgPhone } from "@/lib/phone";
 import type { AlertSettings } from "@/lib/alerts";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -43,7 +43,11 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
   if (!settings || !school) throw new Error("Alert settings not found.");
 
   const cfg = termiiConfig(school.sms_sender_name);
-  const balance = cfg ? await getBalance(cfg) : null;
+  const api = termiiApi();
+  const wa = whatsappReady();
+  const waTemplates = Object.fromEntries((["arrival", "late", "departure", "absence", "early"] as const).map((t) => [t, !!whatsappTemplateFor(t)])) as Record<"arrival" | "late" | "departure" | "absence" | "early", boolean>;
+  const waMissing = Object.entries(waTemplates).filter(([, ok]) => !ok).map(([t]) => t);
+  const balance = api ? await getBalance(api) : null;
   const sent = (used.data as number) ?? 0;
   const allowance = (settings as AlertSettings).monthly_allowance;
   const pct = allowance ? Math.min(100, Math.round((sent / allowance) * 100)) : 100;
@@ -55,10 +59,19 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader title="Alerts" description="SMS to guardians and alerts for your admin team." />
 
-      {!cfg && (
+      {!cfg && wa && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900" role="status">
+          <MessageSquare className="mt-0.5 size-5 shrink-0" aria-hidden />
+          <p>
+            <strong>Alerts go to parents by WhatsApp.</strong> SMS starts automatically once your sender ID is approved; parents can then choose either.
+            {waMissing.length > 0 && <> No WhatsApp template yet for: {waMissing.join(", ")}. Those alerts are not sent until one is added.</>}
+          </p>
+        </div>
+      )}
+      {!cfg && !wa && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status">
           <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden />
-          <p><strong>SMS isn&apos;t connected yet.</strong> Messages are being saved but not sent. Add your Termii API key and approved sender ID to the server settings (TERMII_API_KEY, TERMII_SENDER_ID). Messages older than 6 hours are dropped rather than sent late.</p>
+          <p><strong>Messages to parents aren&apos;t connected yet.</strong> They are being saved but not sent. Connect WhatsApp in Termii (TERMII_WHATSAPP_DEVICE_ID and the template ids), or add an approved SMS sender ID (TERMII_SENDER_ID). Messages older than 6 hours are dropped rather than sent late.</p>
         </div>
       )}
 
@@ -75,12 +88,12 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
         <div className="surface rounded-xl p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Termii balance</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{balance ? `${balance.currency} ${balance.balance.toLocaleString()}` : "—"}</p>
-          <p className="mt-2 text-xs text-muted-foreground">{cfg ? `Sender ID: ${cfg.senderId} · ${cfg.channel === "dnd" ? "transactional route" : "generic route"}` : "Not connected"}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{[cfg ? `SMS: ${cfg.senderId} (${cfg.channel === "dnd" ? "transactional" : "generic"})` : "SMS: waiting for sender ID", wa ? "WhatsApp: on" : "WhatsApp: off"].join(" · ")}</p>
         </div>
         <div className="surface rounded-xl p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Waiting to send</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{queuedCount.count ?? 0}</p>
-          <div className="mt-2"><SendNowButton disabled={!cfg || !queuedCount.count} /></div>
+          <div className="mt-2"><SendNowButton disabled={!(cfg || wa) || !queuedCount.count} /></div>
         </div>
         <Link href="/alerts?status=failed#sms-log" className="surface rounded-xl p-5 shadow-sm transition hover:border-red-300">
           <p className="text-sm text-muted-foreground">Failed after 3 retries</p>
@@ -92,7 +105,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       {/* Try it */}
       <section className="mb-10" aria-labelledby="try-it">
         <h2 id="try-it" className="mb-3 text-lg font-semibold text-ink">Test sounds and alerts</h2>
-        <TestPanel schoolName={school.name} templates={{
+        <TestPanel schoolName={school.name} channels={{ sms: !!cfg, whatsapp: wa, waTemplates }} templates={{
           arrival: (settings as AlertSettings).arrival_template, late: (settings as AlertSettings).late_template,
           departure: (settings as AlertSettings).departure_template, absence: (settings as AlertSettings).absence_template,
           early: (settings as AlertSettings).early_template,

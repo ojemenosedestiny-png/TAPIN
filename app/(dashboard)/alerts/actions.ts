@@ -6,8 +6,8 @@ import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAudit } from "@/lib/audit";
-import { ALERT_TYPES, processOutbox, testAlertMessage, type AlertSettings } from "@/lib/alerts";
-import { sendSms, termiiConfig } from "@/lib/termii";
+import { ALERT_TYPES, processOutbox, SAMPLE_VARS, testAlertMessage, whatsappData, type AlertSettings } from "@/lib/alerts";
+import { sendSms, sendWhatsAppTemplate, termiiApi, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
 import { formatNgPhone, normaliseNgPhone } from "@/lib/phone";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { alertSettingsSchema, fieldErrors, idSchema } from "@/lib/validation";
@@ -55,7 +55,7 @@ export async function sendQueuedNow(): Promise<ActionState> {
   const user = await requireSchoolArea("alerts");
   const r = await processOutbox(createAdminClient(), { limit: 100, schoolId: user.schoolId });
   revalidatePath("/alerts");
-  if (r.notConfigured) return { errors: { _form: "SMS isn't connected yet. Add the Termii API key and sender ID first." } };
+  if (r.notConfigured) return { errors: { _form: "Messaging isn't connected yet. Connect WhatsApp in Termii, or add an approved SMS sender ID." } };
   return { ok: `Sent ${r.sent}. ${r.retrying ? `${r.retrying} will retry. ` : ""}${r.failed ? `${r.failed} failed. ` : ""}${r.held ? `${r.held} held for quiet hours.` : ""}`.trim() };
 }
 
@@ -67,7 +67,7 @@ export async function markAllRead(): Promise<ActionState> {
   return { ok: "All caught up." };
 }
 
-export type TestAlertState = ActionState & { data?: { message: string; sent: boolean } };
+export type TestAlertState = ActionState & { data?: { message: string; sent: boolean; via: "sms" | "whatsapp" } };
 
 /**
  * Sends the school's real template, with sample values and a TEST prefix, to one phone number.
@@ -92,10 +92,24 @@ export async function sendTestAlert(_prev: TestAlertState, formData: FormData): 
   const message = testAlertMessage((settings as AlertSettings)[`${type}_template` as keyof AlertSettings] as string, school.name);
 
   const cfg = termiiConfig(school.sms_sender_name);
-  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "alerts.test", entity: "alert_settings", details: { type, sent: !!cfg } });
-  if (!cfg) return { ok: "Preview only. SMS isn't connected yet, so nothing was sent.", data: { message, sent: false } };
+  const api = termiiApi();
+  const template = whatsappTemplateFor(type);
+  const asked = formData.get("via");
+  const via: "sms" | "whatsapp" = asked === "whatsapp" || asked === "sms" ? asked : cfg ? "sms" : "whatsapp";
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "alerts.test", entity: "alert_settings", details: { type, via } });
 
+  if (via === "whatsapp") {
+    if (!api || !template) {
+      return { ok: `Preview only. WhatsApp isn't connected for ${type} alerts yet, so nothing was sent.`, data: { message, sent: false, via } };
+    }
+    const vars = { "1": SAMPLE_VARS.full_name, "2": school.name, "3": type === "absence" ? SAMPLE_VARS.date : SAMPLE_VARS.time, "4": SAMPLE_VARS.reason };
+    const r = await sendWhatsAppTemplate(api, phone, template, whatsappData(vars));
+    if (!r.ok) return { errors: { _form: `WhatsApp refused it: ${r.error}` }, data: { message, sent: false, via } };
+    return { ok: `Test WhatsApp sent to ${formatNgPhone(phone)}.`, data: { message, sent: true, via } };
+  }
+
+  if (!cfg) return { ok: "Preview only. SMS isn't connected yet, so nothing was sent.", data: { message, sent: false, via } };
   const r = await sendSms(cfg, phone, message);
-  if (!r.ok) return { errors: { _form: `The SMS provider refused it: ${r.error}` }, data: { message, sent: false } };
-  return { ok: `Test SMS sent to ${formatNgPhone(phone)}.`, data: { message, sent: true } };
+  if (!r.ok) return { errors: { _form: `The SMS provider refused it: ${r.error}` }, data: { message, sent: false, via } };
+  return { ok: `Test SMS sent to ${formatNgPhone(phone)}.`, data: { message, sent: true, via } };
 }

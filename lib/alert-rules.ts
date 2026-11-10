@@ -93,6 +93,11 @@ export function whatsappData(vars: Record<string, unknown>): Record<string, stri
 }
 
 /** WhatsApp only when the guardian chose it and a template exists for this kind of message. */
-export function chooseChannel(guardianChannel: string | null | undefined, hasTemplate: boolean): "sms" | "whatsapp" {
+/**
+ * How to reach a guardian. With SMS available, their own choice (SMS unless they picked WhatsApp).
+ * Without SMS (no approved sender ID yet), WhatsApp for everyone. Null: no way to send this alert yet.
+ */
+export function chooseChannel(guardianChannel: string | null | undefined, hasTemplate: boolean, smsReady = true): "sms" | "whatsapp" | null {
+  if (!smsReady) return hasTemplate ? "whatsapp" : null;
   return guardianChannel === "whatsapp" && hasTemplate ? "whatsapp" : "sms";
 }

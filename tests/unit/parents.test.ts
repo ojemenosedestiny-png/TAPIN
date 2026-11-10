@@ -62,6 +62,24 @@ describe("the sign-in code hook", () => {
     expect(String(calls[0]!.body.sms)).toContain("482913");
   });
 
+  it("sends the code by WhatsApp while there is no SMS sender ID", async () => {
+    vi.stubEnv("TERMII_SENDER_ID", "");
+    vi.stubEnv("TERMII_WHATSAPP_DEVICE_ID", "device-1");
+    vi.stubEnv("TERMII_WA_TEMPLATE_OTP", "tpl-otp");
+    const res = await call(JSON.stringify({ user: { phone: "2348031234567" }, sms: { otp: "482913" } }));
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe("https://termii.test/api/send/template");
+    expect(calls[0]!.body).toMatchObject({ phone_number: "2348031234567", device_id: "device-1", template_id: "tpl-otp", data: { "1": "482913" } });
+  });
+
+  it("says so when neither SMS nor a WhatsApp code template is set up", async () => {
+    vi.stubEnv("TERMII_SENDER_ID", "");
+    const res = await call(JSON.stringify({ user: { phone: "2348031234567" }, sms: { otp: "482913" } }));
+    expect(res.status).toBe(500);
+    expect(calls).toHaveLength(0);
+  });
+
   it("refuses unsigned requests and sends nothing", async () => {
     const res = await call(JSON.stringify({ user: { phone: "2348031234567" }, sms: { otp: "482913" } }), false);
     expect(res.status).toBe(401);
@@ -75,6 +93,12 @@ describe("SMS or WhatsApp", () => {
     expect(chooseChannel("whatsapp", false)).toBe("sms");
     expect(chooseChannel("sms", true)).toBe("sms");
     expect(chooseChannel(null, true)).toBe("sms");
+  });
+  it("uses WhatsApp for every parent while SMS has no sender ID", () => {
+    expect(chooseChannel("sms", true, false)).toBe("whatsapp");
+    expect(chooseChannel(null, true, false)).toBe("whatsapp");
+    expect(chooseChannel("whatsapp", true, false)).toBe("whatsapp");
+    expect(chooseChannel("sms", false, false)).toBeNull(); // no template for this alert: nothing can be sent yet
   });
   it("fills template placeholders {{1}}–{{4}} and drops empty ones", () => {
     expect(whatsappData({ "1": "Chioma Okafor", "2": "Bright Future", "3": "7:42 AM", "4": "" })).toEqual({ "1": "Chioma Okafor", "2": "Bright Future", "3": "7:42 AM" });

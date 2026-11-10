@@ -4,15 +4,28 @@
  * TERMII_CHANNEL — "dnd" (default: transactional route, reaches DND numbers; ask Termii to enable it)
  * or "generic" (promotional route: skips DND numbers, time-restricted on MTN).
  */
-export type TermiiConfig = { apiKey: string; senderId: string; baseUrl: string; channel: "dnd" | "generic" };
+/** What every Termii call needs. Enough on its own for WhatsApp. */
+export type TermiiApi = { apiKey: string; baseUrl: string };
+export type TermiiConfig = TermiiApi & { senderId: string; channel: "dnd" | "generic" };
 
-export function termiiConfig(senderOverride?: string | null): TermiiConfig | null {
+export function termiiApi(): TermiiApi | null {
   const apiKey = process.env.TERMII_API_KEY?.trim();
+  if (!apiKey) return null;
+  return { apiKey, baseUrl: (process.env.TERMII_BASE_URL?.trim() || "https://v3.api.termii.com").replace(/\/+$/, "") };
+}
+
+/** SMS settings: the API key and an approved sender ID. Null until the sender ID is approved. */
+export function termiiConfig(senderOverride?: string | null): TermiiConfig | null {
+  const api = termiiApi();
   const senderId = (senderOverride || process.env.TERMII_SENDER_ID || "").trim();
-  if (!apiKey || !senderId) return null;
-  const baseUrl = (process.env.TERMII_BASE_URL?.trim() || "https://v3.api.termii.com").replace(/\/+$/, "");
+  if (!api || !senderId) return null;
   const channel = process.env.TERMII_CHANNEL?.trim() === "generic" ? "generic" : "dnd";
-  return { apiKey, senderId, baseUrl, channel };
+  return { ...api, senderId, channel };
+}
+
+/** WhatsApp works without an SMS sender ID: it needs the API key and a WhatsApp device connected in Termii. */
+export function whatsappReady(): boolean {
+  return !!termiiApi() && !!process.env.TERMII_WHATSAPP_DEVICE_ID?.trim();
 }
 
 export type SendResult = { ok: true; messageId: string | null } | { ok: false; error: string; retryable: boolean };
@@ -43,7 +56,7 @@ export async function sendSms(cfg: TermiiConfig, to: string, message: string, fe
   return { ok: false, error, retryable: res.status >= 500 || res.status === 429 };
 }
 
-export async function getBalance(cfg: TermiiConfig): Promise<{ balance: number; currency: string } | null> {
+export async function getBalance(cfg: TermiiApi): Promise<{ balance: number; currency: string } | null> {
   try {
     const res = await fetch(`${cfg.baseUrl}/api/get-balance?api_key=${encodeURIComponent(cfg.apiKey)}`, {
       signal: AbortSignal.timeout(10_000),
@@ -70,7 +83,7 @@ export function whatsappTemplateFor(type: string): { deviceId: string; templateI
 }
 
 export async function sendWhatsAppTemplate(
-  cfg: TermiiConfig,
+  cfg: TermiiApi,
   to: string,
   template: { deviceId: string; templateId: string },
   data: Record<string, string>,

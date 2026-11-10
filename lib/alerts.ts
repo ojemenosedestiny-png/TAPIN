@@ -5,7 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour, localTime } from "@/lib/time";
-import { sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor, type TermiiConfig } from "@/lib/termii";
+import { sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor, termiiApi, whatsappReady } from "@/lib/termii";
 
 export * from "@/lib/alert-rules";
 import { alertForTap, chooseChannel, whatsappData, inQuietHours, quietEndsAt, renderTemplate, MAX_ATTEMPTS, MESSAGE_TTL_MS, RETRY_DELAY_MS, type AlertSettings } from "@/lib/alert-rules";
@@ -76,9 +76,10 @@ export async function processOutbox(db: Db, { limit = 50, send = sendSms, sendWa
   limit?: number; send?: typeof sendSms; sendWa?: typeof sendWhatsAppTemplate; templateFor?: typeof whatsappTemplateFor; now?: () => Date; schoolId?: string | null;
 } = {}): Promise<ProcessResult> {
   const result: ProcessResult = { sent: 0, failed: 0, retrying: 0, skipped: 0, held: 0, notConfigured: false };
-  if (!termiiConfig()) {
+  const api = termiiApi();
+  if (!api || (!termiiConfig() && !whatsappReady())) {
     result.notConfigured = true;
-    return result; // leave everything queued; expiry drops stale messages once SMS is set up
+    return result; // leave everything queued; expiry drops stale messages once SMS or WhatsApp is set up
   }
 
   const { data: batch, error } = await db.rpc("claim_sms", { p_limit: limit, p_school: schoolId });
@@ -135,12 +136,18 @@ export async function processOutbox(db: Db, { limit = 50, send = sendSms, sendWa
       continue;
     }
 
-    const cfg = termiiConfig(school.sms_sender_name) as TermiiConfig;
-    // WhatsApp when the guardian chose it and a template exists; a definite WhatsApp failure falls back to SMS at once.
+    const cfg = termiiConfig(school.sms_sender_name);
+    // WhatsApp when the guardian chose it, or for everyone while SMS has no approved sender ID.
+    // A definite WhatsApp failure falls back to SMS at once, when SMS is available.
     const template = templateFor(row.type);
-    let channel = chooseChannel(row.guardian_id ? channelOf.get(row.guardian_id) : null, !!template);
-    let sent = channel === "whatsapp" ? await sendWa(cfg, row.phone, template!, whatsappData(row.vars ?? {})) : await send(cfg, row.phone, row.message);
-    if (channel === "whatsapp" && !sent.ok && !sent.retryable) {
+    let channel = chooseChannel(row.guardian_id ? channelOf.get(row.guardian_id) : null, !!template, !!cfg);
+    if (!channel) {
+      await update({ status: "skipped", last_error: `No WhatsApp template for "${row.type}" alerts, and SMS has no sender ID yet` });
+      result.skipped++;
+      continue;
+    }
+    let sent = channel === "whatsapp" ? await sendWa(api, row.phone, template!, whatsappData(row.vars ?? {})) : await send(cfg!, row.phone, row.message);
+    if (channel === "whatsapp" && !sent.ok && !sent.retryable && cfg) {
       channel = "sms";
       sent = await send(cfg, row.phone, row.message);
     }

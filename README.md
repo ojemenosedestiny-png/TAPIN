@@ -109,9 +109,24 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
      secret into `SEND_SMS_HOOK_SECRET` (Vercel and `.env.local`). Codes are then sent through Termii.
   3. To try it before the Termii sender ID is approved: Authentication → Phone → **Test phone numbers and OTPs**
      (e.g. `2348031234567=123456`) and add that number as a guardian.
-- **WhatsApp:** each guardian chooses SMS or WhatsApp (school admin on the student profile, or the parent in the
-  portal). WhatsApp needs a Termii WhatsApp device and approved templates (see `.env.example`); without them, or if
-  WhatsApp refuses a message, it goes by SMS instead.
+- **WhatsApp works without an SMS sender ID.** Until the sender ID is approved, every alert and sign-in code goes
+  by WhatsApp. Once SMS is set up, each guardian chooses (school admin on the student profile, or the parent in
+  the portal), and a refused WhatsApp falls back to SMS.
+- **Set up WhatsApp (Termii dashboard):** connect a WhatsApp Business number (Manage Device), then create one
+  template per alert. Use these texts; `{{1}}`–`{{4}}` are filled in by TapIn:
+
+  | Alert | Category | Template text | Vercel setting |
+  | --- | --- | --- | --- |
+  | Arrival | Utility | `{{1}} arrived at {{2}} at {{3}}.` | `TERMII_WA_TEMPLATE_ARRIVAL` |
+  | Late | Utility | `{{1}} arrived late at {{2}} at {{3}}.` | `TERMII_WA_TEMPLATE_LATE` |
+  | Departure | Utility | `{{1}} left {{2}} at {{3}}.` | `TERMII_WA_TEMPLATE_DEPARTURE` |
+  | Absence | Utility | `{{1}} has not signed in at {{2}} today, {{3}}. Please contact the school if anything is wrong.` | `TERMII_WA_TEMPLATE_ABSENCE` |
+  | Early release | Utility | `{{1}} was released early from {{2}} at {{3}}. Reason: {{4}}.` | `TERMII_WA_TEMPLATE_EARLY` |
+  | Daily summary | Utility | `{{1}} at {{2}} today: {{3}}.` | `TERMII_WA_TEMPLATE_SUMMARY` |
+  | Sign-in code | Authentication | `Your TapIn sign-in code is {{1}}. It expires in 5 minutes. Never share it.` | `TERMII_WA_TEMPLATE_OTP` |
+
+  Then add `TERMII_WHATSAPP_DEVICE_ID` and each approved template id in Vercel and redeploy. Alerts → **Send a test
+  alert** → WhatsApp checks each one.
 
 ## Activity log, staff report and offline kiosk
 

@@ -22,7 +22,10 @@ const SOUNDS: { name: SoundName; label: string; hint: string; Icon: typeof LogIn
 
 const LABEL: Record<AlertType, string> = { arrival: "Arrival", late: "Late arrival", departure: "Departure", absence: "Absence", early: "Early release" };
 
-export function TestPanel({ templates, schoolName }: { templates: Record<AlertType, string>; schoolName: string }) {
+export type Channels = { sms: boolean; whatsapp: boolean; waTemplates: Record<AlertType, boolean> };
+
+export function TestPanel({ templates, schoolName, channels }: { templates: Record<AlertType, string>; schoolName: string; channels: Channels }) {
+  const [via, setVia] = useState<"sms" | "whatsapp">(channels.sms || !channels.whatsapp ? "sms" : "whatsapp");
   const [playing, setPlaying] = useState<SoundName | null>(null);
   const [type, setType] = useState<AlertType>("arrival");
   const [state, action, pending] = useActionState<TestAlertState, FormData>(sendTestAlert, {});
@@ -85,6 +88,21 @@ export function TestPanel({ templates, schoolName }: { templates: Record<AlertTy
         </div>
         <FormError state={state} />
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {channels.whatsapp && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <span className="text-sm font-medium text-ink">Send by</span>
+              <div role="radiogroup" aria-label="Send by" className="flex gap-2">
+                {(["whatsapp", "sms"] as const).map((v) => (
+                  <label key={v} className={cn("flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                    via === v ? "border-brand bg-accent text-ink" : "border-border text-muted-foreground hover:text-ink")}>
+                    <input type="radio" name="via" value={v} checked={via === v} onChange={() => setVia(v)} className="sr-only" />
+                    {v === "whatsapp" ? "WhatsApp" : "SMS"}
+                    {v === "sms" && !channels.sms && <span className="text-xs font-normal text-muted-foreground">(preview only)</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="test-type">Alert type</Label>
             <select id="test-type" name="type" value={type} onChange={(e) => setType(e.target.value as AlertType)} className={cn(selectClass, "w-full")}>
@@ -96,13 +114,15 @@ export function TestPanel({ templates, schoolName }: { templates: Record<AlertTy
 
         {/* Phone preview */}
         <div className="mt-5 rounded-2xl bg-muted/70 p-4 ring-1 ring-inset ring-border">
-          <p className="text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{schoolName} · SMS</p>
+          <p className="text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{schoolName} · {via === "whatsapp" ? "WhatsApp" : "SMS"}</p>
           <p key={preview} className="motion-rise mt-3 max-w-[90%] rounded-2xl rounded-bl-md bg-card px-4 py-3 text-sm leading-6 text-ink shadow-sm ring-1 ring-border" aria-live="polite">
             {preview}
           </p>
           {state.data && (
             <p className={cn("mt-2 text-xs", state.data.sent ? "text-green-800" : "text-muted-foreground")}>
-              {state.data.sent ? "Delivered to the SMS provider." : "Not sent: SMS isn't connected yet (waiting for the sender ID)."}
+              {state.data.sent
+                ? state.data.via === "whatsapp" ? "Sent by WhatsApp, using your approved template." : "Delivered to the SMS provider."
+                : state.data.via === "whatsapp" ? "Not sent: no WhatsApp template for this alert yet." : "Not sent: SMS isn't connected yet (waiting for the sender ID)."}
             </p>
           )}
         </div>

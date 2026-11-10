@@ -129,4 +129,32 @@ describe.skipIf(!enabled)("parent portal and WhatsApp", () => {
     const { data: b } = await db.from("sms_logs").select("status, channel").eq("dedupe_key", `${tag}-fallback`).single();
     expect(b).toEqual({ status: "sent", channel: "sms" });
   });
+
+  it("with no SMS sender ID yet, every parent gets WhatsApp, even those who chose SMS", async () => {
+    const saved = process.env.TERMII_WHATSAPP_DEVICE_ID;
+    process.env.TERMII_API_KEY = "test-key-not-real";
+    process.env.TERMII_SENDER_ID = "";
+    process.env.TERMII_WHATSAPP_DEVICE_ID = "dev";
+    try {
+      const { processOutbox } = await import("@/lib/alerts");
+      const sms: string[] = [];
+      const wa: Record<string, string>[] = [];
+      const smsNever = async (_c: unknown, _to: string, message: string): Promise<SendResult> => { sms.push(message); return { ok: true, messageId: "s" }; };
+      const waOk = async (_c: unknown, _to: string, _t: unknown, data: Record<string, string>): Promise<SendResult> => { wa.push(data); return { ok: true, messageId: "w" }; };
+      await db.from("sms_logs").insert({
+        school_id: ids.school, student_id: ids.mine, guardian_id: ids.otherGuardian, phone: "+2348039999999", type: "arrival",
+        message: "Ada Mine arrived at school at 7:41 AM.", dedupe_key: `${tag}-wa-only`,
+        vars: { "1": "Ada Mine", "2": "Parent Test", "3": "7:41 AM" },
+      });
+      const r = await processOutbox(db, { send: smsNever, sendWa: waOk, templateFor: () => ({ deviceId: "dev", templateId: "tpl" }), schoolId: ids.school });
+      expect(r.notConfigured).toBe(false);
+      expect(sms).toEqual([]);
+      expect(wa).toEqual([{ "1": "Ada Mine", "2": "Parent Test", "3": "7:41 AM" }]);
+      const { data } = await db.from("sms_logs").select("status, channel").eq("dedupe_key", `${tag}-wa-only`).single();
+      expect(data).toEqual({ status: "sent", channel: "whatsapp" });
+    } finally {
+      if (saved === undefined) delete process.env.TERMII_WHATSAPP_DEVICE_ID;
+      else process.env.TERMII_WHATSAPP_DEVICE_ID = saved;
+    }
+  });
 });

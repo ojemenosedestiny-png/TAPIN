@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyStandardWebhook } from "@/lib/standard-webhooks";
-import { sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
+import { sendSms, sendWhatsAppTemplate, termiiApi, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const fail = (status: number, message: string) => NextResponse.json({ error: { http_code: status, message } }, { status });
@@ -30,18 +30,21 @@ export async function POST(req: NextRequest) {
   const otp = payload.sms?.otp;
   if (!phone || !otp || !/^\d{4,10}$/.test(otp)) return fail(400, "Missing phone or code.");
 
+  const api = termiiApi();
   const cfg = termiiConfig();
-  if (!cfg) return fail(500, "SMS isn't set up yet.");
+  if (!api) return fail(500, "Messaging isn't set up yet.");
 
-  // WhatsApp for parents who chose it (any of their guardian rows), when an OTP template exists.
+  // WhatsApp when there is no SMS sender ID yet, or for parents who chose it, when an OTP template exists.
   const template = whatsappTemplateFor("otp");
   if (template) {
-    const { data } = await createAdminClient().from("guardians").select("channel").eq("phone", phone).eq("channel", "whatsapp").limit(1);
-    if (data?.length) {
-      const wa = await sendWhatsAppTemplate(cfg, phone, template, { otp });
+    const chose = cfg ? (await createAdminClient().from("guardians").select("channel").eq("phone", phone).eq("channel", "whatsapp").limit(1)).data?.length : true;
+    if (chose) {
+      const wa = await sendWhatsAppTemplate(api, phone, template, { "1": otp });
       if (wa.ok) return NextResponse.json({});
+      if (!cfg) return fail(503, "Could not send the code.");
     }
   }
+  if (!cfg) return fail(500, "SMS isn't set up yet.");
   const sent = await sendSms(cfg, phone, `Your TapIn sign-in code is ${otp}. It expires in 5 minutes. Never share it with anyone.`);
   if (!sent.ok) return fail(sent.retryable ? 503 : 500, "Could not send the code.");
   return NextResponse.json({});
