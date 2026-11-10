@@ -11,7 +11,7 @@ Stack: Next.js 16 (App Router, TypeScript strict), Tailwind CSS v4 + shadcn/ui, 
 | --- | --- | --- |
 | 1 | Foundation: project, database, RLS, login, roles | ✅ built |
 | 2 | Admin dashboard: classes, students, guardians, staff, photos, import, cards, devices | ✅ built |
-| 3 | Kiosk: Web NFC, photo, voice greeting, `/api/tap`, offline queue | — |
+| 3 | Kiosk: Web NFC, photo, voice greeting, `/api/tap`, offline queue | ✅ built |
 | 4 | Alerts: Termii, `sms_logs`, retries, absence job, calendar | — |
 | 5 | Reports and launch | — |
 
@@ -45,6 +45,7 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript only |
 | `npm test` | Unit tests (Vitest) |
+| `npm run test:e2e` | Browser tests (Playwright, uses your installed Chrome) for the kiosk and enrollment screens, on a production build at port 3100. Seeds and removes a throwaway school. |
 | `npm run test:rls` | RLS integration test against the Supabase project in `.env.local`. Creates and deletes throwaway schools and users — **use a dev project, never production.** |
 
 ## Roles

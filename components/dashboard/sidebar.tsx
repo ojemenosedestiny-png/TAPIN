@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { LogOut, Menu, X } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { Wordmark } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { logout } from "@/app/(auth)/login/actions";
 import type { Role } from "@/lib/auth/roles";
@@ -61,12 +61,9 @@ export function Sidebar({ role, name, schoolName }: { role: Role; name: string; 
   );
 
   const brand = (
-    <div className="flex items-center gap-2 px-6 py-5">
-      <Logo className="size-8" />
-      <div className="min-w-0">
-        <p className="font-heading text-lg font-semibold leading-tight text-ink">TapIn</p>
-        {schoolName && <p className="truncate text-xs text-muted-foreground">{schoolName}</p>}
-      </div>
+    <div className="px-6 py-5">
+      <Wordmark className="text-base" />
+      {schoolName && <p className="mt-2 truncate text-xs text-muted-foreground">{schoolName}</p>}
     </div>
   );
 
@@ -74,10 +71,7 @@ export function Sidebar({ role, name, schoolName }: { role: Role; name: string; 
     <>
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-2">
-          <Logo className="size-7" />
-          <span className="font-heading font-semibold text-ink">TapIn</span>
-        </div>
+        <Wordmark className="text-sm" markClassName="size-8" />
         <button
           type="button"
           onClick={() => setOpen(true)}

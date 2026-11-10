@@ -4,15 +4,9 @@
 export type DayStatus = "present" | "late" | "absent" | "holiday" | "future" | "before";
 export type HeatCell = { date: string; status: DayStatus; time?: string };
 
-/** "HH:MM" of an instant in the school's timezone. */
-export function localTime(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone }).format(new Date(iso));
-}
+import { localDate, localTime } from "@/lib/time";
 
-/** YYYY-MM-DD of an instant in the school's timezone. */
-export function localDate(at: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(at);
-}
+export { localDate, localTime };
 
 function addDays(date: string, n: number): string {
   const d = new Date(`${date}T12:00:00Z`);

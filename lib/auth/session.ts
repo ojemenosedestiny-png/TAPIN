@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canAccess, isRole, type Area, type Role } from "./roles";
+import { canAccess, homePath, isRole, type Area, type Role } from "./roles";
 
 export type CurrentUser = {
   id: string;
@@ -40,7 +40,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 export async function requireArea(area: Area): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!canAccess(user.role, area)) redirect("/");
+  if (!canAccess(user.role, area)) redirect(homePath(user.role));
   return user;
 }
 
@@ -49,7 +49,7 @@ export type SchoolUser = CurrentUser & { schoolId: string };
 /** For school-scoped pages/actions: a school admin (or teacher, if allowed) with a school. */
 export async function requireSchoolArea(area: Area): Promise<SchoolUser> {
   const user = await requireArea(area);
-  if (!user.schoolId) redirect("/");
+  if (!user.schoolId) redirect(homePath(user.role));
   return user as SchoolUser;
 }
 

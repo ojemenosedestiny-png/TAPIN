@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Logo } from "@/components/brand/logo";
+import { Logo, TAGLINE } from "@/components/brand/logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoginForm } from "./login-form";
+
+export const instant = true;
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -32,9 +34,9 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
     <main id="main" className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-light/60 via-background to-background px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Logo className="size-14" />
+          <Logo className="size-16" />
           <h1 className="mt-4 text-2xl font-semibold text-ink">Sign in to TapIn</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Every child, safe and accounted for.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{TAGLINE}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <Suspense fallback={<FormSkeleton />}>

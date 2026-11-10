@@ -9,7 +9,7 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakart
 
 export const metadata: Metadata = {
   title: { default: "TapIn", template: "%s · TapIn" },
-  description: "Every child, safe and accounted for.",
+  description: "Keeping every child safe and accounted for.",
   robots: { index: false, follow: false },
 };
 

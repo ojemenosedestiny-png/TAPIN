@@ -49,7 +49,7 @@ export async function proxy(request: NextRequest) {
   };
 
   if (!user) {
-    if (protectedArea) return redirectTo("/login");
+    if (protectedArea || pathname === "/") return redirectTo("/login");
     return response;
   }
 
@@ -61,7 +61,8 @@ export async function proxy(request: NextRequest) {
     return res;
   }
 
-  if (pathname === "/login") return redirectTo("/");
+  // "/" and "/login" go to the dashboard; pages send each role on to its own home (super admin → /platform).
+  if (pathname === "/login" || pathname === "/") return redirectTo("/today");
 
   response.cookies.set(LAST_ACTIVE_COOKIE, String(now), {
     httpOnly: true,
@@ -76,5 +77,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Skip static files, images, the kiosk and its API (device-token auth, no staff session).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.json|kiosk|api/tap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|pwa-icon|apple-icon|icon.svg|kiosk|api/tap|api/kiosk|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

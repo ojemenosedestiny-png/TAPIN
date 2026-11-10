@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { fieldErrors, loginSchema } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { homePath, isRole } from "@/lib/auth/roles";
 
 export type LoginState = { errors?: Record<string, string>; email?: string };
 
@@ -32,13 +33,13 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   // Must have a staff profile, otherwise the account is not usable.
   const { data: userData } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from("users").select("id").eq("id", userData.user?.id ?? "").maybeSingle();
-  if (!profile) {
+  const { data: profile } = await supabase.from("users").select("id, role").eq("id", userData.user?.id ?? "").maybeSingle();
+  if (!profile || !isRole(profile.role)) {
     await supabase.auth.signOut();
     return { errors: { _form: "This account has not been set up for TapIn. Contact your school admin." } };
   }
 
-  redirect("/");
+  redirect(homePath(profile.role));
 }
 
 export async function logout() {

@@ -167,6 +167,39 @@ describe.skipIf(!enabled)("Row Level Security", () => {
     }
   });
 
+  it("card writes only go through the server: no direct inserts or RPC calls", async () => {
+    const { error: insErr } = await asAdminA.from("cards").insert({
+      school_id: ids.schoolA, uid: "0A0B0C0D", holder_type: "student", holder_id: ids.otherStudentA,
+    });
+    expect(insErr).not.toBeNull();
+    const { error: rpcErr } = await asAdminA.rpc("assign_card", {
+      p_school_id: ids.schoolB, p_actor_id: ids.adminA, p_uid: "0A0B0C0D", p_holder_type: "student",
+      p_holder_id: ids.ownStudentB, p_confirm_reassign: true,
+    });
+    expect(rpcErr).not.toBeNull();
+  });
+
+  it("overview views respect each table's RLS", async () => {
+    const { data: a } = await asAdminA.from("student_overview").select("school_id, guardian_phone");
+    expect(a?.every((r) => r.school_id === ids.schoolA)).toBe(true);
+    expect(a?.length).toBe(2);
+    const { data: t } = await asTeacherA.from("student_overview").select("id, guardian_phone, card_id");
+    expect(t?.map((r) => r.id)).toEqual([ids.ownStudentA]);
+    expect(t?.[0]?.guardian_phone).toBeNull(); // teachers don't see phone numbers
+    expect(t?.[0]?.card_id).toBeNull();
+    const { data: s } = await asSuper.from("student_overview").select("id");
+    expect(s ?? []).toEqual([]);
+  });
+
+  it("photos bucket: admin A cannot upload into School B's folder", async () => {
+    const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" });
+    const { error } = await asAdminA.storage.from("photos").upload(`${ids.schoolB}/student/x-1.jpg`, blob, { contentType: "image/jpeg" });
+    expect(error).not.toBeNull();
+    const { error: ownErr } = await asAdminA.storage.from("photos").upload(`${ids.schoolA}/student/x-1.jpg`, blob, { contentType: "image/jpeg" });
+    expect(ownErr).toBeNull();
+    await admin.storage.from("photos").remove([`${ids.schoolA}/student/x-1.jpg`]);
+  });
+
   it("anonymous visitors see nothing", async () => {
     for (const table of ["schools", "users", ...TENANT_TABLES]) {
       const { data } = await anonClient.from(table).select("*").limit(1);
