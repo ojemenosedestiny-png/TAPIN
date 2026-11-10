@@ -152,6 +152,21 @@ test.describe("today and reports", () => {
     }
   });
 
+  test("activity log lists what happened, in plain English", async ({ page }) => {
+    await page.goto("/activity");
+    await expect(page.getByRole("heading", { level: 1, name: "Activity log" })).toBeVisible();
+    await page.getByRole("link", { name: "Logins and security" }).click();
+    await expect(page.getByRole("link", { name: "Logins and security" })).toHaveAttribute("aria-current", "page");
+  });
+
+  test("reports: staff tab with an Excel download", async ({ page }) => {
+    await page.goto("/reports?who=staff");
+    await expect(page.getByRole("link", { name: "staff", exact: true })).toHaveAttribute("aria-current", "page");
+    const download = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Excel" }).click();
+    expect((await download).suggestedFilename()).toMatch(/^tapin-staff-/);
+  });
+
   test("reports: quick ranges and an Excel download", async ({ page }) => {
     await page.goto("/reports");
     await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();

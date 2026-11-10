@@ -112,6 +112,24 @@ describe.skipIf(!enabled)("reports (attendance_days / attendance_summary / today
     expect(data![0]!.message).toMatch(/missed 3 or more days in the last 30 days/);
   });
 
+  it("staff report: days, lateness, usual arrival and hours on site — school admins only", async () => {
+    const { data: staff } = await db.from("staff").insert({ school_id: ids.school, name: "Mr Okon", created_at: "2026-10-01T00:00:00Z" }).select("id").single();
+    const { error: insErr } = await db.from("attendance").insert([
+      { school_id: ids.school, holder_type: "staff", holder_id: staff!.id, date: MON, sign_in_at: at(MON, "07:30"), sign_out_at: at(MON, "15:30"), early_release: false },
+      { school_id: ids.school, holder_type: "staff", holder_id: staff!.id, date: TUE, sign_in_at: at(TUE, "08:00"), sign_out_at: at(TUE, "14:00"), early_release: false },
+      { school_id: ids.school, holder_type: "staff", holder_id: staff!.id, date: FRI, sign_in_at: at(FRI, "07:30"), sign_out_at: at(FRI, "11:30"), early_release: true },
+    ]);
+    expect(insErr).toBeNull();
+    const { data, error } = await asAdmin.rpc("staff_summary", { p_from: MON, p_to: FRI });
+    expect(error).toBeNull();
+    // Mon–Fri minus the Wednesday holiday = 4 school days; absent Thursday.
+    expect((data ?? []).find((r: { staff_id: string }) => r.staff_id === staff!.id)).toMatchObject({
+      school_days: 4, present: 3, late: 1, absent: 1, early_leaves: 1, avg_arrival: "07:40:00", avg_minutes_on_site: 360,
+    });
+    const { data: teacher } = await asTeacher.rpc("staff_summary", { p_from: MON, p_to: FRI });
+    expect(teacher ?? []).toEqual([]);
+  });
+
   it("other schools and logged-out visitors get nothing", async () => {
     const anonClient = createClient(url!, anon!, { auth: { persistSession: false } });
     const { data, error } = await anonClient.rpc("attendance_summary", { p_from: MON, p_to: FRI });

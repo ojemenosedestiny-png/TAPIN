@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { clockLabel, hoursLabel } from "@/app/(dashboard)/reports/staff-report";
+import { auditDetail, auditLabel } from "@/lib/audit-labels";
 import { attendanceRate, fetchAllPages, formatRate, parseRange, presetRanges, totals } from "@/lib/reports";
 
 describe("attendance rate", () => {
@@ -57,5 +59,29 @@ describe("paging past Supabase's 1,000-row limit", () => {
   });
   it("surfaces errors", async () => {
     await expect(fetchAllPages(async () => ({ data: null, error: { message: "boom" } }))).rejects.toThrow("boom");
+  });
+});
+
+describe("staff report labels", () => {
+  it("formats hours on site and the usual arrival time", () => {
+    expect(hoursLabel(360)).toBe("6 h 00 m");
+    expect(hoursLabel(485)).toBe("8 h 05 m");
+    expect(hoursLabel(null)).toBe("—");
+    expect(clockLabel("07:40:00")).toBe("7:40 AM");
+    expect(clockLabel("13:05:00")).toBe("1:05 PM");
+    expect(clockLabel("00:15:00")).toBe("12:15 AM");
+    expect(clockLabel(null)).toBe("—");
+  });
+});
+
+describe("activity log labels", () => {
+  it("names actions in plain English, with a readable fallback", () => {
+    expect(auditLabel("card.block")).toBe("Blocked a card");
+    expect(auditLabel("consent.withdraw")).toBe("Withdrew parental consent");
+    expect(auditLabel("something.new_thing")).toBe("Something new thing");
+  });
+  it("summarises details without phone numbers or nested blobs", () => {
+    expect(auditDetail({ uid_last4: "5B1C", phone: "+2348031234567", previous: { a: 1 }, holder_type: "student" })).toBe("uid last4: 5B1C · holder type: student");
+    expect(auditDetail(null)).toBe("");
   });
 });

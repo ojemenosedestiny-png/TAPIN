@@ -74,6 +74,24 @@ test.describe("kiosk", () => {
     expect(JSON.parse((await page.evaluate(() => localStorage.getItem("tapin.kiosk.queue.v1")))!)).toHaveLength(0);
   });
 
+  test("opens with no internet after one online visit (power cut at the gate)", async ({ page, context }, info) => {
+    test.skip(info.project.name !== "laptop");
+    const f = fixture();
+    await connectKiosk(page);
+    // Wait until the service worker controls the page and has cached it.
+    await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect(page.getByText(f.schoolName)).toBeVisible();
+
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Start scanning" })).toBeVisible();
+    await expect(page.getByText(f.schoolName)).toBeVisible(); // remembered on the device
+    await expect(page.getByText(/Offline/)).toBeVisible();
+    await context.setOffline(false);
+  });
+
   test("never shows lists of students or phone numbers", async ({ page }) => {
     await connectKiosk(page);
     const text = await page.locator("body").innerText();

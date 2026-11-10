@@ -98,7 +98,15 @@ function Setup({ message }: { message?: string }) {
 // The kiosk
 // ---------------------------------------------------------------------------
 function Kiosk({ token }: { token: string }) {
-  const [school, setSchool] = useState<SchoolInfo | null>(null);
+  // Last known school (name and timezone) so an offline start still shows the right school.
+  const [school, setSchool] = useState<SchoolInfo | null>(() => {
+    try {
+      const raw = localStorage.getItem("tapin.kiosk.school");
+      return raw ? ({ ...JSON.parse(raw), logo_url: null } as SchoolInfo) : null;
+    } catch {
+      return null;
+    }
+  });
   const [deviceName, setDeviceName] = useState<string>("");
   const [screen, setScreen] = useState<Screen>({ kind: "idle" });
   const [scanning, setScanning] = useState(false);
@@ -211,6 +219,11 @@ function Kiosk({ token }: { token: string }) {
           return;
         }
         setSchool(body.school);
+        try {
+          localStorage.setItem("tapin.kiosk.school", JSON.stringify({ name: body.school.name, timezone: body.school.timezone }));
+        } catch {
+          // storage blocked: the school name shows once online
+        }
         setDeviceName(body.device.name);
         setOnline(true);
         void flush();
@@ -266,6 +279,11 @@ function Kiosk({ token }: { token: string }) {
   }, [scanning]);
 
   useEffect(() => () => stopNfc.current?.(), []);
+
+  // Offline start: a service worker keeps a copy of the kiosk on the device (kiosk pages only).
+  useEffect(() => {
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js", { scope: "/kiosk" }).catch(() => {});
+  }, []);
 
   const startScanning = async () => {
     setNfcError(null);

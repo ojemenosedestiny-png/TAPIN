@@ -113,6 +113,15 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
   portal). WhatsApp needs a Termii WhatsApp device and approved templates (see `.env.example`); without them, or if
   WhatsApp refuses a message, it goes by SMS instead.
 
+## Activity log, staff report and offline kiosk
+
+- **Activity log** (`/activity`): who did what and when (cards, students, settings, logins, billing), in plain
+  English. School admins see their own school; the super admin sees every school but not student details.
+- **Staff report:** a Staff tab on Reports (school admins only) with days present, late arrivals, early leaves,
+  usual arrival time and average hours on site, plus an Excel export.
+- **Kiosk with no internet:** after one online visit, the kiosk page opens even with no connection (service worker
+  in `public/sw.js`, scoped to `/kiosk`). Taps queue on the device and sync when the internet returns.
+
 ## Password resets
 
 - **Forgot password?** on the login page emails a one-time link (Supabase Auth). For the link to work, in Supabase →

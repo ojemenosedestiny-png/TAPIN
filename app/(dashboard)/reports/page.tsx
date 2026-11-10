@@ -12,11 +12,12 @@ import { selectClass } from "@/components/forms/field";
 import { EmptyState } from "@/components/dashboard/page-header";
 import { KpiStrip } from "@/components/dashboard/today-blocks";
 import { PrintButton } from "./print-button";
+import { StaffReport } from "./staff-report";
 
 export const metadata: Metadata = { title: "Reports" };
 
 const SHOW_ROWS = 500;
-type Search = { from?: string; to?: string; class?: string; status?: string };
+type Search = { from?: string; to?: string; class?: string; status?: string; who?: string };
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
@@ -29,10 +30,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const range = parseRange(sp.from, sp.to, today);
   const classId = sp.class && /^[0-9a-f-]{36}$/i.test(sp.class) ? sp.class : null;
   const onlyAbsent = sp.status === "absent";
+  const who = sp.who === "staff" && user.role === "school_admin" ? "staff" : "students";
 
   const [{ data: classes }, report] = await Promise.all([
     supabase.from("classes").select("id, name").order("name"),
-    loadReport(supabase, { ...range, classId }),
+    who === "students" ? loadReport(supabase, { ...range, classId }) : Promise.resolve({ rows: [], students: [] }),
   ]);
   let rows = report.rows;
   if (onlyAbsent) rows = rows.filter((r) => r.absent > 0);
@@ -43,7 +45,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   const qs = (patch: Partial<Search>) => {
     const p = new URLSearchParams();
-    const m = { from: range.from, to: range.to, class: classId ?? undefined, status: onlyAbsent ? "absent" : undefined, ...patch };
+    const m = { from: range.from, to: range.to, class: classId ?? undefined, status: onlyAbsent ? "absent" : undefined, who: who === "staff" ? "staff" : undefined, ...patch };
     for (const [k, v] of Object.entries(m)) if (v) p.set(k, v);
     return p.toString();
   };
@@ -64,6 +66,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </Button>
         </div>
       </div>
+
+      {user.role === "school_admin" && (
+        <nav aria-label="Report on" className="mb-4 flex gap-1 border-b border-border print:hidden">
+          {(["students", "staff"] as const).map((w) => (
+            <Link key={w} href={`/reports?${qs({ who: w === "staff" ? "staff" : undefined, class: undefined, status: undefined })}`} aria-current={who === w ? "page" : undefined}
+              className={cn("-mb-px border-b-2 px-3 py-2 text-sm font-medium capitalize", who === w ? "border-brand text-ink" : "border-transparent text-muted-foreground hover:text-ink")}>
+              {w}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {/* Scope row */}
       <div className="mb-6 space-y-3 print:hidden">
@@ -88,6 +101,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <span className="mb-1 block text-muted-foreground">To</span>
             <input type="date" name="to" defaultValue={range.to} max={today} className={cn(selectClass, "w-40")} />
           </label>
+          {who === "staff" ? <input type="hidden" name="who" value="staff" /> : (<>
           <label className="text-sm">
             <span className="mb-1 block text-muted-foreground">Class</span>
             <select name="class" defaultValue={classId ?? ""} className={cn(selectClass, "w-44")}>
@@ -98,12 +112,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <label className="flex h-9 items-center gap-2 text-sm text-ink">
             <input type="checkbox" name="status" value="absent" defaultChecked={onlyAbsent} className="size-4 accent-[var(--brand)]" /> Only students with absences
           </label>
+          </>)}
           <Button type="submit" variant="outline" className="motion-press">Show report</Button>
         </form>
         {range.error && <p className="text-sm text-amber-800" role="status">{range.error}</p>}
       </div>
 
-      {report.rows.length === 0 ? (
+      {who === "staff" ? (
+        <StaffReport from={range.from} to={range.to} />
+      ) : report.rows.length === 0 ? (
         <EmptyState icon={<FileBarChart className="size-7" aria-hidden />} title="Nothing to report for these dates"
           body="There were no school days with active students in this range. Weekends and holidays are left out." />
       ) : (

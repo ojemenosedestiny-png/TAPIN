@@ -26,6 +26,38 @@ export async function GET(req: NextRequest) {
   const range = parseRange(sp.get("from") ?? undefined, sp.get("to") ?? undefined, localDate(new Date(), school.timezone));
   const classId = /^[0-9a-f-]{36}$/i.test(sp.get("class") ?? "") ? sp.get("class") : null;
 
+  if (sp.get("who") === "staff") {
+    if (user.role !== "school_admin") return new Response("Only school admins can export staff attendance.", { status: 403 });
+    const [{ data: sum }, { data: staff }] = await Promise.all([
+      db.rpc("staff_summary", { p_from: range.from, p_to: range.to }),
+      db.from("staff").select("id, name").eq("status", "active"),
+    ]);
+    const nameOf = new Map((staff ?? []).map((s) => [s.id, s.name]));
+    const wbStaff = new ExcelJS.Workbook();
+    wbStaff.creator = "TapIn";
+    const ws = wbStaff.addWorksheet("Staff");
+    ws.columns = [
+      { header: "Name", key: "name", width: 28 }, { header: "School days", key: "days", width: 12 }, { header: "Present", key: "present", width: 10 },
+      { header: "Late", key: "late", width: 8 }, { header: "Absent", key: "absent", width: 9 }, { header: "Left early", key: "early", width: 11 },
+      { header: "Usual arrival", key: "arrival", width: 13 }, { header: "Average hours on site", key: "hours", width: 20 },
+    ];
+    ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F766E" } };
+    for (const r of (sum ?? []) as { staff_id: string; school_days: number; present: number; late: number; absent: number; early_leaves: number; avg_arrival: string | null; avg_minutes_on_site: number | null }[]) {
+      if (!nameOf.has(r.staff_id)) continue;
+      ws.addRow({ name: nameOf.get(r.staff_id), days: r.school_days, present: r.present, late: r.late, absent: r.absent, early: r.early_leaves,
+        arrival: r.avg_arrival?.slice(0, 5) ?? "", hours: r.avg_minutes_on_site === null ? "" : Math.round((r.avg_minutes_on_site / 60) * 10) / 10 });
+    }
+    await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "report.export", entity: "attendance", details: { ...range, who: "staff" } });
+    return new Response((await wbStaff.xlsx.writeBuffer()) as ArrayBuffer, {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="tapin-staff-${range.from}-to-${range.to}.xlsx"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
   const [{ rows }, days] = await Promise.all([loadReport(db, { ...range, classId }), loadReportDays(db, { ...range, classId })]);
   const names = new Map(rows.map((r) => [r.student_id, r.student]));
 
