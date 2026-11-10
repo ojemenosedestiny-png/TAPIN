@@ -80,5 +80,10 @@ export function useCardReader(onUid: (uid: string) => void, { enabled = true }: 
     return true;
   };
 
-  return { state, error, supported, online, start, stop, submitManual, clearError: () => setError(null) };
+  /** Forget the last card, so the same card counts again (e.g. "Test card" right after linking it). */
+  const resetDebounce = () => {
+    debounce.current = createTapDebouncer(2000);
+  };
+
+  return { state, error, supported, online, start, stop, submitManual, resetDebounce, clearError: () => setError(null) };
 }

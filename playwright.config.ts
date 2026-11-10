@@ -26,8 +26,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "laptop", use: { ...devices["Desktop Chrome"], channel: "chrome", viewport: { width: 1440, height: 900 } } },
-    { name: "phone", use: { ...devices["Pixel 7"], channel: "chrome", viewport: { width: 360, height: 780 } } },
+    { name: "setup", testMatch: /auth\.setup\.ts/, use: { ...devices["Desktop Chrome"], channel: "chrome" } },
+    { name: "laptop", dependencies: ["setup"], use: { ...devices["Desktop Chrome"], channel: "chrome", viewport: { width: 1440, height: 900 } } },
+    { name: "phone", dependencies: ["setup"], use: { ...devices["Pixel 7"], channel: "chrome", viewport: { width: 360, height: 780 } } },
   ],
   webServer: {
     command: `npm run build && npx next start -p ${PORT}`,

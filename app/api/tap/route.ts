@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { runAfter } from "@/lib/background";
 import { z } from "zod";
 import { authenticateKiosk, type KioskDevice } from "@/lib/kiosk-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,6 +8,7 @@ import { decideTap, resolveTapTime } from "@/lib/attendance";
 import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour } from "@/lib/time";
 import { PHOTO_BUCKET } from "@/lib/photos";
+import { processOutbox, queueTapAlerts } from "@/lib/alerts";
 
 const bodySchema = z.object({
   uid: z.string().max(64),
@@ -73,18 +75,31 @@ export async function POST(req: NextRequest) {
     if (error && error.code !== "23505") console.error("tap_events insert", error);
   };
 
+  const notifyUnknown = (kind: "Unrecognised" | "Blocked") =>
+    runAfter("unknown card", async () => {
+      const { error } = await db.from("notifications").insert({
+        school_id: school.id, kind: "unknown_card",
+        message: `${kind} card tapped at ${device.name}, ${time}.`,
+        dedupe_key: `card:${uid ?? "invalid"}:${localDate(tappedAt, school.timezone)}`,
+      });
+      if (error && error.code !== "23505") console.error("unknown card notification", error);
+    });
+
   if (!uid) {
     await log("unknown");
+    notifyUnknown("Unrecognised");
     return json({ action: "unknown", time });
   }
 
   const { data: card } = await db.from("cards").select("id, holder_type, holder_id, status").eq("uid", uid).eq("school_id", school.id).maybeSingle();
   if (!card) {
     await log("unknown");
+    notifyUnknown("Unrecognised");
     return json({ action: "unknown", time });
   }
   if (card.status !== "active") {
     await log("blocked", { holder_type: card.holder_type, holder_id: card.holder_id });
+    notifyUnknown("Blocked");
     return json({ action: "blocked", time });
   }
 
@@ -99,7 +114,17 @@ export async function POST(req: NextRequest) {
   const late = decision.kind === "sign_in" && decision.late;
   await log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late });
 
-  // TODO(stage 4): queue arrival / late / departure SMS to guardians here (sms_logs first, then Termii).
+  // Guardian SMS: saved to sms_logs first, then sent — after the kiosk already has its answer.
+  if (card.holder_type === "student" && (action === "signed_in" || action === "signed_out")) {
+    runAfter("tap alerts", async () => {
+      const queued = await queueTapAlerts(db, {
+        school: { id: school.id, name: school.name, timezone: school.timezone },
+        student: { id: card.holder_id, firstName: person.firstName, fullName: person.name, classId: person.classId, className: person.className },
+        action, late, tappedAt,
+      });
+      if (queued) await processOutbox(db, { limit: 20, schoolId: school.id });
+    });
+  }
 
   let photoUrl: string | null = null;
   if (person.photo) {
@@ -124,16 +149,17 @@ type Db = ReturnType<typeof createAdminClient>;
 
 async function loadHolder(db: Db, type: string, id: string) {
   if (type === "student") {
-    const { data } = await db.from("students").select("first_name, last_name, photo_url, status, classes(name)").eq("id", id).maybeSingle();
+    const { data } = await db.from("students").select("first_name, last_name, photo_url, status, class_id, classes(name)").eq("id", id).maybeSingle();
     if (!data) return null;
     return {
       name: `${data.first_name} ${data.last_name}`, firstName: data.first_name, photo: data.photo_url as string | null,
-      className: (data.classes as unknown as { name: string } | null)?.name ?? null, active: data.status === "active",
+      className: (data.classes as unknown as { name: string } | null)?.name ?? null, classId: data.class_id as string | null,
+      active: data.status === "active",
     };
   }
   const { data } = await db.from("staff").select("name, photo_url, status").eq("id", id).maybeSingle();
   if (!data) return null;
-  return { name: data.name, firstName: data.name.split(" ")[0]!, photo: data.photo_url as string | null, className: "Staff", active: data.status === "active" };
+  return { name: data.name, firstName: data.name.split(" ")[0]!, photo: data.photo_url as string | null, className: "Staff", classId: null, active: data.status === "active" };
 }
 
 /**

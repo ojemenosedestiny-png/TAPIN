@@ -1,7 +1,7 @@
 /**
  * Attendance calendar heatmap: one cell per school day (Mon–Fri) for the last N weeks.
  */
-export type DayStatus = "present" | "late" | "absent" | "holiday" | "future" | "before";
+export type DayStatus = "present" | "late" | "absent" | "excused" | "holiday" | "future" | "before";
 export type HeatCell = { date: string; status: DayStatus; time?: string };
 
 import { localDate, localTime } from "@/lib/time";
@@ -23,12 +23,14 @@ export function buildHeatmap(opts: {
   weeks: number;
   attendance: { date: string; sign_in_at: string | null }[];
   holidays: string[];
+  excused?: string[];
   resumptionTime: string; // "07:45" or "07:45:00"
   timeZone: string;
   since?: string;
 }): HeatCell[][] {
   const byDate = new Map(opts.attendance.map((a) => [a.date, a]));
   const holidays = new Set(opts.holidays);
+  const excused = new Set(opts.excused ?? []);
   const resumption = opts.resumptionTime.slice(0, 5);
   const todayDow = (new Date(`${opts.today}T12:00:00Z`).getUTCDay() + 6) % 7; // Mon=0
   const monday = addDays(opts.today, -todayDow);
@@ -47,7 +49,7 @@ export function buildHeatmap(opts: {
       else if (row?.sign_in_at) {
         time = localTime(row.sign_in_at, opts.timeZone);
         status = time > resumption ? "late" : "present";
-      } else status = "absent";
+      } else status = excused.has(date) ? "excused" : "absent";
       col.push({ date, status, time });
     }
     columns.push(col);

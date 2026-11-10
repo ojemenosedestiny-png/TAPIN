@@ -17,6 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StudentDialog } from "./student-dialog";
 import { GuardianForm } from "./guardian-form";
 import { unlinkGuardian } from "./actions";
+import { ExcusalForm } from "./excusal-form";
+import { removeExcusal } from "./excusal-actions";
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
@@ -59,7 +61,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
   since.setUTCDate(since.getUTCDate() - 7 * 12);
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const [guardians, cards, attendance, holidays, sms] = await Promise.all([
+  const [guardians, cards, attendance, holidays, sms, excusals] = await Promise.all([
     isAdmin
       ? supabase.from("student_guardians").select("guardians(id, name, phone, relationship)").eq("student_id", s.id)
       : Promise.resolve({ data: [] as { guardians: unknown }[] }),
@@ -71,6 +73,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
     isAdmin
       ? supabase.from("sms_logs").select("id, type, status, message, created_at").eq("student_id", s.id).order("created_at", { ascending: false }).limit(15)
       : Promise.resolve({ data: [] as { id: string; type: string; status: string; message: string; created_at: string }[] }),
+    supabase.from("excusals").select("id, date, reason").eq("student_id", s.id).gte("date", sinceStr).order("date", { ascending: false }),
   ]);
 
   const photo = (await signPhotos(supabase, [s.photo_url])).get(s.photo_url ?? "") ?? null;
@@ -82,6 +85,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
   const heat = buildHeatmap({
     today, weeks: 12, attendance: attendance.data ?? [], holidays: (holidays.data ?? []).map((h) => h.date),
     resumptionTime: school?.resumption_time ?? "07:45", timeZone: tz, since: s.created_at.slice(0, 10),
+    excused: (excusals.data ?? []).map((x) => x.date),
   });
 
   return (
@@ -146,6 +150,21 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
           {guardianList.length < 4 && <GuardianForm studentId={s.id} />}
         </Section>
       )}
+
+      <Section title="Excused absences">
+        {(excusals.data ?? []).length > 0 && (
+          <ul className="mb-4 divide-y divide-border rounded-xl border border-border text-sm">
+            {(excusals.data ?? []).slice(0, 10).map((x) => (
+              <li key={x.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                <span><span className="font-medium tabular-nums text-ink">{new Date(`${x.date}T12:00:00Z`).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}</span> <span className="text-muted-foreground">· {x.reason}</span></span>
+                <ConfirmAction action={removeExcusal} fields={{ id: x.id }} title="Remove this excusal?" description="If the day hasn't passed, an absence SMS may be sent." confirmLabel="Remove"
+                  trigger={<Button variant="ghost" size="sm" aria-label="Remove excusal"><Trash2 className="size-4" /></Button>} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {s.status === "active" && <ExcusalForm studentId={s.id} today={today} />}
+      </Section>
 
       <Section title="Attendance — last 12 weeks">
         <AttendanceHeatmap columns={heat} />

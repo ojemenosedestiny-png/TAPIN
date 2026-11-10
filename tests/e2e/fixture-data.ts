@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const FIXTURE_FILE = join(process.cwd(), "test-results", "e2e-fixture.json");
+/** Saved login session for the test school admin (written by auth.setup.ts). */
+export const ADMIN_STATE = join(process.cwd(), "test-results", "e2e-admin-state.json");
 
 export type Fixture = {
   schoolId: string;

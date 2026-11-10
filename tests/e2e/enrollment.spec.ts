@@ -1,12 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { fixture, freshUid } from "./fixture-data";
+import { ADMIN_STATE, fixture, freshUid } from "./fixture-data";
+
+// Signed in once by auth.setup.ts (login is rate limited, so tests reuse the session).
+test.use({ storageState: ADMIN_STATE });
 
 async function login(page: Page) {
-  const f = fixture();
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(f.adminEmail);
-  await page.getByLabel("Password").fill(f.adminPassword);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.goto("/today");
   await expect(page).toHaveURL(/\/today/);
 }
 
@@ -22,7 +21,8 @@ test.describe("enrollment", () => {
     await login(page);
     for (const [name, heading] of [["Students", "Students"], ["Classes", "Classes"], ["Cards", "Cards"], ["Devices", "Devices"]]) {
       const menu = page.getByRole("button", { name: "Open menu" });
-      if (await menu.isVisible()) {
+      // Below the lg breakpoint (1024 px) the sidebar is a drawer behind "Open menu".
+      if ((page.viewportSize()?.width ?? 1440) < 1024) {
         // The first tap can land before the page is interactive; tap until the drawer opens.
         await expect(async () => {
           await menu.click();

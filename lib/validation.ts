@@ -121,3 +121,54 @@ export const verifyCardSchema = z.object({ uid: z.string(), holder_type: holderT
 export const blockCardSchema = z.object({ card_id: uuid, status: z.enum(["blocked", "active"]).default("blocked") });
 export const undoCardSchema = z.object({ card_id: uuid, replaced_card_id: uuid.nullable().optional() });
 export const idSchema = uuid;
+
+// ---------------------------------------------------------------------------
+// Stage 4: alerts, school day, calendar, excusals
+// ---------------------------------------------------------------------------
+const checkbox = z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean());
+const template = z.string().trim().min(5, "Message is too short.").max(480, "Keep messages under 480 characters (3 SMS pages).");
+const hm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:00)?$/, "Use 24-hour time, e.g. 20:00.").transform((v) => v.slice(0, 5));
+
+export const alertSettingsSchema = z.object({
+  arrival_enabled: checkbox,
+  departure_enabled: checkbox,
+  late_enabled: checkbox,
+  absence_enabled: checkbox,
+  arrival_template: template,
+  departure_template: template,
+  late_template: template,
+  absence_template: template,
+  summary_mode: checkbox,
+  summary_time: hm,
+  quiet_start: hm,
+  quiet_end: hm,
+  monthly_allowance: z.coerce.number().int().min(0, "Can't be negative.").max(1_000_000),
+});
+
+export const schoolDaySchema = z
+  .object({
+    resumption_time: hm,
+    absence_cutoff_time: hm,
+    closing_time: hm,
+    timezone: z.string().trim().min(3).max(60).refine((tz) => {
+      try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; }
+    }, "Unknown timezone."),
+    sms_sender_name: z.string().trim().max(11, "Sender name can be at most 11 characters.").optional().transform((v) => v || null),
+  })
+  .refine((s) => s.resumption_time < s.closing_time, { message: "Closing time must be after resumption time.", path: ["closing_time"] })
+  .refine((s) => s.absence_cutoff_time >= s.resumption_time && s.absence_cutoff_time < s.closing_time, {
+    message: "Absence cutoff must be between resumption and closing time.", path: ["absence_cutoff_time"],
+  });
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date.");
+export const holidaySchema = z
+  .object({ from: isoDate, to: isoDate.optional().or(z.literal("")), note: z.string().trim().max(80).optional().transform((v) => v || null) })
+  .transform((v) => ({ ...v, to: v.to || v.from }))
+  .refine((v) => v.to >= v.from, { message: "End date must be on or after the start date.", path: ["to"] })
+  .refine((v) => (Date.parse(v.to) - Date.parse(v.from)) / 86_400_000 <= 120, { message: "Add at most 120 days at once.", path: ["to"] });
+
+export const excusalSchema = z.object({
+  student_id: uuid,
+  date: isoDate,
+  reason: z.string().trim().min(2, "Give a short reason, e.g. Sick note.").max(200),
+});

@@ -151,7 +151,7 @@ export function AssignCardDialog({ holder, hasCard, trigger, mode = "assign" }: 
             )}
             <div className="mt-5 flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>Done for now</Button>
-              <Button onClick={() => { setStep({ kind: "test" }); setMessage(null); }}>
+              <Button onClick={() => { reader.resetDebounce(); setStep({ kind: "test" }); setMessage(null); }}>
                 <ShieldCheck className="size-4" /> Test card
               </Button>
             </div>
