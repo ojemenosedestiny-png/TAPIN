@@ -17,6 +17,8 @@ import { BlockCardButton } from "@/components/enroll/card-actions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffDialog } from "./staff-dialog";
+import { ReleaseButton } from "@/components/enroll/release-button";
+import { friendlyTime, localDate } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Staff" };
 
@@ -87,6 +89,10 @@ async function StaffDrawer({ id, user, closeHref }: { id: string; user: SchoolUs
   const { data: s } = await supabase.from("staff").select("id, name, phone, photo_url, status").eq("id", id).maybeSingle();
   if (!s) notFound();
   const { data: cards } = await supabase.from("cards").select("id, uid, status, verified_at").eq("holder_type", "staff").eq("holder_id", s.id).order("created_at", { ascending: false });
+  const { data: school } = await supabase.from("schools").select("timezone").eq("id", user.schoolId).single();
+  const tz = school?.timezone ?? "Africa/Lagos";
+  const { data: todayRow } = await supabase.from("attendance").select("sign_in_at, sign_out_at, early_release")
+    .eq("holder_type", "staff").eq("holder_id", s.id).eq("date", localDate(new Date(), tz)).maybeSingle();
   const photo = (await signPhotos(supabase, [s.photo_url])).get(s.photo_url ?? "") ?? null;
   const active = (cards ?? []).find((c) => c.status === "active") ?? null;
   const latest = active ?? (cards ?? [])[0] ?? null;
@@ -99,6 +105,18 @@ async function StaffDrawer({ id, user, closeHref }: { id: string; user: SchoolUs
         <div className="mb-3 flex items-center justify-between"><h3 className="text-base font-semibold text-ink">Details</h3><StaffDialog existing={s} /></div>
         <StatusPill tone={s.status === "active" ? "green" : "slate"}>{s.status === "active" ? "Active" : "Inactive"}</StatusPill>
       </section>
+      {todayRow?.sign_in_at && (
+        <section className="border-t border-border py-6">
+          <h3 className="mb-3 text-base font-semibold text-ink">Today</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm">
+            <p className="text-ink">
+              In at <span className="font-medium tabular-nums">{friendlyTime(todayRow.sign_in_at, tz)}</span>
+              {todayRow.sign_out_at && <> · {todayRow.early_release ? "left early" : "out"} at <span className="font-medium tabular-nums">{friendlyTime(todayRow.sign_out_at, tz)}</span></>}
+            </p>
+            {!todayRow.sign_out_at && <ReleaseButton holderType="staff" holderId={s.id} name={s.name.split(" ")[0]!} />}
+          </div>
+        </section>
+      )}
       <section className="border-t border-border py-6">
         <h3 className="mb-3 text-base font-semibold text-ink">Card</h3>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">

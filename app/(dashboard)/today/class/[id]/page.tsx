@@ -13,6 +13,7 @@ import { PersonAvatar } from "@/components/dashboard/person-avatar";
 import { AttendancePill } from "@/components/dashboard/status-pill";
 import { KpiStrip, LiveDot, type Kpi } from "@/components/dashboard/today-blocks";
 import { ExcuseButton } from "./excuse-button";
+import { ReleaseButton } from "@/components/enroll/release-button";
 
 export const metadata: Metadata = { title: "Class attendance" };
 
@@ -43,11 +44,13 @@ export default async function ClassTodayPage({ params }: { params: Promise<{ id:
     return d.toISOString().slice(0, 10);
   });
 
-  const [{ data: days, error }, { data: students }, { data: teacher }] = await Promise.all([
+  const [{ data: days, error }, { data: students }, { data: teacher }, { data: releases }] = await Promise.all([
     supabase.rpc("attendance_days", { p_from: week[0], p_to: today, p_class: id }),
     supabase.from("student_overview").select("id, full_name, admission_no, photo_url").eq("class_id", id).eq("status", "active").order("last_name").order("first_name"),
     cls.class_teacher_id ? supabase.from("users").select("name").eq("id", cls.class_teacher_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("early_releases").select("holder_id, reason, used_at").eq("holder_type", "student").eq("date", today),
   ]);
+  const releaseFor = new Map((releases ?? []).map((r) => [r.holder_id, r]));
   if (error) throw new Error("Could not load attendance.");
 
   const byStudent = new Map<string, Map<string, Day>>();
@@ -160,6 +163,12 @@ export default async function ClassTodayPage({ params }: { params: Promise<{ id:
                     </td>
                     <td className="col-span-2 mt-2 md:mt-0 md:px-5 md:py-2.5 md:text-right">
                       {(st === "absent" || st === "pending") && <ExcuseButton studentId={r.id} name={r.full_name} date={today} />}
+                      {(st === "present" || st === "late") && !r.today?.sign_out_at && (
+                        releaseFor.get(r.id) && !releaseFor.get(r.id)!.used_at
+                          ? <span className="text-xs text-amber-900">Released · {releaseFor.get(r.id)!.reason}</span>
+                          : <ReleaseButton holderType="student" holderId={r.id} name={r.full_name} />
+                      )}
+                      {r.today?.sign_out_at && releaseFor.get(r.id)?.used_at && <span className="text-xs text-muted-foreground">Left early · {releaseFor.get(r.id)!.reason}</span>}
                     </td>
                   </tr>
                 );

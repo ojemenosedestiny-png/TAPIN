@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Bell, CreditCard, MessageSquare, Smartphone, WifiOff } from "lucide-react";
+import { AlertTriangle, Bell, CreditCard, Eye, MessageSquare, Smartphone, WifiOff } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Alerts" };
 const STATUS: Record<string, [PillTone, string]> = {
   queued: ["slate", "Queued"], sending: ["teal", "Sending"], sent: ["green", "Sent"], failed: ["red", "Failed"], skipped: ["amber", "Skipped"],
 };
-const KIND_ICON = { unknown_card: CreditCard, device_offline: WifiOff, late_arrival: Bell, sms_failed: MessageSquare, allowance: AlertTriangle } as const;
+const KIND_ICON = { unknown_card: CreditCard, device_offline: WifiOff, late_arrival: Bell, sms_failed: MessageSquare, allowance: AlertTriangle, attendance_watch: Eye } as const;
 const FILTERS = ["all", "failed", "queued", "sent", "skipped"] as const;
 
 export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {

@@ -123,6 +123,22 @@ describe.skipIf(!enabled)("POST /api/tap", () => {
     expect((await tap({ uid: UID, tapped_at: lagos("15:30") })).body).toMatchObject({ action: "duplicate", reason: "already_signed_out" });
   });
 
+  it("an early release lets a tap before closing sign out, once, and records why", async () => {
+    const uid = `0E${Date.now().toString(16).toUpperCase().slice(-8)}`;
+    const { data: st } = await db.from("students").insert({ school_id: ids.school, class_id: ids.class, admission_no: "T-3", first_name: "Amaka", last_name: "Eze" }).select("id").single();
+    await db.from("cards").insert({ school_id: ids.school, uid, holder_type: "student", holder_id: st!.id });
+    expect((await tap({ uid, tapped_at: lagos("07:30") })).body).toMatchObject({ action: "signed_in" });
+    // Without a release, a 10:00 tap doesn't sign out.
+    expect((await tap({ uid, tapped_at: lagos("10:00") })).body).toMatchObject({ action: "duplicate", reason: "already_signed_in" });
+    await db.from("early_releases").insert({ school_id: ids.school, holder_type: "student", holder_id: st!.id, date: yesterday, reason: "Sick" });
+    const r = await tap({ uid, tapped_at: lagos("10:30") });
+    expect(r.body).toMatchObject({ action: "signed_out", early: true });
+    const { data: row } = await db.from("attendance").select("sign_out_at, early_release").eq("holder_id", st!.id).single();
+    expect(row).toMatchObject({ early_release: true });
+    const { data: rel } = await db.from("early_releases").select("used_at").eq("holder_id", st!.id).single();
+    expect(rel?.used_at).not.toBeNull();
+  });
+
   it("rejects future and very old tap times", async () => {
     expect((await tap({ uid: UID, tapped_at: new Date(Date.now() + 3600_000).toISOString() })).status).toBe(400);
     expect((await tap({ uid: UID, tapped_at: new Date(Date.now() - 5 * 24 * 3600_000).toISOString() })).status).toBe(400);

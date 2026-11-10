@@ -34,8 +34,16 @@ describe("tap rules (build plan §4 step 5)", () => {
 
   it("signed in, tapping at or after closing time signs out", () => {
     const today = { sign_in_at: at("07:42").toISOString(), sign_out_at: null };
-    expect(decideTap({ tappedAt: at("14:00"), lastTapAt: at("07:42"), today, school })).toEqual({ kind: "sign_out", date: "2026-11-10" });
+    expect(decideTap({ tappedAt: at("14:00"), lastTapAt: at("07:42"), today, school })).toEqual({ kind: "sign_out", date: "2026-11-10", early: false });
     expect(decideTap({ tappedAt: at("14:15"), lastTapAt: at("07:42"), today, school })).toMatchObject({ kind: "sign_out" });
+  });
+
+  it("an approved early release lets a tap before closing sign out", () => {
+    const today = { sign_in_at: at("07:42").toISOString(), sign_out_at: null };
+    expect(decideTap({ tappedAt: at("11:00"), lastTapAt: at("07:42"), today, school, earlyRelease: true })).toEqual({ kind: "sign_out", date: "2026-11-10", early: true });
+    // …but still not within 5 minutes of the last tap, and not before signing in
+    expect(decideTap({ tappedAt: at("07:44"), lastTapAt: at("07:42"), today, school, earlyRelease: true })).toMatchObject({ kind: "duplicate" });
+    expect(decideTap({ tappedAt: at("11:00"), lastTapAt: null, today: null, school, earlyRelease: true })).toMatchObject({ kind: "sign_in" });
   });
 
   it("already signed out stays signed out", () => {

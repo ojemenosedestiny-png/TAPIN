@@ -428,7 +428,7 @@ function Result({ data }: { data: TapResponse }) {
   const dup = data.action === "duplicate";
   const status = dup
     ? data.reason === "already_signed_out" ? "Already signed out" : data.reason === "already_signed_in" ? "Already signed in" : "Already tapped"
-    : isOut ? "Signed out" : "Signed in";
+    : isOut ? (data.early ? "Early release" : "Signed out") : "Signed in";
 
   return (
     <div className={cn("flex min-h-dvh flex-col items-center justify-center px-6 text-center text-white", dup ? "bg-brand" : "bg-success")} role="status">

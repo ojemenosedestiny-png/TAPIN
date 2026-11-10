@@ -4,6 +4,7 @@
  *   Tap within 5 minutes of the last tap      → duplicate (ignored)
  *   No sign-in today                          → sign in (late if after resumption time)
  *   Signed in, at/after closing time          → sign out
+ *   Signed in, before closing, early release  → sign out (early)
  *   Signed in, before closing time            → duplicate ("already signed in")
  *   Already signed out                        → duplicate ("already signed out")
  */
@@ -20,7 +21,7 @@ export type AttendanceRow = { sign_in_at: string | null; sign_out_at: string | n
 
 export type TapDecision =
   | { kind: "sign_in"; late: boolean; date: string }
-  | { kind: "sign_out"; date: string }
+  | { kind: "sign_out"; date: string; early: boolean }
   | { kind: "duplicate"; reason: "recent_tap" | "already_signed_in" | "already_signed_out"; date: string };
 
 export function decideTap(opts: {
@@ -28,8 +29,9 @@ export function decideTap(opts: {
   lastTapAt: Date | null; // this person's previous tap (any result), if any
   today: AttendanceRow | null; // this person's attendance row for the tap's school-local date
   school: SchoolDay;
+  earlyRelease?: boolean; // the office approved leaving before closing today
 }): TapDecision {
-  const { tappedAt, lastTapAt, today, school } = opts;
+  const { tappedAt, lastTapAt, today, school, earlyRelease = false } = opts;
   const date = localDate(tappedAt, school.timeZone);
   const time = localTime(tappedAt, school.timeZone);
 
@@ -43,7 +45,10 @@ export function decideTap(opts: {
     return { kind: "duplicate", reason: "already_signed_out", date };
   }
   if (time >= hhmm(school.closingTime)) {
-    return { kind: "sign_out", date };
+    return { kind: "sign_out", date, early: false };
+  }
+  if (earlyRelease) {
+    return { kind: "sign_out", date, early: true };
   }
   return { kind: "duplicate", reason: "already_signed_in", date };
 }

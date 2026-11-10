@@ -13,9 +13,10 @@ const TYPES = [
   { key: "late", title: "Late arrival", when: "Sign-in after resumption time (replaces the arrival SMS)", to: "Guardians + class teacher dashboard" },
   { key: "departure", title: "Departure", when: "Sign-out tap after closing time", to: "All linked guardians" },
   { key: "absence", title: "Absence", when: "No sign-in by the absence cutoff time", to: "All linked guardians" },
+  { key: "early", title: "Early release", when: "Signed out before closing, released by the school", to: "All linked guardians · always sent" },
 ] as const;
 
-const SAMPLE = { greeting: "Good morning", full_name: "Chioma Okafor", first_name: "Chioma", time: "7:42 AM", date: "Tuesday 10 November" };
+const SAMPLE = { greeting: "Good morning", full_name: "Chioma Okafor", first_name: "Chioma", time: "7:42 AM", date: "Tuesday 10 November", reason: "Sick, collected by mother" };
 
 function Switch({ name, defaultChecked, label, onChange }: { name: string; defaultChecked: boolean; label: string; onChange?: (v: boolean) => void }) {
   const [on, setOn] = useState(defaultChecked);
@@ -36,9 +37,11 @@ export function AlertSettingsForm({ settings, schoolName }: { settings: AlertSet
   const e = state.errors ?? {};
   const [templates, setTemplates] = useState({
     arrival: settings.arrival_template, late: settings.late_template, departure: settings.departure_template, absence: settings.absence_template,
+    early: settings.early_template,
   });
   const [enabled, setEnabled] = useState({
     arrival: settings.arrival_enabled, late: settings.late_enabled, departure: settings.departure_enabled, absence: settings.absence_enabled,
+    early: true,
   });
   const [summary, setSummary] = useState(settings.summary_mode);
 
@@ -59,7 +62,11 @@ export function AlertSettingsForm({ settings, schoolName }: { settings: AlertSet
                   <legend className="font-semibold text-ink">{t.title}</legend>
                   <p className="text-sm text-muted-foreground">{t.when} · {t.to}</p>
                 </div>
-                <Switch name={`${t.key}_enabled`} defaultChecked={enabled[t.key]} label={`${t.title} SMS`} onChange={(v) => setEnabled((s) => ({ ...s, [t.key]: v }))} />
+                {t.key === "early" ? (
+                  <span className="text-sm text-muted-foreground">Always on</span>
+                ) : (
+                  <Switch name={`${t.key}_enabled`} defaultChecked={enabled[t.key]} label={`${t.title} SMS`} onChange={(v) => setEnabled((s) => ({ ...s, [t.key]: v }))} />
+                )}
               </div>
               {heldBySummary && enabled[t.key] && (
                 <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">Daily summary is on, so this is included in the evening summary instead of sent straight away.</p>

@@ -22,11 +22,13 @@ export async function queueTapAlerts(db: Db, opts: {
   action: "signed_in" | "signed_out";
   late: boolean;
   tappedAt: Date;
+  early?: boolean;
+  reason?: string;
 }): Promise<number> {
   const { school, student, tappedAt } = opts;
   const { data: settings } = await db.from("alert_settings").select("*").eq("school_id", school.id).maybeSingle();
   if (!settings) return 0;
-  const type = alertForTap(opts.action, opts.late, settings as AlertSettings);
+  const type = alertForTap(opts.action, opts.late, settings as AlertSettings, opts.early);
   const date = localDate(tappedAt, school.timezone);
   const time = friendlyTime(tappedAt, school.timezone);
 
@@ -47,7 +49,7 @@ export async function queueTapAlerts(db: Db, opts: {
   const template = (settings as AlertSettings)[`${type}_template`];
   const message = renderTemplate(template, {
     greeting: greetingForHour(localHour(tappedAt, school.timezone)),
-    full_name: student.fullName, first_name: student.firstName, school: school.name, time,
+    full_name: student.fullName, first_name: student.firstName, school: school.name, time, reason: opts.reason ?? "",
     date: new Intl.DateTimeFormat("en-NG", { weekday: "long", day: "numeric", month: "long", timeZone: school.timezone }).format(tappedAt),
   });
 

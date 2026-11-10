@@ -3,7 +3,7 @@
  */
 import { hhmm, localTime } from "@/lib/time";
 
-export const ALERT_TYPES = ["arrival", "departure", "late", "absence"] as const;
+export const ALERT_TYPES = ["arrival", "departure", "late", "absence", "early"] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 
 export const MAX_ATTEMPTS = 4; // first try + 3 retries
@@ -11,7 +11,7 @@ export const RETRY_DELAY_MS = 2 * 60 * 1000;
 /** Arrival/departure news older than this isn't worth sending (e.g. queued while SMS was down). */
 export const MESSAGE_TTL_MS = 6 * 60 * 60 * 1000;
 
-export const TEMPLATE_FIELDS = ["greeting", "full_name", "first_name", "school", "time", "date"] as const;
+export const TEMPLATE_FIELDS = ["greeting", "full_name", "first_name", "school", "time", "date", "reason"] as const;
 
 export type AlertSettings = {
   arrival_enabled: boolean;
@@ -22,6 +22,7 @@ export type AlertSettings = {
   departure_template: string;
   late_template: string;
   absence_template: string;
+  early_template: string;
   summary_mode: boolean;
   summary_time: string;
   quiet_start: string;
@@ -45,7 +46,9 @@ export function smsPages(text: string): number {
 }
 
 /** Which SMS a tap should create. Late replaces arrival; summary mode holds arrival/departure for the evening SMS. */
-export function alertForTap(action: "signed_in" | "signed_out", late: boolean, s: Pick<AlertSettings, "arrival_enabled" | "departure_enabled" | "late_enabled" | "summary_mode">): AlertType | null {
+export function alertForTap(action: "signed_in" | "signed_out", late: boolean, s: Pick<AlertSettings, "arrival_enabled" | "departure_enabled" | "late_enabled" | "summary_mode">, early = false): AlertType | null {
+  // A child leaving early is always told to the parents straight away, whatever the other switches say.
+  if (action === "signed_out" && early) return "early";
   if (action === "signed_in") {
     if (late && s.late_enabled) return "late";
     if (s.summary_mode) return null;

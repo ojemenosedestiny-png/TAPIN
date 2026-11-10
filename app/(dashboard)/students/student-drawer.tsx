@@ -21,6 +21,8 @@ import { ExcusalForm } from "./excusal-form";
 import { ConsentForm } from "./consent-form";
 import { withdrawConsent } from "./consent-actions";
 import { ShieldCheck } from "lucide-react";
+import { ReleaseButton } from "@/components/enroll/release-button";
+import { friendlyTime } from "@/lib/time";
 import { removeExcusal } from "./excusal-actions";
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
@@ -71,7 +73,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
     isAdmin
       ? supabase.from("cards").select("id, uid, status, verified_at, created_at").eq("holder_type", "student").eq("holder_id", s.id).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as { id: string; uid: string; status: string; verified_at: string | null; created_at: string }[] }),
-    supabase.from("attendance").select("date, sign_in_at").eq("holder_type", "student").eq("holder_id", s.id).gte("date", sinceStr),
+    supabase.from("attendance").select("date, sign_in_at, sign_out_at, early_release").eq("holder_type", "student").eq("holder_id", s.id).gte("date", sinceStr),
     supabase.from("school_calendar").select("date").eq("is_holiday", true).gte("date", sinceStr),
     isAdmin
       ? supabase.from("sms_logs").select("id, type, status, message, created_at").eq("student_id", s.id).order("created_at", { ascending: false }).limit(15)
@@ -173,6 +175,22 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
           {guardianList.length < 4 && <GuardianForm studentId={s.id} />}
         </Section>
       )}
+
+      {(() => {
+        const t = (attendance.data ?? []).find((a) => a.date === today);
+        if (!t?.sign_in_at || s.status !== "active") return null;
+        return (
+          <Section title="Today">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm">
+              <p className="text-ink">
+                In at <span className="font-medium tabular-nums">{friendlyTime(t.sign_in_at, tz)}</span>
+                {t.sign_out_at && <> · {t.early_release ? "left early" : "out"} at <span className="font-medium tabular-nums">{friendlyTime(t.sign_out_at, tz)}</span></>}
+              </p>
+              {!t.sign_out_at && <ReleaseButton holderType="student" holderId={s.id} name={s.first_name} />}
+            </div>
+          </Section>
+        );
+      })()}
 
       <Section title="Excused absences">
         {(excusals.data ?? []).length > 0 && (

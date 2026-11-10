@@ -96,6 +96,22 @@ describe.skipIf(!enabled)("reports (attendance_days / attendance_summary / today
     expect(other).toEqual([]);
   });
 
+  it("absence watch flags students absent 3+ days, and teachers only see their own class", async () => {
+    const { data: all } = await asAdmin.rpc("attendance_watch");
+    expect((all ?? []).map((r: { student_id: string }) => r.student_id)).toContain(ids.a2); // absent Thu, Fri and since
+    const { data: mine } = await asTeacher.rpc("attendance_watch");
+    for (const r of (mine ?? []) as { student_id: string }[]) expect([ids.a1, ids.a2]).toContain(r.student_id);
+    expect((mine ?? []).map((r: { student_id: string }) => r.student_id)).not.toContain(ids.b1);
+  });
+
+  it("the weekly watch notification is created once per school per week", async () => {
+    await db.rpc("queue_watch_notifications");
+    await db.rpc("queue_watch_notifications");
+    const { data } = await db.from("notifications").select("message").eq("school_id", ids.school).eq("kind", "attendance_watch");
+    expect(data).toHaveLength(1);
+    expect(data![0]!.message).toMatch(/missed 3 or more days in the last 30 days/);
+  });
+
   it("other schools and logged-out visitors get nothing", async () => {
     const anonClient = createClient(url!, anon!, { auth: { persistSession: false } });
     const { data, error } = await anonClient.rpc("attendance_summary", { p_from: MON, p_to: FRI });

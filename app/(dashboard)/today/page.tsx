@@ -162,6 +162,15 @@ export default async function TodayPage() {
   const missingPhotos = await signPhotos(supabase, ((missingPeople ?? []) as { photo_url: string | null }[]).map((p) => p.photo_url));
   const missingById = new Map(((missingPeople ?? []) as { id: string; full_name: string; class_name: string | null; photo_url: string | null }[]).map((p) => [p.id, p]));
 
+  // --- Absence watch: absent 3+ days or late 5+ times in the last 30 days ----
+  const { data: watchRows } = await supabase.rpc("attendance_watch").limit(5);
+  const watch = (watchRows ?? []) as { student_id: string; absent: number; late: number; school_days: number }[];
+  const { data: watchPeople } = watch.length
+    ? await supabase.from("student_overview").select("id, full_name, class_name").in("id", watch.map((w) => w.student_id))
+    : { data: [] };
+  const watchById = new Map(((watchPeople ?? []) as { id: string; full_name: string; class_name: string | null }[]).map((p) => [p.id, p]));
+  const monthAgo = (() => { const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 29); return d.toISOString().slice(0, 10); })();
+
   const classNames = new Map((classes ?? []).map((c) => [c.id, c.name]));
   const classRows: ClassRow[] = counts
     .filter((c) => c.class_id)
@@ -254,6 +263,32 @@ export default async function TodayPage() {
               )}
             </div>
           </section>
+
+          {watch.length > 0 && (
+            <section aria-labelledby="watch" className="motion-rise" style={{ "--d": "240ms" } as React.CSSProperties}>
+              <BlockHeading title="Needs a closer look" right={<Link href={`/reports?from=${monthAgo}&to=${today}`} className="text-xs font-medium text-brand hover:underline">Last 30 days</Link>} />
+              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+                {watch.map((w) => {
+                  const p = watchById.get(w.student_id);
+                  if (!p) return null;
+                  return (
+                    <li key={w.student_id}>
+                      <Link href={`/students?student=${w.student_id}`} className="motion-press flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-ink">{p.full_name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{p.class_name ?? "No class"}</span>
+                        </span>
+                        <span className="shrink-0 text-right text-xs tabular-nums">
+                          {w.absent >= 3 && <span className="block font-medium text-red-700">{w.absent} days absent</span>}
+                          {w.late >= 5 && <span className="block text-amber-800">{w.late} times late</span>}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
 
           {isAdmin && (unread.count ?? 0) > 0 && (
             <Link href="/alerts" className="motion-rise motion-press flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" style={{ "--d": "260ms" } as React.CSSProperties}>

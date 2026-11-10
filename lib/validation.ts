@@ -138,6 +138,7 @@ export const alertSettingsSchema = z.object({
   departure_template: template,
   late_template: template,
   absence_template: template,
+  early_template: template,
   summary_mode: checkbox,
   summary_time: hm,
   quiet_start: hm,

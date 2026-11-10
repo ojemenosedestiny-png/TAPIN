@@ -19,6 +19,11 @@ describe("which SMS a tap creates (build plan §5 table)", () => {
     expect(alertForTap("signed_in", false, { ...on, arrival_enabled: false })).toBeNull();
     expect(alertForTap("signed_out", false, { ...on, departure_enabled: false })).toBeNull();
   });
+  it("an early release always tells the parents, even in summary mode", () => {
+    expect(alertForTap("signed_out", false, on, true)).toBe("early");
+    expect(alertForTap("signed_out", false, { ...on, summary_mode: true, departure_enabled: false }, true)).toBe("early");
+  });
+
   it("daily summary holds arrival and departure but late still goes out", () => {
     const s = { ...on, summary_mode: true };
     expect(alertForTap("signed_in", false, s)).toBeNull();

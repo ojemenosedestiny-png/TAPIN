@@ -26,6 +26,7 @@ export type TapResponse = {
   time: string;
   greeting?: string;
   late?: boolean;
+  early?: boolean;
   reason?: string;
   replayed?: boolean;
 };
@@ -112,6 +113,8 @@ export async function POST(req: NextRequest) {
   const decision = await applyTap(db, device, card.holder_type, card.holder_id, tappedAt);
   const action: TapAction = decision.kind === "sign_in" ? "signed_in" : decision.kind === "sign_out" ? "signed_out" : "duplicate";
   const late = decision.kind === "sign_in" && decision.late;
+  const early = decision.kind === "sign_out" && decision.early;
+  const releaseReason = "releaseReason" in decision ? decision.releaseReason : undefined;
   await log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late });
 
   // Guardian SMS: saved to sms_logs first, then sent — after the kiosk already has its answer.
@@ -120,7 +123,7 @@ export async function POST(req: NextRequest) {
       const queued = await queueTapAlerts(db, {
         school: { id: school.id, name: school.name, timezone: school.timezone },
         student: { id: card.holder_id, firstName: person.firstName, fullName: person.name, classId: person.classId, className: person.className },
-        action, late, tappedAt,
+        action, late, tappedAt, early, reason: releaseReason,
       });
       if (queued) await processOutbox(db, { limit: 20, schoolId: school.id });
     });
@@ -141,6 +144,7 @@ export async function POST(req: NextRequest) {
     time,
     greeting: greetingForHour(localHour(tappedAt, school.timezone)),
     late,
+    early,
     reason: decision.kind === "duplicate" ? decision.reason : undefined,
   });
 }
@@ -170,10 +174,12 @@ async function applyTap(db: Db, device: KioskDevice, holderType: string, holderI
   const school = device.school;
   const day = { timeZone: school.timezone, resumptionTime: school.resumption_time, closingTime: school.closing_time };
 
-  const [{ data: last }, today] = await Promise.all([
+  const date = localDate(tappedAt, school.timezone);
+  const [{ data: last }, today, { data: release }] = await Promise.all([
     db.from("tap_events").select("tapped_at").eq("holder_type", holderType).eq("holder_id", holderId)
       .in("result", ["signed_in", "signed_out", "duplicate"]).order("tapped_at", { ascending: false }).limit(1).maybeSingle(),
     getRow(),
+    db.from("early_releases").select("id, reason").eq("holder_type", holderType).eq("holder_id", holderId).eq("date", date).is("used_at", null).maybeSingle(),
   ]);
 
   async function getRow() {
@@ -182,7 +188,7 @@ async function applyTap(db: Db, device: KioskDevice, holderType: string, holderI
     return data;
   }
 
-  const decision = decideTap({ tappedAt, lastTapAt: last ? new Date(last.tapped_at) : null, today, school: day });
+  const decision = decideTap({ tappedAt, lastTapAt: last ? new Date(last.tapped_at) : null, today, school: day, earlyRelease: !!release });
 
   if (decision.kind === "sign_in") {
     const { error } = await db.from("attendance").insert({
@@ -192,10 +198,14 @@ async function applyTap(db: Db, device: KioskDevice, holderType: string, holderI
     if (error?.code === "23505") return { kind: "duplicate" as const, reason: "already_signed_in" as const, date: decision.date };
     if (error) throw error;
   } else if (decision.kind === "sign_out" && today) {
-    const { data, error } = await db.from("attendance").update({ sign_out_at: tappedAt.toISOString() })
+    const { data, error } = await db.from("attendance").update({ sign_out_at: tappedAt.toISOString(), early_release: decision.early })
       .eq("id", today.id).is("sign_out_at", null).select("id");
     if (error) throw error;
     if (!data?.length) return { kind: "duplicate" as const, reason: "already_signed_out" as const, date: decision.date };
+    if (decision.early && release) {
+      await db.from("early_releases").update({ used_at: tappedAt.toISOString() }).eq("id", release.id);
+      return { ...decision, releaseReason: release.reason as string };
+    }
   }
   return decision;
 }
