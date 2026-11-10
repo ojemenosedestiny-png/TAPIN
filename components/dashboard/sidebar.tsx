@@ -24,7 +24,8 @@ export function Sidebar({ role, name, schoolName }: { role: Role; name: string; 
   const nav = (
     <nav aria-label="Main" className="flex flex-1 flex-col gap-1 px-3">
       {items.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || pathname.startsWith(`${href}/`);
+        const matches = (h: string) => pathname === h || pathname.startsWith(`${h}/`);
+        const active = matches(href) && !items.some((o) => o.href.length > href.length && matches(o.href));
         return (
           <Link
             key={href}

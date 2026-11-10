@@ -11,6 +11,7 @@ import { TeamForm } from "./team-form";
 import { HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
 import { LogoUpload } from "./logo";
 import { signPhotos } from "@/lib/photos";
+import { monthLabel, naira } from "@/lib/billing";
 import Link from "next/link";
 import { removeHoliday } from "./school-actions";
 
@@ -23,9 +24,10 @@ export default async function SettingsPage() {
     .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
-  const [{ data: team }, { data: holidays }] = await Promise.all([
+  const [{ data: team }, { data: holidays }, { data: invoices }] = await Promise.all([
     supabase.from("users").select("id, name, email, role").eq("school_id", user.schoolId).order("role").order("name"),
     supabase.from("school_calendar").select("date, note").eq("is_holiday", true).gte("date", today).order("date").limit(60),
+    supabase.from("invoices").select("id, number, period, total, status").order("period", { ascending: false }).limit(12),
   ]);
   const logo = school.logo_url ? (await signPhotos(supabase, [school.logo_url])).get(school.logo_url) ?? null : null;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
@@ -74,6 +76,23 @@ export default async function SettingsPage() {
             <Link href="/help/consent-form" className="font-medium text-brand hover:underline">Printable consent form</Link>
           </p>
         </section>
+
+        {(invoices ?? []).length > 0 && (
+          <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="billing">
+            <h2 id="billing" className="mb-3 text-lg font-semibold text-ink">Invoices</h2>
+            <ul className="divide-y divide-border rounded-xl border border-border text-sm">
+              {(invoices ?? []).map((i) => (
+                <li key={i.id}>
+                  <Link href={`/invoices/${i.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/40">
+                    <span><span className="font-medium tabular-nums text-ink">{i.number}</span> <span className="text-muted-foreground">· {monthLabel(i.period)}</span></span>
+                    <span className="flex items-center gap-3"><span className="tabular-nums">{naira(Number(i.total))}</span>
+                      <StatusPill tone={i.status === "paid" ? "green" : i.status === "void" ? "slate" : "amber"}>{i.status === "paid" ? "Paid" : i.status === "void" ? "Void" : "Due"}</StatusPill></span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="team">
           <h2 id="team" className="text-lg font-semibold text-ink">Team</h2>

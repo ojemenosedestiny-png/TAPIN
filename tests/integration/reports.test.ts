@@ -105,8 +105,8 @@ describe.skipIf(!enabled)("reports (attendance_days / attendance_summary / today
   });
 
   it("the weekly watch notification is created once per school per week", async () => {
-    await db.rpc("queue_watch_notifications");
-    await db.rpc("queue_watch_notifications");
+    await db.rpc("queue_watch_notifications", { p_school: ids.school });
+    await db.rpc("queue_watch_notifications", { p_school: ids.school });
     const { data } = await db.from("notifications").select("message").eq("school_id", ids.school).eq("kind", "attendance_watch");
     expect(data).toHaveLength(1);
     expect(data![0]!.message).toMatch(/missed 3 or more days in the last 30 days/);

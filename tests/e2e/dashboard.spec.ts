@@ -34,6 +34,46 @@ test.describe("signing in", () => {
   });
 });
 
+test.describe("super admin billing", () => {
+  test("set pricing, issue an invoice, open it and mark it paid", async ({ page }, info) => {
+    test.skip(info.project.name !== "laptop", "one super admin login per run");
+    test.setTimeout(150_000); // signs in and walks five pages
+    const f = fixture();
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(f.superEmail);
+    await page.getByLabel("Password").fill(f.adminPassword);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/platform/);
+    await page.getByRole("link", { name: "Billing" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Billing" })).toBeVisible();
+
+    const row = page.getByRole("row").filter({ hasText: f.schoolName });
+    await row.getByRole("button", { name: /Pricing/ }).click();
+    await page.getByLabel("Per student / month").fill("500");
+    await page.getByLabel("Setup fee (once)").fill("0");
+    await page.getByLabel("Billing starts").fill("2026-01-01");
+    await page.getByRole("button", { name: "Save pricing" }).click();
+    await expect(page.getByText("Pricing saved.")).toBeVisible();
+
+    const month = new Date().toISOString().slice(0, 7);
+    await page.getByLabel("Month", { exact: true }).fill(month);
+    await page.locator("#invoice-school").selectOption({ label: f.schoolName }); // never invoice real schools from a test
+    await page.getByRole("button", { name: "Issue invoices" }).click();
+    await expect(page.getByText(/invoices? issued for/)).toBeVisible();
+
+    // 5 active students x ₦500
+    const inv = page.getByRole("row").filter({ hasText: f.schoolName }).filter({ hasText: "₦2,500.00" }).filter({ hasText: "Unpaid" });
+    await expect(inv).toBeVisible();
+    await inv.getByRole("link").click();
+    await expect(page.getByRole("heading", { name: "Invoice" })).toBeVisible();
+    await expect(page.getByText("₦2,500.00").last()).toBeVisible();
+    await page.goto("/platform/billing");
+    await page.getByRole("row").filter({ hasText: f.schoolName }).filter({ hasText: "₦2,500.00" }).filter({ hasText: "Unpaid" }).getByRole("button", { name: "Mark paid" }).click();
+    await expect(page.getByText(/marked paid/)).toBeVisible();
+    await expect(page.getByRole("row").filter({ hasText: f.schoolName }).filter({ hasText: "Paid" })).toBeVisible();
+  });
+});
+
 test.describe("today and reports", () => {
   test.use({ storageState: ADMIN_STATE });
 

@@ -14,12 +14,13 @@ export type Area =
   | "settings"
   | "enroll"
   | "help"
-  | "account";
+  | "account"
+  | "invoices";
 
 const ACCESS: Record<Role, readonly Area[]> = {
   // No routine access to student records.
-  super_admin: ["platform", "help", "account"],
-  school_admin: ["today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account"],
+  super_admin: ["platform", "help", "account", "invoices"],
+  school_admin: ["today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account", "invoices"],
   teacher: ["today", "students", "reports", "help", "account"],
 };
 
@@ -36,7 +37,7 @@ export function homePath(role: Role): string {
 export function areaForPath(pathname: string): Area | null {
   const first = pathname.split("/").filter(Boolean)[0] ?? "";
   const areas: readonly string[] = [
-    "platform", "today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account",
+    "platform", "today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account", "invoices",
   ];
   return areas.includes(first) ? (first as Area) : null;
 }

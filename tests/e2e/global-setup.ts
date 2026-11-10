@@ -27,6 +27,11 @@ export default async function globalSetup() {
   if (error || !authUser.user) throw error ?? new Error("createUser failed");
   await db.from("users").insert({ id: authUser.user.id, school_id: schoolId, name: "Ada Admin", email: adminEmail, role: "school_admin" });
 
+  const superEmail = `${tag}-super@example.com`;
+  const { data: superUser, error: superErr } = await db.auth.admin.createUser({ email: superEmail, password: adminPassword, email_confirm: true });
+  if (superErr || !superUser.user) throw superErr ?? new Error("createUser failed");
+  await db.from("users").insert({ id: superUser.user.id, school_id: null, name: "Sam Super", email: superEmail, role: "super_admin" });
+
   const className = "JSS2A";
   const classId = await ins("classes", { school_id: schoolId, name: className });
   const people = [["Chioma", "Okafor"], ["David", "Bello"], ["Amaka", "Eze"], ["Tunde", "Bakare"]] as const;
@@ -46,7 +51,7 @@ export default async function globalSetup() {
   await ins("devices", { school_id: schoolId, name: "E2E Gate", token_hash: hashDeviceToken(deviceToken) });
 
   const data: Fixture = {
-    schoolId, schoolName, adminEmail, adminPassword, adminUserId: authUser.user.id, deviceToken, classId, className,
+    schoolId, schoolName, adminEmail, adminPassword, adminUserId: authUser.user.id, superEmail, superUserId: superUser.user.id, deviceToken, classId, className,
     students, kioskStudent: { id: kioskId, name: "Kemi Adeyemi", uid: kioskUid },
   };
   mkdirSync(dirname(FIXTURE_FILE), { recursive: true });

@@ -11,6 +11,8 @@ export type Fixture = {
   adminEmail: string;
   adminPassword: string;
   adminUserId: string;
+  superEmail: string;
+  superUserId: string;
   deviceToken: string;
   classId: string;
   className: string;

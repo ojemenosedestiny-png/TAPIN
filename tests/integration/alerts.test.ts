@@ -182,35 +182,35 @@ describe.skipIf(!enabled)("alerts pipeline", () => {
     const absences = async () => (await rows("absence")).filter((x) => x.dedupe_key.includes(`:${DAY}:`));
 
     it("does nothing before the cutoff", async () => {
-      await db.rpc("queue_absence_alerts", { p_now: lagos("08:59").toISOString() });
+      await db.rpc("queue_absence_alerts", { p_now: lagos("08:59").toISOString(), p_school: ids.school });
       expect(await absences()).toHaveLength(0);
     });
 
     it("after the cutoff, alerts the guardians of absent students only (not present, excused or guardian-less)", async () => {
-      await db.rpc("queue_absence_alerts", { p_now: lagos("09:10").toISOString() });
+      await db.rpc("queue_absence_alerts", { p_now: lagos("09:10").toISOString(), p_school: ids.school });
       const a = await absences();
       expect(a).toHaveLength(1);
       expect(a[0]!.message).toMatch(/^Dear parent, David Test has not signed in at Alert Test/);
     });
 
     it("running every 15 minutes never repeats an alert", async () => {
-      await db.rpc("queue_absence_alerts", { p_now: lagos("09:25").toISOString() });
-      await db.rpc("queue_absence_alerts", { p_now: lagos("09:40").toISOString() });
+      await db.rpc("queue_absence_alerts", { p_now: lagos("09:25").toISOString(), p_school: ids.school });
+      await db.rpc("queue_absence_alerts", { p_now: lagos("09:40").toISOString(), p_school: ids.school });
       expect(await absences()).toHaveLength(1);
     });
 
     it("skips weekends and holidays", async () => {
-      await db.rpc("queue_absence_alerts", { p_now: lagos("10:00", "2026-11-07").toISOString() }); // Saturday
+      await db.rpc("queue_absence_alerts", { p_now: lagos("10:00", "2026-11-07").toISOString(), p_school: ids.school }); // Saturday
       await db.from("school_calendar").insert({ school_id: ids.school, date: "2026-11-05", note: "Holiday" });
-      await db.rpc("queue_absence_alerts", { p_now: lagos("10:00", "2026-11-05").toISOString() });
+      await db.rpc("queue_absence_alerts", { p_now: lagos("10:00", "2026-11-05").toISOString(), p_school: ids.school });
       expect(await absences()).toHaveLength(1);
     });
 
     it("daily summary mode sends one evening SMS per guardian", async () => {
       await db.from("alert_settings").update({ summary_mode: true, summary_time: "17:00" }).eq("school_id", ids.school);
-      await db.rpc("queue_daily_summaries", { p_now: lagos("16:30").toISOString() });
+      await db.rpc("queue_daily_summaries", { p_now: lagos("16:30").toISOString(), p_school: ids.school });
       expect(await rows("summary")).toHaveLength(0);
-      await db.rpc("queue_daily_summaries", { p_now: lagos("17:15").toISOString() });
+      await db.rpc("queue_daily_summaries", { p_now: lagos("17:15").toISOString(), p_school: ids.school });
       const s = await rows("summary");
       expect(s).toHaveLength(2);
       expect(s[0]!.message).toBe("Chioma Test today at " + (await db.from("schools").select("name").eq("id", ids.school).single()).data!.name + ": arrived 7:40 AM, left 2:10 PM.");
@@ -221,9 +221,9 @@ describe.skipIf(!enabled)("alerts pipeline", () => {
     const { data: dev } = await db.from("devices").insert({
       school_id: ids.school, name: "Test Gate", token_hash: `hash-${Date.now()}`, last_seen: lagos("09:30").toISOString(),
     }).select("id").single();
-    await db.rpc("check_offline_devices", { p_now: lagos("09:35").toISOString() }); // 5 min: fine
-    await db.rpc("check_offline_devices", { p_now: lagos("09:45").toISOString() }); // 15 min: offline
-    await db.rpc("check_offline_devices", { p_now: lagos("10:00").toISOString() }); // still offline: no repeat
+    await db.rpc("check_offline_devices", { p_now: lagos("09:35").toISOString(), p_school: ids.school }); // 5 min: fine
+    await db.rpc("check_offline_devices", { p_now: lagos("09:45").toISOString(), p_school: ids.school }); // 15 min: offline
+    await db.rpc("check_offline_devices", { p_now: lagos("10:00").toISOString(), p_school: ids.school }); // still offline: no repeat
     const { data: n } = await db.from("notifications").select("message").eq("school_id", ids.school).eq("kind", "device_offline");
     expect(n?.map((x) => x.message)).toEqual(["Test Gate kiosk is offline."]);
     expect(dev).toBeTruthy();
