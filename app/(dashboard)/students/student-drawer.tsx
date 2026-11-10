@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StudentDialog } from "./student-dialog";
 import { GuardianForm } from "./guardian-form";
+import { GuardianChannel } from "./guardian-channel";
 import { unlinkGuardian } from "./actions";
 import { ExcusalForm } from "./excusal-form";
 import { ConsentForm } from "./consent-form";
@@ -68,7 +69,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
 
   const [guardians, cards, attendance, holidays, sms, excusals] = await Promise.all([
     isAdmin
-      ? supabase.from("student_guardians").select("guardians(id, name, phone, relationship)").eq("student_id", s.id)
+      ? supabase.from("student_guardians").select("guardians(id, name, phone, relationship, channel)").eq("student_id", s.id)
       : Promise.resolve({ data: [] as { guardians: unknown }[] }),
     isAdmin
       ? supabase.from("cards").select("id, uid, status, verified_at, created_at").eq("holder_type", "student").eq("holder_id", s.id).order("created_at", { ascending: false })
@@ -84,7 +85,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
   const photo = (await signPhotos(supabase, [s.photo_url])).get(s.photo_url ?? "") ?? null;
   const name = `${s.first_name} ${s.last_name}`;
   const className = classes.find((c) => c.id === s.class_id)?.name ?? null;
-  const guardianList = (guardians.data ?? []).map((g) => g.guardians as unknown as { id: string; name: string; phone: string; relationship: string | null }).filter(Boolean);
+  const guardianList = (guardians.data ?? []).map((g) => g.guardians as unknown as { id: string; name: string; phone: string; relationship: string | null; channel: "sms" | "whatsapp" }).filter(Boolean);
   const activeCard = (cards.data ?? []).find((c) => c.status === "active") ?? null;
   const latestCard = activeCard ?? (cards.data ?? [])[0] ?? null;
   const heat = buildHeatmap({
@@ -165,9 +166,12 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
                     <p className="font-medium text-ink">{g.name}{g.relationship && <span className="font-normal text-muted-foreground"> · {g.relationship}</span>}</p>
                     <p className="text-sm tabular-nums text-muted-foreground">{formatNgPhone(g.phone)}</p>
                   </div>
+                  <span className="flex items-center gap-1">
+                  <GuardianChannel guardianId={g.id} channel={g.channel} />
                   <ConfirmAction action={unlinkGuardian} fields={{ student_id: s.id, guardian_id: g.id }}
                     title={`Remove ${g.name}?`} description={`${g.name} will stop getting alerts about ${s.first_name}.`} confirmLabel="Remove"
                     trigger={<Button variant="ghost" size="sm" aria-label={`Remove ${g.name}`}><Trash2 className="size-4" /></Button>} />
+                  </span>
                 </li>
               ))}
             </ul>

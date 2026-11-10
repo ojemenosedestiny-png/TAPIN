@@ -120,3 +120,17 @@ export async function unlinkGuardian(_prev: ActionState, formData: FormData): Pr
   revalidatePath("/students");
   return { ok: "Guardian removed." };
 }
+
+/** School admin sets how a guardian receives alerts (SMS or WhatsApp). */
+export async function setGuardianChannel(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await adminOnly();
+  const id = idSchema.safeParse(formData.get("guardian_id"));
+  const channel = formData.get("channel");
+  if (!id.success || (channel !== "sms" && channel !== "whatsapp")) return { errors: { _form: "Invalid request." } };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("guardians").update({ channel }).eq("id", id.data).select("name").maybeSingle();
+  if (error || !data) return { errors: { _form: "Could not update." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "guardian.channel", entity: "guardians", entityId: id.data, details: { channel } });
+  revalidatePath("/students");
+  return { ok: `${data.name} will get alerts by ${channel === "whatsapp" ? "WhatsApp" : "text message"}.` };
+}

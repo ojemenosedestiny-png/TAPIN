@@ -73,3 +73,18 @@ export function quietEndsAt(now: Date, quietEnd: string, timeZone: string): Date
   at.setUTCSeconds(0, 0);
   return at;
 }
+
+/** Template values for a WhatsApp template: {{1}} name, {{2}} school, {{3}} time/date, {{4}} reason. */
+export function whatsappData(vars: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of ["1", "2", "3", "4"]) {
+    const v = vars[k];
+    if (typeof v === "string" && v.trim()) out[k] = v;
+  }
+  return out;
+}
+
+/** WhatsApp only when the guardian chose it and a template exists for this kind of message. */
+export function chooseChannel(guardianChannel: string | null | undefined, hasTemplate: boolean): "sms" | "whatsapp" {
+  return guardianChannel === "whatsapp" && hasTemplate ? "whatsapp" : "sms";
+}

@@ -24,6 +24,15 @@ test.describe("signing in", () => {
     await expect(page.getByText(/deleted automatically/)).toBeVisible();
   });
 
+  test("parents: the portal asks for a phone number, and checks it", async ({ page }) => {
+    await page.goto("/parent");
+    await expect(page).toHaveURL(/\/parent\/login/);
+    await expect(page.getByRole("heading", { name: /Parents: see your child/ })).toBeVisible();
+    await page.getByLabel("Your mobile number").fill("12345");
+    await page.getByRole("button", { name: "Text me a code" }).click();
+    await expect(page.getByText(/Enter your mobile number/)).toBeVisible();
+  });
+
   test("forgot password page validates the email", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("link", { name: "Forgot password?" }).click();
@@ -89,6 +98,11 @@ test.describe("today and reports", () => {
     await expect(page.getByRole("heading", { level: 1, name: f.className })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Today and this week" })).toBeVisible();
     for (const s of f.students) await expect(page.getByText(s.name).first()).toBeVisible();
+  });
+
+  test("staff are sent back to the dashboard from the parent portal", async ({ page }) => {
+    await page.goto("/parent");
+    await expect(page).toHaveURL(/\/today/);
   });
 
   test("help: kiosk lockdown and launch guides are reachable from the sidebar", async ({ page }) => {

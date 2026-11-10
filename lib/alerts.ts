@@ -5,10 +5,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour, localTime } from "@/lib/time";
-import { sendSms, termiiConfig, type TermiiConfig } from "@/lib/termii";
+import { sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor, type TermiiConfig } from "@/lib/termii";
 
 export * from "@/lib/alert-rules";
-import { alertForTap, inQuietHours, quietEndsAt, renderTemplate, MAX_ATTEMPTS, MESSAGE_TTL_MS, RETRY_DELAY_MS, type AlertSettings } from "@/lib/alert-rules";
+import { alertForTap, chooseChannel, whatsappData, inQuietHours, quietEndsAt, renderTemplate, MAX_ATTEMPTS, MESSAGE_TTL_MS, RETRY_DELAY_MS, type AlertSettings } from "@/lib/alert-rules";
 
 type Db = SupabaseClient;
 
@@ -57,6 +57,7 @@ export async function queueTapAlerts(db: Db, opts: {
     guardians.map((g) => ({
       school_id: school.id, student_id: student.id, guardian_id: g.id, phone: g.phone, message, type,
       dedupe_key: `${student.id}:${date}:${type}:${g.id}`,
+      vars: { "1": student.fullName, "2": school.name, "3": time, ...(opts.reason ? { "4": opts.reason } : {}) },
     })),
     { onConflict: "dedupe_key", ignoreDuplicates: true },
   ).select("id");
@@ -71,8 +72,8 @@ export type ProcessResult = { sent: number; failed: number; retrying: number; sk
  * the monthly allowance and message expiry, then sends through Termii.
  * Failures retry up to 3 times, 2 minutes apart, then show as failed in the dashboard.
  */
-export async function processOutbox(db: Db, { limit = 50, send = sendSms, now = () => new Date(), schoolId = null }: {
-  limit?: number; send?: typeof sendSms; now?: () => Date; schoolId?: string | null;
+export async function processOutbox(db: Db, { limit = 50, send = sendSms, sendWa = sendWhatsAppTemplate, templateFor = whatsappTemplateFor, now = () => new Date(), schoolId = null }: {
+  limit?: number; send?: typeof sendSms; sendWa?: typeof sendWhatsAppTemplate; templateFor?: typeof whatsappTemplateFor; now?: () => Date; schoolId?: string | null;
 } = {}): Promise<ProcessResult> {
   const result: ProcessResult = { sent: 0, failed: 0, retrying: 0, skipped: 0, held: 0, notConfigured: false };
   if (!termiiConfig()) {
@@ -82,8 +83,14 @@ export async function processOutbox(db: Db, { limit = 50, send = sendSms, now = 
 
   const { data: batch, error } = await db.rpc("claim_sms", { p_limit: limit, p_school: schoolId });
   if (error) throw error;
-  const rows = (batch ?? []) as { id: string; school_id: string; phone: string; message: string; type: string; attempts: number; created_at: string }[];
+  const rows = (batch ?? []) as {
+    id: string; school_id: string; guardian_id: string | null; phone: string; message: string; type: string;
+    attempts: number; created_at: string; vars: Record<string, unknown> | null;
+  }[];
   if (!rows.length) return result;
+  const guardianIds = [...new Set(rows.map((r) => r.guardian_id).filter((g): g is string => !!g))];
+  const { data: guardians } = guardianIds.length ? await db.from("guardians").select("id, channel").in("id", guardianIds) : { data: [] };
+  const channelOf = new Map(((guardians ?? []) as { id: string; channel: string }[]).map((g) => [g.id, g.channel]));
 
   const schoolIds = [...new Set(rows.map((r) => r.school_id))];
   const [{ data: schools }, { data: settings }] = await Promise.all([
@@ -129,10 +136,17 @@ export async function processOutbox(db: Db, { limit = 50, send = sendSms, now = 
     }
 
     const cfg = termiiConfig(school.sms_sender_name) as TermiiConfig;
-    const sent = await send(cfg, row.phone, row.message);
+    // WhatsApp when the guardian chose it and a template exists; a definite WhatsApp failure falls back to SMS at once.
+    const template = templateFor(row.type);
+    let channel = chooseChannel(row.guardian_id ? channelOf.get(row.guardian_id) : null, !!template);
+    let sent = channel === "whatsapp" ? await sendWa(cfg, row.phone, template!, whatsappData(row.vars ?? {})) : await send(cfg, row.phone, row.message);
+    if (channel === "whatsapp" && !sent.ok && !sent.retryable) {
+      channel = "sms";
+      sent = await send(cfg, row.phone, row.message);
+    }
     const attempts = row.attempts + 1;
     if (sent.ok) {
-      await update({ status: "sent", attempts, sent_at: t.toISOString(), provider_message_id: sent.messageId, last_error: null });
+      await update({ status: "sent", attempts, channel, sent_at: t.toISOString(), provider_message_id: sent.messageId, last_error: null });
       usedThisMonth.set(row.school_id, used + 1);
       result.sent++;
     } else if (sent.retryable && attempts < MAX_ATTEMPTS) {

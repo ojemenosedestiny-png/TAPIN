@@ -99,6 +99,20 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
   passwords (everyone uses Forgot password), and photos are not in the backup. For point-in-time recovery and photo
   backups, use Supabase Pro.
 
+## Parent portal and WhatsApp
+
+- **Parents** go to `/parent`, enter the mobile number the school has for them, and sign in with a 6-digit code.
+  Only numbers registered as a guardian get a code. They see only their own children (enforced in the database).
+- **Turn it on (Supabase dashboard):**
+  1. Authentication → Sign In / Providers → **Phone**: enable.
+  2. Authentication → **Hooks** → Send SMS hook → HTTPS → `https://<your-app>/api/auth/sms-hook`. Copy the generated
+     secret into `SEND_SMS_HOOK_SECRET` (Vercel and `.env.local`). Codes are then sent through Termii.
+  3. To try it before the Termii sender ID is approved: Authentication → Phone → **Test phone numbers and OTPs**
+     (e.g. `2348031234567=123456`) and add that number as a guardian.
+- **WhatsApp:** each guardian chooses SMS or WhatsApp (school admin on the student profile, or the parent in the
+  portal). WhatsApp needs a Termii WhatsApp device and approved templates (see `.env.example`); without them, or if
+  WhatsApp refuses a message, it goes by SMS instead.
+
 ## Password resets
 
 - **Forgot password?** on the login page emails a one-time link (Supabase Auth). For the link to work, in Supabase →

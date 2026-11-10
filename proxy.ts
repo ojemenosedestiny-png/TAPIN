@@ -48,21 +48,31 @@ export async function proxy(request: NextRequest) {
     return res;
   };
 
+  const isParentPage = pathname === "/parent" || (pathname.startsWith("/parent/") && pathname !== "/parent/login");
   if (!user) {
+    if (isParentPage) return redirectTo("/parent/login");
     if (protectedArea || pathname === "/") return redirectTo("/login");
     return response;
   }
+  // Parents sign in with a phone number and have no email; staff always have an email.
+  const isParent = !!user.phone && !user.email;
 
   const now = Date.now();
   if (isIdleExpired(request.cookies.get(LAST_ACTIVE_COOKIE)?.value, now)) {
     await supabase.auth.signOut();
-    const res = redirectTo("/login", "idle");
+    const res = redirectTo(isParent ? "/parent/login" : "/login", "idle");
     res.cookies.delete(LAST_ACTIVE_COOKIE);
     return res;
   }
 
-  // "/" and "/login" go to the dashboard; pages send each role on to its own home (super admin → /platform).
-  if (pathname === "/login" || pathname === "/") return redirectTo("/today");
+  if (isParent) {
+    // Parents only ever see the parent portal.
+    if (pathname === "/" || pathname === "/login" || pathname === "/parent/login" || protectedArea) return redirectTo("/parent");
+  } else {
+    // "/" and "/login" go to the dashboard; pages send each role on to its own home (super admin → /platform).
+    if (pathname === "/login" || pathname === "/") return redirectTo("/today");
+    if (pathname === "/parent" || pathname.startsWith("/parent/")) return redirectTo("/today"); // staff aren't parents here
+  }
 
   response.cookies.set(LAST_ACTIVE_COOKIE, String(now), LAST_ACTIVE_OPTIONS);
   return response;
