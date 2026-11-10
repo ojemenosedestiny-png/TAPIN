@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Logo, TAGLINE } from "@/components/brand/logo";
+import { Ripple } from "@/components/brand/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme/theme";
 import { LoginForm } from "./login-form";
@@ -44,10 +45,12 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
       {/* Brand panel */}
       <section aria-hidden className="relative hidden overflow-hidden bg-[#06302c] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 bg-[radial-gradient(800px_500px_at_100%_0%,rgb(45_212_191/0.28),transparent_60%),radial-gradient(600px_400px_at_0%_100%,rgb(245_158_11/0.14),transparent_60%)]" />
-        {/* NFC rings */}
-        <svg className="absolute -right-24 top-1/2 size-[560px] -translate-y-1/2 text-white/[0.07]" viewBox="0 0 200 200" fill="none" stroke="currentColor">
-          {[30, 52, 74, 96].map((r) => <circle key={r} cx="100" cy="100" r={r} strokeWidth="1.2" />)}
-        </svg>
+        {/* NFC waves */}
+        <div className="absolute -right-28 top-1/2 size-[600px] -translate-y-1/2 text-teal-200/60">
+          <Ripple rings={4} durationMs={4800} still={4} />
+          <span className="kiosk-breathe absolute left-1/2 top-1/2 size-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-300/20 blur-3xl" />
+          <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-200 shadow-[0_0_24px_6px_rgb(94_234_212/0.5)]" />
+        </div>
         <div className="relative flex items-center gap-3">
           <Logo className="size-11" variant="inverse" title="" />
           <span className="font-heading text-2xl font-bold tracking-tight">Tap<span className="text-amber-400">In</span></span>

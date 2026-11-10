@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CloudOff, Maximize, Nfc, Settings, Volume2, WifiOff, XCircle } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
+import { Ripple } from "@/components/brand/ripple";
 import { initials } from "@/components/dashboard/person-avatar";
 import { NFC_ERROR_MESSAGES, nfcSupported, startNfcScan, type NfcErrorKind } from "@/lib/nfc";
 import { createWedgeReader } from "@/lib/keyboard-wedge";
@@ -410,44 +411,60 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
   school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-between bg-gradient-to-br from-brand-dark via-brand to-teal-500 px-6 py-10 text-white">
-      <header className="flex flex-col items-center gap-3 text-center">
+    <div className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden bg-[#03201e] px-6 py-10 text-white">
+      {/* Light: teal from the top, a warm glow from below. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_600px_at_80%_-10%,rgb(45_212_191/0.32),transparent_60%),radial-gradient(700px_500px_at_10%_110%,rgb(245_158_11/0.16),transparent_60%),radial-gradient(600px_600px_at_50%_60%,rgb(15_118_110/0.35),transparent_70%)]" />
+
+      <header className="relative flex flex-col items-center gap-3 text-center">
         {school?.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={school.logo_url} alt="" className="size-20 rounded-2xl bg-white object-contain p-2" />
+          <img src={school.logo_url} alt="" className="size-20 rounded-2xl bg-white object-contain p-2 shadow-lg" />
         ) : (
           <Logo variant="inverse" className="size-20 shadow-lg" />
         )}
-        <p className="text-2xl font-semibold">{school?.name ?? "TapIn"}</p>
-        {deviceName && <p className="text-sm text-white/70">{deviceName}</p>}
+        <p className="text-2xl font-semibold tracking-tight">{school?.name ?? "TapIn"}</p>
+        {deviceName && <p className="text-sm text-white/60">{deviceName}</p>}
       </header>
 
-      <Clock timeZone={school?.timezone ?? "Africa/Lagos"} />
+      <div className="relative"><Clock timeZone={school?.timezone ?? "Africa/Lagos"} /></div>
 
-      <div className="flex flex-col items-center gap-6">
+      <div className="relative flex flex-col items-center gap-6">
         {scanning ? (
           <>
-            <div className="relative flex size-48 items-center justify-center">
-              <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-white/20 motion-reduce:hidden" />
-              <span aria-hidden className="absolute inset-4 rounded-full bg-white/10" />
-              <div className="relative flex h-24 w-36 items-center justify-center rounded-2xl bg-white shadow-2xl">
-                <Nfc className="size-12 text-brand" aria-hidden />
+            {/* The scan target: a card floating in its own NFC field. */}
+            <div className="relative flex size-[min(82vw,36vh,26rem)] items-center justify-center">
+              <Ripple rings={5} durationMs={4200} still={3} className="text-teal-200" ringClassName="[border-width:2px]" />
+              <span aria-hidden className="kiosk-breathe absolute size-[55%] rounded-full bg-teal-300/35 blur-3xl" />
+              <div className="kiosk-float relative">
+                <div className="relative h-36 w-56 overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-white to-teal-50 shadow-[0_30px_60px_-15px_rgb(0_0_0/0.65),0_0_0_1px_rgb(255_255_255/0.6)]">
+                  <span aria-hidden className="absolute left-5 top-5 h-7 w-9 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 ring-1 ring-amber-600/30" />
+                  <Nfc className="absolute right-5 top-5 size-7 text-brand" aria-hidden />
+                  <span aria-hidden className="absolute bottom-10 left-5 h-2 w-28 rounded-full bg-slate-200" />
+                  <span aria-hidden className="absolute bottom-5 left-5 h-2 w-16 rounded-full bg-slate-200" />
+                  <span aria-hidden className="absolute bottom-5 right-5 font-heading text-sm font-bold text-brand/80">TapIn</span>
+                  <span aria-hidden className="kiosk-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+                </div>
               </div>
             </div>
-            <p className="text-4xl font-semibold">Tap your ID card</p>
-            {!supported && <p className="text-white/70">USB card reader mode</p>}
+            <p className="text-4xl font-semibold tracking-tight sm:text-5xl">Tap your ID card</p>
+            <p className="flex items-center gap-2 text-base text-white/70" aria-hidden>
+              <span className="flex gap-1">
+                {[0, 1, 2].map((i) => <span key={i} className="kiosk-signal size-1.5 rounded-full bg-teal-300" style={{ "--d": `${i * 200}ms` } as React.CSSProperties} />)}
+              </span>
+              {supported ? "Listening for cards" : "USB card reader mode"}
+            </p>
           </>
         ) : (
           <>
-            <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-white px-10 text-2xl font-semibold text-brand shadow-xl active:scale-95">
+            <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-white px-10 text-2xl font-semibold text-brand shadow-[0_20px_50px_-15px_rgb(0_0_0/0.6)] transition-transform active:scale-95">
               <Nfc className="size-8" aria-hidden /> Start scanning
             </button>
-            <p className="max-w-md text-center text-white/80">
+            <p className="max-w-md text-center text-white/75">
               {supported ? "Tap once each morning. The kiosk then keeps listening for cards." : "This browser can't use NFC. Plug in a USB card reader, or use Chrome on an Android phone."}
             </p>
           </>
         )}
-        <button onClick={onTestSound} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/25 hover:bg-white/20 active:scale-95">
+        <button onClick={onTestSound} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
           <Volume2 className="size-5" aria-hidden /> Test sound
         </button>
         {nfcError && <p role="alert" className="max-w-md rounded-xl bg-red-600/90 px-5 py-3 text-center text-lg">{nfcError}</p>}
