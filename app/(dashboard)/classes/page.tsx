@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookOpen, CreditCard, Trash2 } from "lucide-react";
+import { BookOpen, CreditCard, Printer, Trash2 } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
@@ -61,6 +61,9 @@ export default async function ClassesPage() {
                     <div className="flex justify-end gap-1">
                       <Button asChild variant="ghost" size="sm">
                         <Link href={`/enroll/class/${c.id}`}><CreditCard className="size-4" /> Enrol cards</Link>
+                      </Button>
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/cards/print?class=${c.id}`}><Printer className="size-4" /> Print cards</Link>
                       </Button>
                       <ClassDialog teachers={teachers ?? []} existing={c} />
                       <ConfirmAction

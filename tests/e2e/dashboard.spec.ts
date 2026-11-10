@@ -86,6 +86,18 @@ test.describe("today and reports", () => {
     await expect(page.getByRole("button", { name: "Turn on two-factor login" })).toBeVisible();
   });
 
+  test("ID cards: one card per student at bank-card size, ready to print", async ({ page }, info) => {
+    const f = fixture();
+    await page.goto(`/cards/print?class=${f.classId}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Print ID cards" })).toBeVisible();
+    for (const s of f.students) await expect(page.getByText(s.name, { exact: true })).toBeVisible();
+    await expect(page.getByText(/have no photo yet/)).toBeVisible();
+    if (info.project.name === "laptop") {
+      await page.emulateMedia({ media: "print" });
+      await page.screenshot({ path: "test-results/id-cards-print.png", fullPage: true });
+    }
+  });
+
   test("reports: quick ranges and an Excel download", async ({ page }) => {
     await page.goto("/reports");
     await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();

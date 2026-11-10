@@ -17,7 +17,7 @@ import { playError, playSuccess } from "@/lib/sound";
 
 type Student = { id: string; name: string; admissionNo: string; photoUrl: string | null };
 
-export function ClassEnroll({ className, students }: { className: string; students: Student[] }) {
+export function ClassEnroll({ className, classId, students }: { className: string; classId: string; students: Student[] }) {
   const [queue, setQueue] = useState<ClassQueue>(() => createQueue(students.map((s) => ({ id: s.id, name: s.name, photoUrl: s.photoUrl }))));
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<"error" | "success" | null>(null);
@@ -148,6 +148,7 @@ export function ClassEnroll({ className, students }: { className: string; studen
             <div className="mt-5 flex justify-center gap-2">
               <Button variant="outline" onClick={onUndo} disabled={busy || queue.history.length === 0}><Undo2 className="size-4" /> Undo last</Button>
               <Button variant="outline" onClick={() => window.print()}><Printer className="size-4" /> Print list</Button>
+              <Button asChild variant="outline"><Link href={`/cards/print?class=${classId}`}><Printer className="size-4" /> Print ID cards</Link></Button>
               <Button asChild><Link href="/enroll">Next class</Link></Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">Cards still need a Test tap from each student&apos;s profile to be marked verified.</p>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Printer } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
@@ -41,7 +41,10 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Cards" description="Every card linked in your school. Block lost cards here in one click.">
-        <Button asChild><Link href="/enroll"><CreditCard className="size-4" /> Enrol cards</Link></Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline"><Link href="/cards/print"><Printer className="size-4" /> Print ID cards</Link></Button>
+          <Button asChild><Link href="/enroll"><CreditCard className="size-4" /> Enrol cards</Link></Button>
+        </div>
       </PageHeader>
 
       <nav aria-label="Card filters" className="mb-4 flex flex-wrap gap-2">

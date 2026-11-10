@@ -66,3 +66,19 @@ export async function saveRetention(_prev: ActionState, formData: FormData): Pro
   revalidatePath("/settings");
   return { ok: `Leavers' records will be deleted ${parsed.data.retention_months} months after they leave.` };
 }
+
+/** Saves the school logo's storage path (uploaded by the browser into the school's own folder). */
+export async function setSchoolLogo(path: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireSchoolArea("settings");
+  if (typeof path !== "string" || !new RegExp(`^${user.schoolId}/logo-\d+\.png$`).test(path)) return { ok: false, error: "Invalid logo location." };
+  const supabase = await createClient();
+  const { data: before } = await supabase.from("schools").select("logo_url").eq("id", user.schoolId).single();
+  const { error } = await supabase.from("schools").update({ logo_url: path }).eq("id", user.schoolId);
+  if (error) return { ok: false, error: "Could not save the logo." };
+  if (before?.logo_url && before.logo_url !== path && before.logo_url.startsWith(`${user.schoolId}/`)) {
+    await supabase.storage.from("photos").remove([before.logo_url]);
+  }
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "school.logo", entity: "schools", entityId: user.schoolId });
+  revalidatePath("/settings");
+  return { ok: true };
+}

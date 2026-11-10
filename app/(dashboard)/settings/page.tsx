@@ -9,6 +9,8 @@ import { ConfirmAction } from "@/components/forms/confirm-action";
 import { Button } from "@/components/ui/button";
 import { TeamForm } from "./team-form";
 import { HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
+import { LogoUpload } from "./logo";
+import { signPhotos } from "@/lib/photos";
 import Link from "next/link";
 import { removeHoliday } from "./school-actions";
 
@@ -18,13 +20,14 @@ export default async function SettingsPage() {
   const user = await requireSchoolArea("settings");
   const supabase = await createClient();
   const { data: school } = await supabase
-    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months").eq("id", user.schoolId).single();
+    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
   const [{ data: team }, { data: holidays }] = await Promise.all([
     supabase.from("users").select("id, name, email, role").eq("school_id", user.schoolId).order("role").order("name"),
     supabase.from("school_calendar").select("date, note").eq("is_holiday", true).gte("date", today).order("date").limit(60),
   ]);
+  const logo = school.logo_url ? (await signPhotos(supabase, [school.logo_url])).get(school.logo_url) ?? null : null;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
   return (
@@ -34,6 +37,7 @@ export default async function SettingsPage() {
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm" aria-labelledby="day">
           <h2 id="day" className="text-lg font-semibold text-ink">School day</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Used for late arrivals, sign-out and absence alerts.</p>
+          <div className="mb-6"><LogoUpload schoolId={user.schoolId} logoUrl={logo} /></div>
           <SchoolDayForm school={school} />
         </section>
 

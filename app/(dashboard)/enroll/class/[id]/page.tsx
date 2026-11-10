@@ -35,6 +35,7 @@ export default async function ClassEnrollPage({ params }: { params: Promise<{ id
       <Link href="/enroll" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink print:hidden"><ArrowLeft className="size-4" /> All classes</Link>
       <ClassEnroll
         className={cls.name}
+        classId={cls.id}
         students={(students ?? []).map((s) => ({
           id: s.id, name: s.full_name, admissionNo: s.admission_no, photoUrl: s.photo_url ? photos.get(s.photo_url) ?? null : null,
         }))}
