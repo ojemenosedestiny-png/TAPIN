@@ -49,3 +49,6 @@ supabase/.branches
 # playwright
 /test-results/
 /playwright-report/
+
+# design tooling output
+.taste-skill/

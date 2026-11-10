@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import { Logo, TAGLINE } from "@/components/brand/logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoginForm } from "./login-form";
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "Sign in" };
 
 const NOTICES: Record<string, string> = {
   idle: "You were signed out after 30 minutes of inactivity.",
+  link: "That link has expired or was already used. Ask for a new one below.",
 };
 
 type SearchParams = Promise<{ reason?: string }>;
@@ -43,7 +45,8 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
             <LoginFormWithNotice searchParams={searchParams} />
           </Suspense>
         </div>
-        <p className="mt-6 text-center text-xs text-muted-foreground">Accounts are created by your school admin.</p>
+        <p className="mt-6 text-center text-sm"><Link href="/forgot" className="font-medium text-brand hover:underline">Forgot password?</Link></p>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Accounts are created by your school admin.</p>
       </div>
     </main>
   );

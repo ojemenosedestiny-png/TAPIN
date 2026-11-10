@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { areaForPath } from "@/lib/auth/roles";
-import { IDLE_TIMEOUT_MS, LAST_ACTIVE_COOKIE, isIdleExpired } from "@/lib/auth/idle";
+import { LAST_ACTIVE_COOKIE, LAST_ACTIVE_OPTIONS, isIdleExpired } from "@/lib/auth/idle";
 
 /**
  * Runs before every page request:
@@ -64,14 +64,7 @@ export async function proxy(request: NextRequest) {
   // "/" and "/login" go to the dashboard; pages send each role on to its own home (super admin → /platform).
   if (pathname === "/login" || pathname === "/") return redirectTo("/today");
 
-  response.cookies.set(LAST_ACTIVE_COOKIE, String(now), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    // Must outlive the idle timeout, otherwise an expired cookie looks like a fresh login.
-    maxAge: Math.ceil((IDLE_TIMEOUT_MS * 48) / 1000),
-  });
+  response.cookies.set(LAST_ACTIVE_COOKIE, String(now), LAST_ACTIVE_OPTIONS);
   return response;
 }
 

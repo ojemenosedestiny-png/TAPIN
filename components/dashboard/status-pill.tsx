@@ -39,3 +39,18 @@ export function CardPill({ state }: { state: CardState }) {
   const [tone, label] = CARD_PILL[state];
   return <StatusPill tone={tone}>{label}</StatusPill>;
 }
+
+export type AttendanceStatus = "present" | "late" | "absent" | "excused" | "pending";
+const ATTENDANCE_PILL: Record<AttendanceStatus, [PillTone, string]> = {
+  present: ["green", "Present"],
+  late: ["amber", "Late"],
+  absent: ["red", "Absent"],
+  excused: ["slate", "Excused"],
+  pending: ["slate", "Not in yet"],
+};
+
+/** Status pills from the design system: Present (green), Late (amber), Absent (red), Excused (slate). */
+export function AttendancePill({ status }: { status: AttendanceStatus }) {
+  const [tone, label] = ATTENDANCE_PILL[status];
+  return <StatusPill tone={tone}>{label}</StatusPill>;
+}

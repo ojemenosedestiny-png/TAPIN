@@ -13,7 +13,7 @@ Stack: Next.js 16 (App Router, TypeScript strict), Tailwind CSS v4 + shadcn/ui, 
 | 2 | Admin dashboard: classes, students, guardians, staff, photos, import, cards, devices | ✅ built |
 | 3 | Kiosk: Web NFC, photo, voice greeting, `/api/tap`, offline queue | ✅ built |
 | 4 | Alerts: Termii, `sms_logs`, retries, absence job, calendar | ✅ built |
-| 5 | Reports and launch | — |
+| 5 | Reports and launch: Today dashboard, class view, reports + Excel/PDF, help and launch guides | ✅ built |
 
 ## Run locally (Docker)
 
@@ -83,6 +83,15 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
 - **Termii:** set `TERMII_API_KEY`, `TERMII_SENDER_ID` (approved sender ID), `TERMII_BASE_URL` (from your Termii
   dashboard) and `TERMII_CHANNEL`. Use `dnd` (transactional) so messages reach numbers on Do Not Disturb — ask Termii
   support to enable it on your account. Without a key, messages stay queued and nothing is sent.
+
+## Password resets
+
+- **Forgot password?** on the login page emails a one-time link (Supabase Auth). For the link to work, in Supabase →
+  Authentication → URL Configuration set **Site URL** to your live address and add these **Redirect URLs**:
+  `https://<your-app>.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`.
+- Supabase's built-in email is rate limited (a few per hour). Before launch, add your own SMTP in Supabase →
+  Authentication → Emails.
+- Locked-out admin, no email access: `node --env-file=.env.local scripts/reset-password.mjs <email>`.
 
 ## Deploy (Vercel)
 

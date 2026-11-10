@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { LAST_ACTIVE_COOKIE, LAST_ACTIVE_OPTIONS } from "@/lib/auth/idle";
 import { createClient } from "@/lib/supabase/server";
 import { fieldErrors, loginSchema } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -39,11 +40,14 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     return { errors: { _form: "This account has not been set up for TapIn. Contact your school admin." } };
   }
 
+  // A fresh sign-in starts a fresh idle timer (a stale stamp from an old session would sign them straight out).
+  (await cookies()).set(LAST_ACTIVE_COOKIE, String(Date.now()), LAST_ACTIVE_OPTIONS);
   redirect(homePath(profile.role));
 }
 
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  (await cookies()).delete(LAST_ACTIVE_COOKIE);
   redirect("/login");
 }

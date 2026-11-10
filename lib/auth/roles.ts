@@ -12,13 +12,14 @@ export type Area =
   | "alerts"
   | "reports"
   | "settings"
-  | "enroll";
+  | "enroll"
+  | "help";
 
 const ACCESS: Record<Role, readonly Area[]> = {
   // No routine access to student records.
-  super_admin: ["platform"],
-  school_admin: ["today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll"],
-  teacher: ["today", "students", "reports"],
+  super_admin: ["platform", "help"],
+  school_admin: ["today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help"],
+  teacher: ["today", "students", "reports", "help"],
 };
 
 export function canAccess(role: Role, area: Area): boolean {
@@ -34,7 +35,7 @@ export function homePath(role: Role): string {
 export function areaForPath(pathname: string): Area | null {
   const first = pathname.split("/").filter(Boolean)[0] ?? "";
   const areas: readonly string[] = [
-    "platform", "today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll",
+    "platform", "today", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help",
   ];
   return areas.includes(first) ? (first as Area) : null;
 }
