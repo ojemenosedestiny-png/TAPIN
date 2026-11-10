@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run tests/unit",
     "test:watch": "vitest tests/unit",
-    "test:rls": "vitest run tests/integration",
+    "test:rls": "vitest run tests/integration --no-file-parallelism",
     "test:e2e": "playwright test"
   },
   "dependencies": {

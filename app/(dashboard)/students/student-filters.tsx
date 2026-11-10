@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { selectClass } from "@/components/forms/field";
 import { cn } from "@/lib/utils";
 
-export function StudentFilters({ classes, q, classId, card }: { classes: { id: string; name: string }[]; q: string; classId: string; card: string }) {
+export function StudentFilters({ classes, q, classId, card, consent, isAdmin }: { classes: { id: string; name: string }[]; q: string; classId: string; card: string; consent: string; isAdmin: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const [text, setText] = useState(q);
@@ -33,7 +33,7 @@ export function StudentFilters({ classes, q, classId, card }: { classes: { id: s
   }, [text]);
 
   return (
-    <div className={cn("mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_180px]", pending && "opacity-70")}>
+    <div className={cn("mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_170px_170px_170px]", pending && "opacity-70")}>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search name or admission no." aria-label="Search students" className="bg-card pl-9" />
@@ -49,6 +49,12 @@ export function StudentFilters({ classes, q, classId, card }: { classes: { id: s
         <option value="verified">Verified</option>
         <option value="blocked">Blocked</option>
       </select>
+      {isAdmin && (
+        <select aria-label="Filter by consent" className={selectClass} value={consent} onChange={(e) => update({ consent: e.target.value })}>
+          <option value="">Any consent</option>
+          <option value="pending">No consent yet</option>
+        </select>
+      )}
     </div>
   );
 }

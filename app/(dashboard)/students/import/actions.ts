@@ -88,6 +88,12 @@ export async function commitImport(rowsInput: ImportRow[]): Promise<CommitResult
   if (stuErr) return { ok: false, error: "Could not save students. Nothing after the classes step was saved." };
   const studentId = new Map((students ?? []).map((s) => [s.admission_no, s.id]));
 
+  const consentIds = rows.filter((r) => r.consent).map((r) => studentId.get(r.admission_no)).filter((x): x is string => !!x);
+  if (consentIds.length) {
+    await supabase.from("students").update({ consent_at: new Date().toISOString(), consent_note: "Recorded in Excel import", consent_recorded_by: user.id })
+      .in("id", consentIds).is("consent_at", null);
+  }
+
   // 3. Guardians (dedupe by phone within the school)
   const allGuardians = rows.flatMap((r) => r.guardians);
   const phones = [...new Set(allGuardians.map((g) => g.phone))];

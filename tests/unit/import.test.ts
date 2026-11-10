@@ -24,7 +24,17 @@ describe("import validation", () => {
     expect(rows[0]).toEqual({
       row: 2, admission_no: "STU0012", first_name: "Chioma", last_name: "Okafor", class: "JSS2A",
       guardians: [{ name: "Ngozi Okafor", phone: "+2348031234567", relationship: "Mother" }],
+      consent: false,
     });
+  });
+
+  it("reads the optional Consent column (Yes / Y / true / signed)", () => {
+    const base = { admission_no: "A1", first_name: "A", last_name: "B", class: "JSS1A" };
+    const { rows } = validateImportRows([
+      row(2, { ...base, consent: "Yes" }), row(3, { ...base, admission_no: "A2", consent: "y" }),
+      row(4, { ...base, admission_no: "A3", consent: "No" }), row(5, { ...base, admission_no: "A4" }),
+    ]);
+    expect(rows.map((r) => r.consent)).toEqual([true, true, false, false]);
   });
 
   it("allows students with no guardian, and two guardians", () => {

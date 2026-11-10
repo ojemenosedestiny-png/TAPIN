@@ -4,7 +4,7 @@ import { useActionState, useRef } from "react";
 import { CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, useActionFeedback } from "@/components/forms/field";
-import { addHolidays, saveSchoolDay } from "./school-actions";
+import { addHolidays, saveRetention, saveSchoolDay } from "./school-actions";
 
 type School = { resumption_time: string; absence_cutoff_time: string; closing_time: string; timezone: string; sms_sender_name: string | null };
 
@@ -45,6 +45,19 @@ export function HolidayForm() {
       </div>
       <Field name="note" label="Note" placeholder="Mid-term break" error={e.note} />
       <Button type="submit" size="sm" disabled={pending}><CalendarPlus className="size-4" /> {pending ? "Adding…" : "Add holiday"}</Button>
+    </form>
+  );
+}
+
+export function RetentionForm({ months }: { months: number }) {
+  const [state, action, pending] = useActionState(saveRetention, {});
+  useActionFeedback(state);
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-3" noValidate>
+      <FormError state={state} />
+      <Field name="retention_months" label="Keep leavers' records for (months)" type="number" min={1} max={84} inputMode="numeric"
+        defaultValue={months} error={state.errors?.retention_months} className="w-64" />
+      <Button type="submit" variant="outline" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
     </form>
   );
 }

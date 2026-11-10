@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/audit";
-import { fieldErrors, holidaySchema, schoolDaySchema } from "@/lib/validation";
+import { fieldErrors, holidaySchema, retentionSchema, schoolDaySchema } from "@/lib/validation";
 import type { ActionState } from "@/components/forms/field";
 
 export async function saveSchoolDay(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -52,4 +52,17 @@ export async function removeHoliday(_prev: ActionState, formData: FormData): Pro
   await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "calendar.remove", entity: "school_calendar", details: { date } });
   revalidatePath("/settings");
   return { ok: "Holiday removed." };
+}
+
+/** How long a leaver's records are kept before automatic deletion (NDPA 2023). */
+export async function saveRetention(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("settings");
+  const parsed = retentionSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { errors: fieldErrors(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase.from("schools").update(parsed.data).eq("id", user.schoolId);
+  if (error) return { errors: { _form: "Could not save. Please try again." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "retention.update", entity: "schools", entityId: user.schoolId, details: parsed.data });
+  revalidatePath("/settings");
+  return { ok: `Leavers' records will be deleted ${parsed.data.retention_months} months after they leave.` };
 }

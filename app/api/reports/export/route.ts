@@ -16,7 +16,7 @@ const STATUS_WORD = { present: "Present", late: "Late", absent: "Absent", excuse
 /** GET /api/reports/export?from&to&class — Excel workbook: a summary sheet and a day-by-day sheet. */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || !user.schoolId || !canAccess(user.role, "reports")) return new Response("Sign in first.", { status: 401 });
+  if (!user || user.needsMfa || !user.schoolId || !canAccess(user.role, "reports")) return new Response("Sign in first.", { status: 401 });
   if (!checkRateLimit(`export:${user.id}`, { max: 20, windowMs: 10 * 60_000 }).ok) return new Response("Too many exports. Try again in a few minutes.", { status: 429 });
 
   const db = await createClient(); // RLS: teachers only export their own classes

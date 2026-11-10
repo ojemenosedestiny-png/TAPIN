@@ -47,7 +47,7 @@ export function Sidebar({ role, name, schoolName }: { role: Role; name: string; 
 
   const footer = (
     <div className="border-t border-border p-4">
-      <p className="truncate text-sm font-medium text-ink">{name}</p>
+      <Link href="/account" onClick={() => setOpen(false)} className="block truncate text-sm font-medium text-ink hover:text-brand">{name}</Link>
       <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[role]}</p>
       <form action={logout} className="mt-3">
         <button

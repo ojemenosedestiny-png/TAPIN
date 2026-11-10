@@ -18,6 +18,9 @@ import { StudentDialog } from "./student-dialog";
 import { GuardianForm } from "./guardian-form";
 import { unlinkGuardian } from "./actions";
 import { ExcusalForm } from "./excusal-form";
+import { ConsentForm } from "./consent-form";
+import { withdrawConsent } from "./consent-actions";
+import { ShieldCheck } from "lucide-react";
 import { removeExcusal } from "./excusal-actions";
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
@@ -51,7 +54,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
   const supabase = await createClient();
   const isAdmin = user.role === "school_admin";
 
-  const { data: s } = await supabase.from("students").select("id, admission_no, first_name, last_name, class_id, photo_url, status, created_at").eq("id", studentId).maybeSingle();
+  const { data: s } = await supabase.from("students").select("id, admission_no, first_name, last_name, class_id, photo_url, status, created_at, consent_at, consent_note").eq("id", studentId).maybeSingle();
   if (!s) notFound();
 
   const { data: school } = await supabase.from("schools").select("timezone, resumption_time").eq("id", user.schoolId).single();
@@ -90,11 +93,31 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
 
   return (
     <DrawerShell closeHref={closeHref} title={name} description={`${s.admission_no}${className ? ` · ${className}` : ""}`}>
+      {isAdmin && (
+        <Section title="Parental consent">
+          {s.consent_at ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+              <p className="flex items-start gap-2 text-sm text-ink">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                <span>Consent recorded for {new Date(s.consent_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}{s.consent_note ? <span className="text-muted-foreground"> · {s.consent_note}</span> : null}</span>
+              </p>
+              <ConfirmAction action={withdrawConsent} fields={{ student_id: s.id }} title="Withdraw consent?"
+                description="The photo is deleted straight away and no new photo can be added. Attendance records stay until the student leaves."
+                confirmLabel="Withdraw consent" trigger={<Button variant="ghost" size="sm" className="text-red-700">Withdraw</Button>} />
+            </div>
+          ) : (
+            <ConsentForm studentId={s.id} today={today} />
+          )}
+        </Section>
+      )}
+
       <Section title="Photo">
-        {isAdmin ? (
+        {isAdmin && s.consent_at ? (
           <PhotoEditor schoolId={user.schoolId} holderType="student" holderId={s.id} name={name} photoUrl={photo} />
-        ) : null}
-        {!s.photo_url && <p className="mt-3 text-center text-sm text-amber-900">A photo is required before the card can be verified.</p>}
+        ) : (
+          <p className="text-sm text-muted-foreground">{isAdmin ? "Record parental consent above to add a photo." : "—"}</p>
+        )}
+        {s.consent_at && !s.photo_url && <p className="mt-3 text-center text-sm text-amber-900">A photo is required before the card can be verified.</p>}
       </Section>
 
       <Section title="Details" action={isAdmin ? <StudentDialog classes={classes} existing={s} /> : undefined}>

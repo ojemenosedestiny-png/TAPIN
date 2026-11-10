@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { CalendarCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Field, FormError, useActionFeedback } from "@/components/forms/field";
+import { Field, FormError, withSuccessToast, type ActionState } from "@/components/forms/field";
 import { addExcusal } from "@/app/(dashboard)/students/excusal-actions";
 
 const REASONS = ["Sick", "Medical appointment", "Family emergency", "Approved leave"];
@@ -13,8 +13,12 @@ const REASONS = ["Sick", "Medical appointment", "Family emergency", "Approved le
 export function ExcuseButton({ studentId, name, date }: { studentId: string; name: string; date: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [state, action, pending] = useActionState(addExcusal, {});
-  useActionFeedback(state, () => setOpen(false));
+  // The row loses its Excuse button once excused, so confirm and close straight from the action.
+  const [state, action, pending] = useActionState(async (prev: ActionState, fd: FormData) => {
+    const result = await withSuccessToast(addExcusal)(prev, fd);
+    if (result.ok) setOpen(false);
+    return result;
+  }, {});
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

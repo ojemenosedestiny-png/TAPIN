@@ -96,8 +96,8 @@ export default async function HelpPage() {
           <Section id="launch" title="Pilot launch checklist" i={4}>
             <h3 className="font-semibold">Before day one</h3>
             <ul>
-              <li><strong>Written consent</strong> from parents for collecting their child’s details and photo, with a short note on how they are used (Nigeria Data Protection Act 2023). Keep the forms on file.</li>
-              <li>A <strong>privacy notice</strong> for parents and a data processing agreement with the school.</li>
+              <li><strong>Written consent</strong> from parents: print the <Link href="/help/consent-form" className="text-brand hover:underline">consent form</Link>, then record each one on the student’s profile (or “Yes” in the Consent Received import column). Photos can’t be added until consent is recorded.</li>
+              <li>Share the <Link href="/privacy" className="text-brand hover:underline">privacy notice</Link> with parents, and sign a data processing agreement with the school. Check the retention period under Settings → Privacy and data.</li>
               <li>Every student has a class, a guardian phone number, a photo and a verified card. Use the Students page filter “Not verified” to find gaps.</li>
               <li><strong>SMS:</strong> the Termii sender ID is approved and the DND (transactional) route is on. Send yourself a test by tapping your own staff card.</li>
               <li>The kiosk is pinned, charging, and tested with five cards at the real gate.</li>

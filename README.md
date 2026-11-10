@@ -46,7 +46,7 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
 | `npm run typecheck` | TypeScript only |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | Browser tests (Playwright, uses your installed Chrome) for the kiosk and enrollment screens, on a production build at port 3100. Seeds and removes a throwaway school. |
-| `npm run test:rls` | RLS integration test against the Supabase project in `.env.local`. Creates and deletes throwaway schools and users — **use a dev project, never production.** |
+| `npm run test:rls` | Integration tests (RLS, taps, alerts, reports, retention, two-factor, backup) against the Supabase project in `.env.local`. Creates and deletes throwaway schools and users — **use a dev project, never production.** |
 
 ## Roles
 
@@ -83,6 +83,21 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
 - **Termii:** set `TERMII_API_KEY`, `TERMII_SENDER_ID` (approved sender ID), `TERMII_BASE_URL` (from your Termii
   dashboard) and `TERMII_CHANNEL`. Use `dnd` (transactional) so messages reach numbers on Do Not Disturb — ask Termii
   support to enable it on your account. Without a key, messages stay queued and nothing is sent.
+
+## Privacy, two-factor and backups
+
+- **Consent:** record each parent's written consent on the student profile (or "Yes" in the Consent Received import
+  column). Photos can't be added without it, on screen or on the server. Withdrawing consent deletes the photo at once.
+  Printable form: Help → consent form (`/help/consent-form`). Public notice: `/privacy`.
+- **Retention (NDPA 2023):** when a student leaves (Withdrawn, Graduated, Inactive), everything about them is deleted
+  after the school's period (Settings → Privacy and data; 12 months by default) by `/api/cron/retention`, nightly.
+- **Two-factor login:** Account → Turn on two-factor login (any authenticator app). Enforced in the database: once a
+  person has two-factor on, a password-only session gets no rows from any table until the code is entered.
+- **Backups:** `/api/cron/backup` runs nightly (01:30 UTC): every table as gzip'd NDJSON in the private `backups`
+  bucket, newest 14 kept. `node --env-file=.env.local scripts/backup.mjs list | check <day> | download <day> <dir>`.
+  `restore <dir>` only works into an **empty** project with the migrations applied; logins come back without
+  passwords (everyone uses Forgot password), and photos are not in the backup. For point-in-time recovery and photo
+  backups, use Supabase Pro.
 
 ## Password resets
 

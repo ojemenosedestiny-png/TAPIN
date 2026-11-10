@@ -46,7 +46,7 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
           </Suspense>
         </div>
         <p className="mt-6 text-center text-sm"><Link href="/forgot" className="font-medium text-brand hover:underline">Forgot password?</Link></p>
-        <p className="mt-2 text-center text-xs text-muted-foreground">Accounts are created by your school admin.</p>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Accounts are created by your school admin. <Link href="/privacy" className="hover:underline">Privacy</Link></p>
       </div>
     </main>
   );

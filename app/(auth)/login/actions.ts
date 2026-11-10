@@ -42,6 +42,9 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   // A fresh sign-in starts a fresh idle timer (a stale stamp from an old session would sign them straight out).
   (await cookies()).set(LAST_ACTIVE_COOKIE, String(Date.now()), LAST_ACTIVE_OPTIONS);
+  // Two-factor on: the password is only half of it.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") redirect("/auth/mfa");
   redirect(homePath(profile.role));
 }
 

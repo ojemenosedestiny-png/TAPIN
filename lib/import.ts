@@ -13,6 +13,7 @@ export const IMPORT_COLUMNS = [
   { key: "guardian2_name", label: "Guardian 2 Name", example: "", required: false },
   { key: "guardian2_phone", label: "Guardian 2 Phone", example: "", required: false },
   { key: "guardian2_relationship", label: "Guardian 2 Relationship", example: "", required: false },
+  { key: "consent", label: "Consent Received", example: "Yes", required: false },
 ] as const;
 
 export type ImportKey = (typeof IMPORT_COLUMNS)[number]["key"];
@@ -30,6 +31,7 @@ export function headerToKey(header: string): ImportKey | null {
     guardianphone: "guardian_phone", parentphone: "guardian_phone", phone: "guardian_phone", guardian1phone: "guardian_phone",
     relationship: "guardian_relationship", guardianrelationship: "guardian_relationship", guardian1relationship: "guardian_relationship",
     guardian2name: "guardian2_name", guardian2phone: "guardian2_phone", guardian2relationship: "guardian2_relationship",
+    consent: "consent", consentreceived: "consent", parentalconsent: "consent",
   };
   return aliases[norm] ?? null;
 }
@@ -49,6 +51,7 @@ export const importRowSchema = z.object({
   last_name: text(60).min(1),
   class: text(40).min(1),
   guardians: z.array(importGuardianSchema).max(2),
+  consent: z.boolean(),
 });
 export type ImportRow = z.infer<typeof importRowSchema>;
 
@@ -102,7 +105,8 @@ export function validateImportRows(raw: { row: number; values: Partial<Record<Im
       issues.push({ row, message: problems.join("; ") });
       continue;
     }
-    const parsed = importRowSchema.safeParse({ row, admission_no: admission, first_name: first, last_name: last, class: cls, guardians });
+    const consent = /^(y|yes|true|1|received|signed)$/i.test((v.consent ?? "").trim());
+    const parsed = importRowSchema.safeParse({ row, admission_no: admission, first_name: first, last_name: last, class: cls, guardians, consent });
     if (!parsed.success) {
       issues.push({ row, message: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") });
       continue;

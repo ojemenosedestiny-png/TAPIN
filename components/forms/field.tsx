@@ -73,3 +73,16 @@ export function useActionFeedback(state: ActionState, onSuccess?: () => void) {
     }
   }, [state]);
 }
+
+/**
+ * Wraps a server action so its success toast fires as soon as it returns — before the page
+ * re-renders. Use it when the form disappears on success (the effect in useActionFeedback
+ * would never run).
+ */
+export function withSuccessToast<S extends ActionState>(action: (prev: S, fd: FormData) => Promise<S>) {
+  return async (prev: S, fd: FormData): Promise<S> => {
+    const result = await action(prev, fd);
+    if (result.ok) toast.success(result.ok);
+    return result;
+  };
+}

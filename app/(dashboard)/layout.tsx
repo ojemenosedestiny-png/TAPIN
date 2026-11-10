@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 async function Shell({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (user.needsMfa) redirect("/auth/mfa");
   return (
     <div className="min-h-dvh bg-background lg:flex">
       <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} />

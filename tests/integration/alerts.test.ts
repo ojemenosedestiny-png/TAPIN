@@ -25,7 +25,7 @@ const down = async (): Promise<SendResult> => ({ ok: false, error: "Termii 503: 
 const rejected = async (): Promise<SendResult> => ({ ok: false, error: "Termii 400: Sender ID not approved", retryable: false });
 
 async function rows(type?: string) {
-  let q = db.from("sms_logs").select("id, type, status, phone, message, attempts, last_error, next_attempt_at").eq("school_id", ids.school);
+  let q = db.from("sms_logs").select("id, type, status, phone, message, attempts, last_error, next_attempt_at, dedupe_key").eq("school_id", ids.school);
   if (type) q = q.eq("type", type);
   return (await q).data ?? [];
 }
@@ -179,7 +179,7 @@ describe.skipIf(!enabled)("alerts pipeline", () => {
       await db.from("attendance").insert({ school_id: ids.school, holder_type: "student", holder_id: ids.present, date: DAY, sign_in_at: lagos("07:40").toISOString(), sign_out_at: lagos("14:10").toISOString() });
       await db.from("excusals").insert({ school_id: ids.school, student_id: ids.excused, date: DAY, reason: "Sick note" });
     });
-    const absences = async () => (await rows("absence")).filter((x) => x.message.includes("Test"));
+    const absences = async () => (await rows("absence")).filter((x) => x.dedupe_key.includes(`:${DAY}:`));
 
     it("does nothing before the cutoff", async () => {
       await db.rpc("queue_absence_alerts", { p_now: lagos("08:59").toISOString() });

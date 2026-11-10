@@ -8,7 +8,8 @@ import { StatusPill } from "@/components/dashboard/status-pill";
 import { ConfirmAction } from "@/components/forms/confirm-action";
 import { Button } from "@/components/ui/button";
 import { TeamForm } from "./team-form";
-import { HolidayForm, SchoolDayForm } from "./school-forms";
+import { HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
+import Link from "next/link";
 import { removeHoliday } from "./school-actions";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -17,7 +18,7 @@ export default async function SettingsPage() {
   const user = await requireSchoolArea("settings");
   const supabase = await createClient();
   const { data: school } = await supabase
-    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name").eq("id", user.schoolId).single();
+    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
   const [{ data: team }, { data: holidays }] = await Promise.all([
@@ -54,6 +55,20 @@ export default async function SettingsPage() {
               ))}
             </ul>
           )}
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="privacy">
+          <h2 id="privacy" className="text-lg font-semibold text-ink">Privacy and data</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">
+            When a student leaves (status Withdrawn, Graduated or Inactive), everything about them — attendance, card, photo, messages and
+            parent details no other child uses — is deleted automatically after this period. Nigeria Data Protection Act 2023.
+          </p>
+          <RetentionForm months={school.retention_months} />
+          <p className="mt-4 text-sm text-muted-foreground">
+            <Link href="/privacy" className="font-medium text-brand hover:underline">Privacy notice for parents</Link>
+            {" · "}
+            <Link href="/help/consent-form" className="font-medium text-brand hover:underline">Printable consent form</Link>
+          </p>
         </section>
 
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="team">

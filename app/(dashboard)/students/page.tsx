@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Students" };
 const PAGE_SIZE = 50;
 const CARD_FILTERS = ["none", "active", "verified", "blocked"] as const;
 
-type Search = { q?: string; class?: string; card?: string; page?: string; student?: string };
+type Search = { q?: string; class?: string; card?: string; consent?: string; page?: string; student?: string };
 
 /** Keep search text safe for a PostgREST or() filter. */
 function cleanQuery(q: string | undefined) {
@@ -39,7 +39,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
 
   let query = supabase
     .from("student_overview")
-    .select("id, admission_no, full_name, class_name, photo_url, status, card_state, guardian_phone", { count: "exact" })
+    .select("id, admission_no, full_name, class_name, photo_url, status, card_state, guardian_phone, consent_at", { count: "exact" })
     .eq("status", "active")
     .order("last_name")
     .order("first_name")
@@ -47,6 +47,8 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   if (q) query = query.or(`full_name.ilike.%${q}%,admission_no.ilike.%${q}%,last_name.ilike.%${q}%`);
   if (classId) query = query.eq("class_id", classId);
   if (card) query = query.eq("card_state", card);
+  const consentPending = sp.consent === "pending";
+  if (consentPending) query = query.is("consent_at", null);
 
   const [{ data: rows, count, error }, { data: classes }] = await Promise.all([
     query,
@@ -57,11 +59,11 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const photos = await signPhotos(supabase, (rows ?? []).map((r) => r.photo_url));
   const total = count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const filtered = !!(q || classId || card);
+  const filtered = !!(q || classId || card || consentPending);
 
   const hrefWith = (patch: Partial<Search>) => {
     const p = new URLSearchParams();
-    const merged = { q: sp.q, class: sp.class, card: sp.card, page: sp.page, ...patch };
+    const merged = { q: sp.q, class: sp.class, card: sp.card, consent: sp.consent, page: sp.page, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
     const s = p.toString();
     return s ? `/students?${s}` : "/students";
@@ -79,7 +81,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         )}
       </PageHeader>
 
-      <StudentFilters classes={classes ?? []} q={sp.q ?? ""} classId={classId ?? ""} card={card ?? ""} />
+      <StudentFilters classes={classes ?? []} q={sp.q ?? ""} classId={classId ?? ""} card={card ?? ""} consent={consentPending ? "pending" : ""} isAdmin={isAdmin} />
 
       {(rows ?? []).length === 0 ? (
         filtered ? (
@@ -109,7 +111,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
                       <PersonAvatar name={s.full_name} src={s.photo_url ? photos.get(s.photo_url) : null} />
                       <span>
                         <span className="block font-medium text-ink">{s.full_name}</span>
-                        <span className="block text-xs text-muted-foreground tabular-nums">{s.admission_no}</span>
+                        <span className="block text-xs text-muted-foreground tabular-nums">{s.admission_no}{isAdmin && !s.consent_at && <span className="ml-2 rounded bg-amber-50 px-1.5 py-px font-sans text-[11px] font-medium text-amber-900">No consent</span>}</span>
                       </span>
                     </Link>
                   </td>

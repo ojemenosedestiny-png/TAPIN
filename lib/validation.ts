@@ -172,3 +172,16 @@ export const excusalSchema = z.object({
   date: isoDate,
   reason: z.string().trim().min(2, "Give a short reason, e.g. Sick note.").max(200),
 });
+
+// ---------------------------------------------------------------------------
+// Privacy: consent and retention
+// ---------------------------------------------------------------------------
+export const consentSchema = z.object({
+  student_id: uuid,
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date the form was signed."),
+  note: z.string().trim().min(2, "Say how consent was given, e.g. Signed form from mother.").max(200),
+});
+
+export const retentionSchema = z.object({
+  retention_months: z.coerce.number().int().min(1, "At least 1 month.").max(84, "At most 84 months (7 years)."),
+});

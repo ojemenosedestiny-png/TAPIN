@@ -17,6 +17,13 @@ test.describe("signing in", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
   });
 
+  test("the privacy notice is public and linked from sign-in", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Privacy" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Privacy notice" })).toBeVisible();
+    await expect(page.getByText(/deleted automatically/)).toBeVisible();
+  });
+
   test("forgot password page validates the email", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("link", { name: "Forgot password?" }).click();
@@ -50,6 +57,33 @@ test.describe("today and reports", () => {
     await page.getByRole("link", { name: "Pilot launch checklist" }).click();
     await expect(page.getByRole("heading", { name: "Pilot launch checklist" })).toBeInViewport();
     await expect(page.getByText(/App pinning/)).toBeVisible();
+  });
+
+  test("consent: a photo can only be added after parental consent is recorded", async ({ page }, info) => {
+    test.skip(info.project.name !== "laptop", "writes data once per run");
+    const f = fixture();
+    const student = f.students[3]!;
+    await page.goto(`/students?student=${student.id}`);
+    const drawer = page.getByRole("dialog");
+    await expect(drawer.getByText("Record parental consent above to add a photo.")).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Take photo" })).toHaveCount(0);
+    await drawer.getByLabel("How").fill("Signed form from mother");
+    await drawer.getByRole("button", { name: "Record consent" }).click();
+    await expect(page.getByText("Consent recorded. You can now add a photo.")).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Take photo" })).toBeVisible();
+  });
+
+  test("account: two-factor setup shows a QR code and can be cancelled", async ({ page }, info) => {
+    test.skip(info.project.name !== "laptop", "creates an unverified factor once per run");
+    await page.goto("/account");
+    await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
+    await page.getByRole("button", { name: "Turn on two-factor login" }).click();
+    await expect(page.getByRole("img", { name: /QR code/ })).toBeVisible();
+    await page.getByLabel("Code from the app").fill("000000");
+    await page.getByRole("button", { name: "Turn on", exact: true }).click();
+    await expect(page.getByText(/didn't work/)).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("button", { name: "Turn on two-factor login" })).toBeVisible();
   });
 
   test("reports: quick ranges and an Excel download", async ({ page }) => {

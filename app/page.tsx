@@ -5,7 +5,7 @@ import { homePath } from "@/lib/auth/roles";
 
 async function RedirectHome(): Promise<never> {
   const user = await getCurrentUser();
-  redirect(user ? homePath(user.role) : "/login");
+  redirect(!user ? "/login" : user.needsMfa ? "/auth/mfa" : homePath(user.role));
 }
 
 export default function Home() {

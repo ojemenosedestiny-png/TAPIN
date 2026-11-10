@@ -26,6 +26,10 @@ export async function setPhoto(input: z.infer<typeof setPhotoSchema>): Promise<{
 
   const supabase = await createClient();
   const table = holder_type === "student" ? "students" : "staff";
+  if (holder_type === "student") {
+    const { data: st } = await supabase.from("students").select("consent_at").eq("id", holder_id).maybeSingle();
+    if (!st?.consent_at) return { ok: false, error: "Record the parent's consent before adding a photo." };
+  }
   const { data: before } = await supabase.from(table).select("photo_url").eq("id", holder_id).maybeSingle();
   const { data, error } = await supabase.from(table).update({ photo_url: path }).eq("id", holder_id).select("id").maybeSingle();
   if (error || !data) return { ok: false, error: "Could not save the photo." };
@@ -41,7 +45,7 @@ export async function setPhoto(input: z.infer<typeof setPhotoSchema>): Promise<{
 const bulkSchema = z.array(z.object({ admission_no: z.string().min(1).max(40), path: z.string().max(300) })).max(500);
 
 /** Bulk upload: match by admission number. Returns which ones were saved. */
-export async function setPhotosByAdmission(items: z.infer<typeof bulkSchema>): Promise<{ saved: string[]; notFound: string[]; error?: string }> {
+export async function setPhotosByAdmission(items: z.infer<typeof bulkSchema>): Promise<{ saved: string[]; notFound: string[]; noConsent?: string[]; error?: string }> {
   const user = await requireSchoolArea("students");
   if (user.role !== "school_admin") return { saved: [], notFound: [], error: "Only school admins can change photos." };
   const parsed = bulkSchema.safeParse(items);
@@ -49,17 +53,23 @@ export async function setPhotosByAdmission(items: z.infer<typeof bulkSchema>): P
 
   const supabase = await createClient();
   const nos = parsed.data.map((i) => i.admission_no.toUpperCase());
-  const { data: students } = await supabase.from("students").select("id, admission_no, photo_url").in("admission_no", nos);
+  const { data: students } = await supabase.from("students").select("id, admission_no, photo_url, consent_at").in("admission_no", nos);
   const byNo = new Map((students ?? []).map((s) => [s.admission_no.toUpperCase(), s]));
 
   const saved: string[] = [];
   const notFound: string[] = [];
+  const noConsent: string[] = [];
   const toRemove: string[] = [];
   for (const item of parsed.data) {
     const s = byNo.get(item.admission_no.toUpperCase());
     if (!s || !item.path.startsWith(`${user.schoolId}/student/${s.id}-`)) {
       notFound.push(item.admission_no);
       if (pathInSchool(item.path, user.schoolId)) toRemove.push(item.path); // orphan upload
+      continue;
+    }
+    if (!s.consent_at) {
+      noConsent.push(item.admission_no);
+      if (pathInSchool(item.path, user.schoolId)) toRemove.push(item.path);
       continue;
     }
     const { error } = await supabase.from("students").update({ photo_url: item.path }).eq("id", s.id);
@@ -72,7 +82,7 @@ export async function setPhotosByAdmission(items: z.infer<typeof bulkSchema>): P
     await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "photo.bulk_set", entity: "students", details: { count: saved.length } });
   }
   revalidatePath("/students");
-  return { saved, notFound };
+  return { saved, notFound, noConsent };
 }
 
 /** For bulk upload: the student ids for a list of admission numbers (to build upload paths). */

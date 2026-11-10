@@ -9,6 +9,8 @@ export type CurrentUser = {
   role: Role;
   schoolId: string | null;
   schoolName: string | null;
+  /** Has two-factor on but hasn't entered the code in this session yet. */
+  needsMfa: boolean;
 };
 
 /** The logged-in staff member with their role, or null. Reads through RLS as that user. */
@@ -25,6 +27,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   if (!profile || !isRole(profile.role)) return null;
 
+  // Read from the session token: no network call.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const needsMfa = aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2";
+
   const school = profile.schools as unknown as { name: string } | null;
   return {
     id: profile.id,
@@ -33,6 +39,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     role: profile.role,
     schoolId: profile.school_id,
     schoolName: school?.name ?? null,
+    needsMfa,
   };
 }
 
@@ -40,6 +47,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 export async function requireArea(area: Area): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (user.needsMfa) redirect("/auth/mfa");
   if (!canAccess(user.role, area)) redirect(homePath(user.role));
   return user;
 }
@@ -56,6 +64,6 @@ export async function requireSchoolArea(area: Area): Promise<SchoolUser> {
 /** For route handlers: returns the school admin or null (caller responds 401/403). */
 export async function getSchoolAdmin(): Promise<SchoolUser | null> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "school_admin" || !user.schoolId) return null;
+  if (!user || user.needsMfa || user.role !== "school_admin" || !user.schoolId) return null;
   return user as SchoolUser;
 }

@@ -58,7 +58,8 @@ export function BulkPhotoUpload({ schoolId }: { schoolId: string }) {
     if (uploaded.length) {
       const res = await setPhotosByAdmission(uploaded.map(({ admission_no, path }) => ({ admission_no, path })));
       const saved = new Set(res.saved);
-      for (const u of uploaded) patch(u.index, saved.has(u.admission_no) ? { state: "done" } : { state: "failed", note: "Could not save" });
+      const noConsent = new Set(res.noConsent ?? []);
+      for (const u of uploaded) patch(u.index, saved.has(u.admission_no) ? { state: "done" } : { state: "failed", note: noConsent.has(u.admission_no) ? "No parental consent recorded" : "Could not save" });
       toast.success(`${res.saved.length} photo${res.saved.length === 1 ? "" : "s"} saved.`);
     }
     setRunning(false);
