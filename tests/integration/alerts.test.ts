@@ -42,6 +42,8 @@ describe.skipIf(!enabled)("alerts pipeline", () => {
       return data.id as string;
     };
     ids.school = await ins("schools", { name: `Alert Test ${Date.now()}`, resumption_time: "07:45", absence_cutoff_time: "09:00", closing_time: "14:00" });
+    // No quiet hours, so these tests pass at any time of day (the default 20:00–06:00 would hold every message).
+    await db.from("alert_settings").update({ quiet_start: "00:00", quiet_end: "00:00" }).eq("school_id", ids.school);
     ids.class = await ins("classes", { school_id: ids.school, name: "JSS2A" });
     const student = (first: string, n: number) => ins("students", {
       school_id: ids.school, class_id: ids.class, admission_no: `A${n}`, first_name: first, last_name: "Test", created_at: "2026-01-01T00:00:00Z",
@@ -149,7 +151,7 @@ describe.skipIf(!enabled)("alerts pipeline", () => {
     expect(wait).toBeGreaterThan(55 * 60_000); // held until the window ends, about an hour away
     expect(wait).toBeLessThan(61 * 60_000);
     await db.from("sms_logs").delete().eq("id", m!.id);
-    await db.from("alert_settings").update({ quiet_start: "20:00", quiet_end: "06:00" }).eq("school_id", ids.school);
+    await db.from("alert_settings").update({ quiet_start: "00:00", quiet_end: "00:00" }).eq("school_id", ids.school);
   });
 
   it("stops sending when the monthly allowance is used up", async () => {

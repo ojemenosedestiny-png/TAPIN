@@ -50,7 +50,7 @@ export default async function BillingPage() {
         { label: "Unpaid invoices", value: Math.round(unpaid), tone: "warn", caption: "Naira outstanding" },
       ]} />
 
-      <section className="motion-rise mt-6 overflow-x-auto rounded-xl border border-border bg-card" aria-labelledby="schools">
+      <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="schools">
         <div className="flex flex-wrap items-end justify-between gap-3 px-5 pb-2 pt-4">
           <h2 id="schools" className="text-base font-semibold text-ink">Schools this month</h2>
           <GenerateInvoices defaultMonth={lastMonth.slice(0, 7)} schools={rows.map((r) => ({ id: r.id, name: r.name }))} />
@@ -84,7 +84,7 @@ export default async function BillingPage() {
         {rows.length === 0 && <p className="px-5 pb-5 text-sm text-muted-foreground">No schools yet.</p>}
       </section>
 
-      <section className="motion-rise mt-6 overflow-x-auto rounded-xl border border-border bg-card" aria-labelledby="invoices">
+      <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="invoices">
         <h2 id="invoices" className="px-5 pb-2 pt-4 text-base font-semibold text-ink">Invoices</h2>
         {(invoices ?? []).length === 0 ? (
           <p className="px-5 pb-5 text-sm text-muted-foreground">No invoices yet. Set a school&apos;s pricing and billing start, then issue invoices for a finished month.</p>
@@ -125,7 +125,7 @@ export default async function BillingPage() {
         )}
       </section>
 
-      <section className="motion-rise mt-6 max-w-3xl rounded-xl border border-border bg-card p-6" aria-labelledby="business">
+      <section className="motion-rise mt-6 max-w-3xl surface rounded-xl p-6" aria-labelledby="business">
         <h2 id="business" className="mb-1 text-base font-semibold text-ink">Your business details</h2>
         <p className="mb-4 text-sm text-muted-foreground">Printed on every invoice, with where to pay.</p>
         {settings && <PlatformSettingsForm settings={settings} />}

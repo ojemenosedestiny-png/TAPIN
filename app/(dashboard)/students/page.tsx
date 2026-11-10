@@ -93,7 +93,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
             action={isAdmin ? <Button asChild><Link href="/students/import"><FileSpreadsheet className="size-4" /> Import from Excel</Link></Button> : undefined} />
         )
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto surface rounded-xl">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>

@@ -10,9 +10,9 @@ async function Shell({ children }: { children: React.ReactNode }) {
   if (!user) redirect("/login");
   if (user.needsMfa) redirect("/auth/mfa");
   return (
-    <div className="min-h-dvh bg-background lg:flex">
+    <div className="canvas min-h-dvh lg:flex">
       <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} />
-      <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      <main id="main" className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-12 lg:py-12">
         {children}
       </main>
     </div>

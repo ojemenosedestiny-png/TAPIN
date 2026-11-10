@@ -52,7 +52,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
           const active = (status ?? "") === f.key;
           return (
             <Link key={f.key} href={f.key ? `/cards?status=${f.key}` : "/cards"} aria-current={active ? "page" : undefined}
-              className={cn("rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset", active ? "bg-brand text-white ring-brand" : "bg-card text-muted-foreground ring-border hover:text-ink")}>
+              className={cn("rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset", active ? "bg-primary text-primary-foreground ring-brand" : "bg-card text-muted-foreground ring-border hover:text-ink")}>
               {f.label}
             </Link>
           );
@@ -64,7 +64,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
           body="Link cards to students and staff from class enrollment or from a person's profile."
           action={<Button asChild><Link href="/enroll">Enrol cards</Link></Button>} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto surface rounded-xl">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>

@@ -75,7 +75,7 @@ test.describe("super admin billing", () => {
     await expect(inv).toBeVisible();
     await inv.getByRole("link").click();
     await expect(page.getByRole("heading", { name: "Invoice" })).toBeVisible();
-    await expect(page.getByText("₦2,500.00").last()).toBeVisible();
+    await expect(page.getByText("₦2,500.00").filter({ visible: true }).last()).toBeVisible(); // the previous page stays mounted, hidden
     await page.goto("/platform/billing");
     await page.getByRole("row").filter({ hasText: f.schoolName }).filter({ hasText: "₦2,500.00" }).filter({ hasText: "Unpaid" }).getByRole("button", { name: "Mark paid" }).click();
     await expect(page.getByText(/marked paid/)).toBeVisible();
@@ -157,6 +157,42 @@ test.describe("today and reports", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Activity log" })).toBeVisible();
     await page.getByRole("link", { name: "Logins and security" }).click();
     await expect(page.getByRole("link", { name: "Logins and security" })).toHaveAttribute("aria-current", "page");
+  });
+
+  test("appearance: dark mode is remembered, and Auto follows the device", async ({ page }, info) => {
+    await page.goto("/today");
+    const html = page.locator("html");
+    const menu = async () => { if (info.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click(); };
+    await menu();
+    await page.getByRole("radio", { name: "Dark" }).first().click();
+    await expect(html).toHaveClass(/dark/);
+    await page.reload();
+    await expect(html).toHaveClass(/dark/); // applied before paint, no flash
+    await menu();
+    if (info.project.name === "laptop") await page.screenshot({ path: "test-results/today-dark.png", fullPage: true });
+    await page.getByRole("radio", { name: "Light" }).first().click();
+    await expect(html).not.toHaveClass(/dark/);
+    if (info.project.name === "laptop") await page.screenshot({ path: "test-results/today-light.png", fullPage: true });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.getByRole("radio", { name: "Auto" }).first().click();
+    await expect(html).toHaveClass(/dark/);
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(html).not.toHaveClass(/dark/);
+  });
+
+  test("alerts: gate sounds play and a test alert previews the real wording", async ({ page }, info) => {
+    await page.goto("/alerts");
+    await expect(page.getByRole("heading", { name: "Test sounds and alerts" })).toBeVisible();
+    await page.getByRole("button", { name: "Play Sign in" }).click();
+    await page.getByLabel("Alert type").selectOption("absence");
+    await expect(page.getByText(/^TEST: /)).toBeVisible();
+    await page.getByLabel("Send to").fill("12345");
+    await page.getByRole("button", { name: "Send test" }).click();
+    await expect(page.getByText("Enter a Nigerian mobile number, like 0803 123 4567.")).toBeVisible();
+    if (info.project.name === "laptop") {
+      await page.getByRole("heading", { name: "Test sounds and alerts" }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: "test-results/alerts-test-panel.png" });
+    }
   });
 
   test("reports: staff tab with an Excel download", async ({ page }) => {

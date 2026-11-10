@@ -21,7 +21,7 @@ export default async function ConsentFormPage() {
         <Link href="/help" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink"><ArrowLeft className="size-4" /> Help</Link>
         <PrintButton />
       </div>
-      <article className="mx-auto max-w-2xl rounded-xl border border-border bg-card p-8 text-[15px] leading-relaxed text-ink print:border-0 print:p-0 [&_li]:mt-1.5 [&_p]:mt-3">
+      <article className="mx-auto max-w-2xl surface rounded-xl p-8 text-[15px] leading-relaxed text-ink print:border-0 print:p-0 [&_li]:mt-1.5 [&_p]:mt-3">
         <h1 className="font-heading text-2xl font-semibold">{name}</h1>
         <p className="!mt-1 text-lg font-medium">Parent / guardian consent: gate attendance with TapIn</p>
 

@@ -35,7 +35,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         <PrintButton />
       </div>
 
-      <article className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-8 text-sm text-ink print:border-0 print:p-0">
+      <article className="mx-auto max-w-3xl surface rounded-xl p-8 text-sm text-ink print:border-0 print:p-0">
         <header className="flex flex-wrap items-start justify-between gap-6">
           <div>
             <Wordmark className="text-base" />

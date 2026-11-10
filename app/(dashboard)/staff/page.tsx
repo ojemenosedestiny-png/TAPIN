@@ -46,7 +46,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
       {(staff ?? []).length === 0 ? (
         <EmptyState icon={<Users className="size-7" aria-hidden />} title="No staff yet" body="Add staff who should tap in and out at the gate." action={<StaffDialog />} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto surface rounded-xl">
           <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>

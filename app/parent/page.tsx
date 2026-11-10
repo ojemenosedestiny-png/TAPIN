@@ -33,7 +33,7 @@ async function Portal() {
   const children = (kids ?? []) as Child[];
   if (!children.length) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-center">
+      <div className="surface rounded-xl p-6 text-center">
         <p className="font-medium text-ink">No children found for this number.</p>
         <p className="mt-1 text-sm text-muted-foreground">Ask your child&apos;s school to check the phone number they have for you.</p>
       </div>
@@ -138,7 +138,7 @@ export default function ParentPage() {
         </div>
       </header>
       <main id="main" className="mx-auto max-w-2xl px-4 py-6">
-        <h1 className="mb-5 font-heading text-2xl font-semibold text-ink">My children</h1>
+        <h1 className="mb-5 font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">My children</h1>
         <Suspense fallback={<div className="space-y-4" aria-busy="true"><Skeleton className="h-64 w-full rounded-2xl" /><Skeleton className="h-40 w-full rounded-2xl" /></div>}>
           <Portal />
         </Suspense>

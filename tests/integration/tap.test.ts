@@ -100,7 +100,7 @@ describe.skipIf(!enabled)("POST /api/tap", () => {
   it("replaying the same offline tap changes nothing", async () => {
     const r = await tap({ uid: UID, tapped_at: lagos("07:42"), client_id: "offline-0001" });
     expect(r.body).toMatchObject({ action: "signed_in", replayed: true });
-    const { count } = await db.from("tap_events").select("id", { count: "exact", head: true }).eq("client_id", "offline-0001");
+    const { count } = await db.from("tap_events").select("id", { count: "exact", head: true }).eq("client_id", "offline-0001").eq("device_id", ids.device);
     expect(count).toBe(1);
   });
 

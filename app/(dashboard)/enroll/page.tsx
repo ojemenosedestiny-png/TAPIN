@@ -38,7 +38,7 @@ export default async function EnrollPage() {
             const pct = st.total ? Math.round(((st.total - st.without) / st.total) * 100) : 0;
             return (
               <li key={c.id}>
-                <Link href={`/enroll/class/${c.id}`} className="group flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition hover:border-brand/40 hover:shadow focus-visible:outline-2 focus-visible:outline-warn">
+                <Link href={`/enroll/class/${c.id}`} className="group flex items-center gap-4 surface rounded-xl p-4 shadow-sm transition hover:border-brand/40 hover:shadow focus-visible:outline-2 focus-visible:outline-warn">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-ink">{c.name}</p>
                     <p className="text-sm text-muted-foreground tabular-nums">{st.without} of {st.total} without a card</p>

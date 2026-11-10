@@ -122,6 +122,19 @@ Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / 
 - **Kiosk with no internet:** after one online visit, the kiosk page opens even with no connection (service worker
   in `public/sw.js`, scoped to `/kiosk`). Taps queue on the device and sync when the internet returns.
 
+## Kiosk voice, test alerts and appearance
+
+- **Voice:** set `ELEVENLABS_API_KEY` (and optionally `ELEVENLABS_VOICE_ID`) and the kiosk greets children in that
+  voice. Each phrase is made once by ElevenLabs, stored in the private `voice` bucket and cached on the kiosk, so a
+  child's greeting costs one request ever, then plays instantly (also offline). If a clip is not ready within
+  1.5 s, the device voice says the same words. Only first names are sent.
+- **Alerts → Test sounds and alerts:** play every gate sound in the school voice, and send a test SMS with the real
+  wording (marked TEST). Without Termii connected it shows the exact preview instead.
+- **Appearance:** Light, Dark or Auto (follows the device), in the sidebar and on the sign-in page. The kiosk keeps its
+  own colours, and printing is always light.
+- **Kiosk result screen:** full portrait, name, class, admission number, late badge and time, with a bar that drains
+  for 4 seconds before the next child.
+
 ## Password resets
 
 - **Forgot password?** on the login page emails a one-time link (Supabase Auth). For the link to work, in Supabase →

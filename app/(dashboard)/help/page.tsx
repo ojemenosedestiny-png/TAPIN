@@ -14,7 +14,7 @@ const SECTIONS = [
 
 function Section({ id, title, children, i }: { id: string; title: string; children: React.ReactNode; i: number }) {
   return (
-    <section id={id} aria-labelledby={`${id}-h`} className="motion-rise scroll-mt-6 rounded-xl border border-border bg-card p-6" style={{ "--d": `${i * 60}ms` } as React.CSSProperties}>
+    <section id={id} aria-labelledby={`${id}-h`} className="motion-rise scroll-mt-6 surface rounded-xl p-6" style={{ "--d": `${i * 60}ms` } as React.CSSProperties}>
       <h2 id={`${id}-h`} className="text-lg font-semibold text-ink">{title}</h2>
       <div className="mt-3 space-y-3 text-[15px] leading-relaxed text-ink [&_li]:mt-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5">{children}</div>
     </section>
@@ -26,7 +26,7 @@ export default async function HelpPage() {
   return (
     <>
       <div className="mb-6 motion-rise">
-        <h1 className="font-heading text-2xl font-semibold text-ink">Help</h1>
+        <h1 className="font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Help</h1>
         <p className="mt-1 text-sm text-muted-foreground">Setting up the gate, training your team and launching TapIn at your school.</p>
       </div>
 

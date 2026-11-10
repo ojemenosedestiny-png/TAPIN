@@ -13,7 +13,7 @@ export type Kpi = { label: string; value: number; of?: number; suffix?: string; 
 /** One container split by 1px dividers; the lead figure answers the screen's question. */
 export function KpiStrip({ items }: { items: Kpi[] }) {
   return (
-    <div className={cn("grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-card", items.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
+    <div className={cn("grid grid-cols-2 overflow-hidden surface rounded-xl", items.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
       {items.map((k, i) => (
         <div key={k.label} className={cn("motion-rise border-border p-5", i % 2 === 1 && "border-l", i >= 2 && "border-t lg:border-t-0", i > 0 && "lg:border-l",
           // An odd count on a phone: the last cell takes the full row instead of leaving half of it empty.

@@ -56,7 +56,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="motion-rise">
-          <h1 className="font-heading text-2xl font-semibold text-ink">Reports</h1>
+          <h1 className="font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">{school.name} · {className ?? (user.role === "teacher" ? "My classes" : "All classes")} · {rangeLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
@@ -132,7 +132,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             { label: "Excused", value: t.excused, caption: "Not counted against attendance" },
           ]} />
 
-          <section className="motion-rise mt-6 overflow-x-auto rounded-xl border border-border bg-card" style={{ "--d": "150ms" } as React.CSSProperties} aria-labelledby="by-student">
+          <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" style={{ "--d": "150ms" } as React.CSSProperties} aria-labelledby="by-student">
             <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-1 pt-4">
               <h2 id="by-student" className="text-base font-semibold text-ink">By student</h2>
               <p className="text-xs text-muted-foreground">{rows.length.toLocaleString()} student{rows.length === 1 ? "" : "s"} · lowest attendance first</p>

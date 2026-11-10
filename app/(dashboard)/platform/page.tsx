@@ -36,7 +36,7 @@ export default async function PlatformPage() {
           body="Create the first school below, then give it a school admin account."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto surface rounded-xl">
           <table className="w-full min-w-[560px] text-sm tabular-nums">
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>
@@ -63,11 +63,11 @@ export default async function PlatformPage() {
       )}
 
       <div className="mt-10 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm" aria-labelledby="new-school">
+        <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="new-school">
           <h2 id="new-school" className="mb-4 font-heading text-lg font-semibold text-ink">New school</h2>
           <CreateSchoolForm />
         </section>
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm" aria-labelledby="new-user">
+        <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="new-user">
           <h2 id="new-user" className="mb-4 font-heading text-lg font-semibold text-ink">New staff account</h2>
           <CreateUserForm schools={list.map(({ id, name }) => ({ id, name }))} />
         </section>

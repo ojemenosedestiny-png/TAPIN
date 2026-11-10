@@ -20,9 +20,9 @@ export default function NewPasswordPage() {
       <div className="motion-rise w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo className="size-14" />
-          <h1 className="mt-4 text-2xl font-semibold text-ink">Choose a new password</h1>
+          <h1 className="mt-4 text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Choose a new password</h1>
         </div>
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="surface rounded-xl p-6 shadow-sm">
           <Suspense fallback={<div className="h-48" aria-busy="true" />}>
             <Gate />
           </Suspense>

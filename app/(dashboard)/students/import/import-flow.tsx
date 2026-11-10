@@ -49,7 +49,7 @@ export function ImportFlow() {
 
   if (done) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
+      <div className="surface rounded-xl p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto size-12 text-success" aria-hidden />
         <h2 className="mt-3 text-xl font-semibold text-ink">Import complete</h2>
         <p className="mt-2 text-sm text-muted-foreground tabular-nums">
@@ -103,7 +103,7 @@ export function ImportFlow() {
           )}
 
           {preview.rows.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+            <div className="overflow-x-auto surface rounded-xl">
               <table className="w-full min-w-[640px] text-sm">
                 <caption className="sr-only">Students to import</caption>
                 <thead className="bg-muted/60 text-left text-muted-foreground">

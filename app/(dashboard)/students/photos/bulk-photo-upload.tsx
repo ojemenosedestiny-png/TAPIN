@@ -85,7 +85,7 @@ export function BulkPhotoUpload({ schoolId }: { schoolId: string }) {
       </div>
 
       {items.length > 0 && (
-        <ul className="divide-y divide-border rounded-xl border border-border bg-card text-sm shadow-sm" aria-live="polite">
+        <ul className="divide-y divide-border surface rounded-xl text-sm shadow-sm" aria-live="polite">
           {items.map((it, i) => (
             <li key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <span className="truncate"><span className="font-medium tabular-nums text-ink">{it.admission}</span> <span className="text-muted-foreground">· {it.file.name}</span></span>

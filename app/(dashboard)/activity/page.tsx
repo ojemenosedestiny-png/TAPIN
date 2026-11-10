@@ -60,7 +60,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
       {rows.length === 0 ? (
         <EmptyState icon={<History className="size-7" aria-hidden />} title="Nothing recorded yet" body="Card changes, imports, exports, consent, logins and settings changes appear here." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="overflow-x-auto surface rounded-xl">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="text-left text-xs text-muted-foreground">
               <tr>

@@ -23,6 +23,8 @@ export type TapResponse = {
   first_name?: string;
   photo_url?: string | null;
   class?: string | null;
+  /** Admission number for students; empty for staff. */
+  id_no?: string | null;
   time: string;
   greeting?: string;
   late?: boolean;
@@ -141,6 +143,7 @@ export async function POST(req: NextRequest) {
     first_name: person.firstName,
     photo_url: photoUrl,
     class: person.className,
+    id_no: person.idNo,
     time,
     greeting: greetingForHour(localHour(tappedAt, school.timezone)),
     late,
@@ -153,17 +156,17 @@ type Db = ReturnType<typeof createAdminClient>;
 
 async function loadHolder(db: Db, type: string, id: string) {
   if (type === "student") {
-    const { data } = await db.from("students").select("first_name, last_name, photo_url, status, class_id, classes(name)").eq("id", id).maybeSingle();
+    const { data } = await db.from("students").select("first_name, last_name, admission_no, photo_url, status, class_id, classes(name)").eq("id", id).maybeSingle();
     if (!data) return null;
     return {
       name: `${data.first_name} ${data.last_name}`, firstName: data.first_name, photo: data.photo_url as string | null,
-      className: (data.classes as unknown as { name: string } | null)?.name ?? null, classId: data.class_id as string | null,
+      className: (data.classes as unknown as { name: string } | null)?.name ?? null, classId: data.class_id as string | null, idNo: data.admission_no as string | null,
       active: data.status === "active",
     };
   }
   const { data } = await db.from("staff").select("name, photo_url, status").eq("id", id).maybeSingle();
   if (!data) return null;
-  return { name: data.name, firstName: data.name.split(" ")[0]!, photo: data.photo_url as string | null, className: "Staff", classId: null, active: data.status === "active" };
+  return { name: data.name, firstName: data.name.split(" ")[0]!, photo: data.photo_url as string | null, className: "Staff", classId: null, idNo: null, active: data.status === "active" };
 }
 
 /**

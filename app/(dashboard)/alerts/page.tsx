@@ -12,6 +12,7 @@ import { StatusPill, type PillTone } from "@/components/dashboard/status-pill";
 import { cn } from "@/lib/utils";
 import { AlertSettingsForm } from "./alert-settings-form";
 import { MarkAllReadButton, RetryButton, SendNowButton } from "./action-buttons";
+import { TestPanel } from "./test-panel";
 
 export const metadata: Metadata = { title: "Alerts" };
 
@@ -63,7 +64,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
 
       {/* Summary cards */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="surface rounded-xl p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">SMS this month</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{sent.toLocaleString()} <span className="text-base font-normal text-muted-foreground">/ {allowance.toLocaleString()}</span></p>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Allowance used">
@@ -71,22 +72,32 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           </div>
           {pct >= 90 && <p className="mt-2 text-xs text-red-700">{pct >= 100 ? "Allowance used up — SMS have stopped." : "Almost used up."}</p>}
         </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="surface rounded-xl p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Termii balance</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{balance ? `${balance.currency} ${balance.balance.toLocaleString()}` : "—"}</p>
           <p className="mt-2 text-xs text-muted-foreground">{cfg ? `Sender ID: ${cfg.senderId} · ${cfg.channel === "dnd" ? "transactional route" : "generic route"}` : "Not connected"}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="surface rounded-xl p-5 shadow-sm">
           <p className="text-sm text-muted-foreground">Waiting to send</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{queuedCount.count ?? 0}</p>
           <div className="mt-2"><SendNowButton disabled={!cfg || !queuedCount.count} /></div>
         </div>
-        <Link href="/alerts?status=failed#sms-log" className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-red-300">
+        <Link href="/alerts?status=failed#sms-log" className="surface rounded-xl p-5 shadow-sm transition hover:border-red-300">
           <p className="text-sm text-muted-foreground">Failed after 3 retries</p>
           <p className={cn("mt-1 text-2xl font-semibold tabular-nums", failedCount.count ? "text-red-700" : "text-ink")}>{failedCount.count ?? 0}</p>
           <p className="mt-2 text-xs text-muted-foreground">Retry from the SMS log</p>
         </Link>
       </div>
+
+      {/* Try it */}
+      <section className="mb-10" aria-labelledby="try-it">
+        <h2 id="try-it" className="mb-3 text-lg font-semibold text-ink">Test sounds and alerts</h2>
+        <TestPanel schoolName={school.name} templates={{
+          arrival: (settings as AlertSettings).arrival_template, late: (settings as AlertSettings).late_template,
+          departure: (settings as AlertSettings).departure_template, absence: (settings as AlertSettings).absence_template,
+          early: (settings as AlertSettings).early_template,
+        }} />
+      </section>
 
       {/* Needs attention */}
       <section className="mb-10" aria-labelledby="attention">
@@ -97,7 +108,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
         {(notes ?? []).length === 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">Nothing needs attention. Unknown cards, offline kiosks and failed SMS show up here.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-xl border border-border bg-card shadow-sm">
+          <ul className="divide-y divide-border surface rounded-xl">
             {(notes ?? []).map((n) => {
               const Icon = KIND_ICON[n.kind as keyof typeof KIND_ICON] ?? Bell;
               return (
@@ -128,7 +139,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           <nav aria-label="SMS status" className="flex flex-wrap gap-1.5">
             {FILTERS.map((f) => (
               <Link key={f} href={f === "all" ? "/alerts#sms-log" : `/alerts?status=${f}#sms-log`} aria-current={filter === f ? "page" : undefined}
-                className={cn("rounded-full px-3 py-1 text-xs font-medium capitalize ring-1 ring-inset", filter === f ? "bg-brand text-white ring-brand" : "bg-card text-muted-foreground ring-border hover:text-ink")}>
+                className={cn("rounded-full px-3 py-1 text-xs font-medium capitalize ring-1 ring-inset", filter === f ? "bg-primary text-primary-foreground ring-brand" : "bg-card text-muted-foreground ring-border hover:text-ink")}>
                 {f}
               </Link>
             ))}
@@ -137,7 +148,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
         {(logs ?? []).length === 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">No messages{filter !== "all" ? ` with status “${filter}”` : " yet"}.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+          <div className="overflow-x-auto surface rounded-xl">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-muted/60 text-left text-muted-foreground">
                 <tr>

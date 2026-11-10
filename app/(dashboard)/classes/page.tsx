@@ -39,7 +39,7 @@ export default async function ClassesPage() {
           action={<ClassDialog teachers={teachers ?? []} />}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto surface rounded-xl">
           <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-muted/60 text-left text-muted-foreground">
               <tr>

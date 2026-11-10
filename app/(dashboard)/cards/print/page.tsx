@@ -62,7 +62,7 @@ export default async function PrintCardsPage({ searchParams }: { searchParams: P
         <Link href="/cards" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink"><ArrowLeft className="size-4" /> Cards</Link>
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="font-heading text-2xl font-semibold text-ink">Print ID cards</h1>
+            <h1 className="font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Print ID cards</h1>
             <p className="mt-1 text-sm text-muted-foreground">Bank-card size (85.6 × 54 mm). Print at 100% scale (“Actual size”), not “Fit to page”.</p>
           </div>
           {people.length > 0 && <PrintButton />}

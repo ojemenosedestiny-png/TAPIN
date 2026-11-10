@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { signStandardWebhook, verifyStandardWebhook } from "@/lib/standard-webhooks";
-import { chooseChannel, whatsappData } from "@/lib/alert-rules";
+import { chooseChannel, testAlertMessage, whatsappData } from "@/lib/alert-rules";
 
 const SECRET = `v1,whsec_${Buffer.from("a-test-secret-for-tapin-hooks").toString("base64")}`;
 
@@ -79,5 +79,11 @@ describe("SMS or WhatsApp", () => {
   it("fills template placeholders {{1}}–{{4}} and drops empty ones", () => {
     expect(whatsappData({ "1": "Chioma Okafor", "2": "Bright Future", "3": "7:42 AM", "4": "" })).toEqual({ "1": "Chioma Okafor", "2": "Bright Future", "3": "7:42 AM" });
     expect(whatsappData({ "1": 5, x: "y" })).toEqual({});
+  });
+});
+
+describe("test alerts", () => {
+  it("use the school's real wording with a sample child, clearly marked TEST", () => {
+    expect(testAlertMessage("{greeting}! {first_name} arrived at {school} at {time}.", "Emerald School")).toBe("TEST: Good morning! Chioma arrived at Emerald School at 7:42 AM.");
   });
 });

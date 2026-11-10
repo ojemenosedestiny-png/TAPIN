@@ -95,7 +95,7 @@ export default async function ClassTodayPage({ params }: { params: Promise<{ id:
       <Link href="/today" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink"><ArrowLeft className="size-4" /> Today</Link>
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="motion-rise">
-          <h1 className="font-heading text-2xl font-semibold text-ink">{cls.name}</h1>
+          <h1 className="font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">{cls.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{teacher?.name ? `Class teacher: ${teacher.name} · ` : ""}{rows.length} students</p>
         </div>
         <LiveDot />
@@ -103,7 +103,7 @@ export default async function ClassTodayPage({ params }: { params: Promise<{ id:
 
       <KpiStrip items={kpis} />
 
-      <section className="motion-rise mt-6 overflow-hidden rounded-xl border border-border bg-card" style={{ "--d": "150ms" } as React.CSSProperties} aria-labelledby="list">
+      <section className="motion-rise mt-6 overflow-hidden surface rounded-xl" style={{ "--d": "150ms" } as React.CSSProperties} aria-labelledby="list">
         <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-2 pt-4">
           <h2 id="list" className="text-base font-semibold text-ink">Today and this week</h2>
           <p className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

@@ -17,7 +17,7 @@ export type IdCardPerson = {
 export function IdCard({ person, school }: { person: IdCardPerson; school: { name: string; logoUrl: string | null } }) {
   return (
     <div
-      className="relative flex h-[54mm] w-[85.6mm] shrink-0 flex-col overflow-hidden rounded-[3mm] bg-white text-ink ring-1 ring-slate-200 [print-color-adjust:exact] [-webkit-print-color-adjust:exact] print:ring-slate-300"
+      className="theme-light relative flex h-[54mm] w-[85.6mm] shrink-0 flex-col overflow-hidden rounded-[3mm] bg-white text-ink ring-1 ring-slate-200 [print-color-adjust:exact] [-webkit-print-color-adjust:exact] print:ring-slate-300"
       style={{ breakInside: "avoid" }}
     >
       <div className="flex h-[11mm] items-center gap-[2mm] bg-brand px-[3mm] text-white">

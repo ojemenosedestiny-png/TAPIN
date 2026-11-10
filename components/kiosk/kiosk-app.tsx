@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { CloudOff, Maximize, Nfc, Settings, WifiOff, XCircle } from "lucide-react";
+import { CloudOff, Maximize, Nfc, Settings, Volume2, WifiOff, XCircle } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { initials } from "@/components/dashboard/person-avatar";
 import { NFC_ERROR_MESSAGES, nfcSupported, startNfcScan, type NfcErrorKind } from "@/lib/nfc";
 import { createWedgeReader } from "@/lib/keyboard-wedge";
 import { enqueue, flushQueue, loadQueue, newClientId, saveQueue, type QueuedTap } from "@/lib/offline-queue";
-import { speak, spokenGreeting } from "@/lib/greeting";
-import { playError, playSuccess } from "@/lib/sound";
+import { speak, warmUpVoices } from "@/lib/greeting";
+import { phraseForTap, phraseText, type Phrase } from "@/lib/voice-phrases";
+import { prefetchPhrases, sayPhrase } from "@/lib/voice-client";
+import { play, soundLengthMs, unlockAudio } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import type { TapResponse } from "@/app/api/tap/route";
 import { clockSnapshot, readToken, subscribeClock, subscribeToken, writeToken } from "./kiosk-store";
 
-const RESULT_MS = 3000;
+/** How long a tap's result stays on screen before the kiosk is ready for the next child. */
+const RESULT_MS = 4000;
 const HEARTBEAT_MS = 60_000;
 const FLUSH_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -184,28 +187,34 @@ function Kiosk({ token }: { token: string }) {
         // Offline or server trouble: keep the tap and send it later.
         setOnline(false);
         persistQueue(enqueue(queueRef.current, { client_id: clientId, uid, tapped_at: tappedAt }));
-        playSuccess();
+        play("saved");
         show({ kind: "saved_offline" });
       }
     });
   };
 
+  /** The school voice (ElevenLabs) when set up, otherwise the device voice: same words either way. */
+  const say = (p: Phrase, delayMs: number) => void sayPhrase(p, phraseText(p), { token, delayMs });
+
   const presentResult = (data: TapResponse) => {
     show({ kind: "result", data });
     if (data.action === "unknown" || data.action === "blocked") {
-      playError();
-      speak("Card not recognised. Please see the admin office.");
+      play("error");
+      say({ kind: "unknown" }, soundLengthMs("error"));
     } else if (data.action === "signed_in" || data.action === "signed_out") {
-      playSuccess();
-      const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: school?.timezone ?? "Africa/Lagos" }).format(new Date()));
-      speak(spokenGreeting(data.action, data.first_name ?? "", hour));
+      const sound = data.action === "signed_in" ? "signIn" : "signOut";
+      play(sound);
+      say(phraseForTap(data.action, data.first_name ?? "", localHour(school?.timezone)), soundLengthMs(sound));
     } else {
-      speak(data.reason === "already_signed_out" ? "You have already signed out." : "You are already signed in.");
+      play("duplicate");
+      say({ kind: data.reason === "already_signed_out" ? "already_out" : "already_in" }, soundLengthMs("duplicate"));
     }
   };
 
   // Heartbeat + queue restore + periodic flush.
   useEffect(() => {
+    document.documentElement.classList.remove("dark"); // the kiosk has its own colours
+    warmUpVoices();
     queueRef.current = loadQueue(localStorage);
     setQueued(queueRef.current.length);
     let cancelled = false;
@@ -292,8 +301,10 @@ function Kiosk({ token }: { token: string }) {
     } catch {
       // fullscreen is optional
     }
-    // Prime speech on a user gesture so later greetings are allowed to play.
+    // Prime audio and speech on a user gesture so later greetings are allowed to play.
+    unlockAudio();
     speak(" ");
+    prefetchPhrases([{ kind: "unknown" }, { kind: "already_in" }, { kind: "already_out" }], token);
     if (supported) {
       let failed = false;
       stopNfc.current = await startNfcScan({
@@ -311,6 +322,13 @@ function Kiosk({ token }: { token: string }) {
     }
   };
 
+  /** Plays exactly what a child hears at the gate, so the volume can be set before the first morning. */
+  const testSound = () => {
+    unlockAudio();
+    play("signIn");
+    say(phraseForTap("signed_in", "Chioma", localHour(school?.timezone)), soundLengthMs("signIn"));
+  };
+
   if (fatal) {
     return (
       <main id="main" className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-900 p-8 text-center text-white">
@@ -323,11 +341,11 @@ function Kiosk({ token }: { token: string }) {
   }
 
   return (
-    <main id="main" className="relative min-h-dvh select-none overflow-hidden">
+    <main id="main" className="theme-light relative min-h-dvh select-none overflow-hidden">
       {screen.kind === "idle" && (
-        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} />
+        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} />
       )}
-      {screen.kind === "result" && <Result data={screen.data} />}
+      {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "")} data={screen.data} />}
       {screen.kind === "saved_offline" && <SavedOffline />}
 
       {/* Status badges */}
@@ -384,8 +402,12 @@ function Clock({ timeZone }: { timeZone: string }) {
   );
 }
 
-function Idle({ school, deviceName, scanning, supported, nfcError, onStart }: {
-  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void;
+function localHour(timeZone = "Africa/Lagos") {
+  return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone }).format(new Date()));
+}
+
+function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound }: {
+  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void;
 }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-between bg-gradient-to-br from-brand-dark via-brand to-teal-500 px-6 py-10 text-white">
@@ -425,6 +447,9 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart }: {
             </p>
           </>
         )}
+        <button onClick={onTestSound} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/25 hover:bg-white/20 active:scale-95">
+          <Volume2 className="size-5" aria-hidden /> Test sound
+        </button>
         {nfcError && <p role="alert" className="max-w-md rounded-xl bg-red-600/90 px-5 py-3 text-center text-lg">{nfcError}</p>}
       </div>
     </div>
@@ -447,25 +472,38 @@ function Result({ data }: { data: TapResponse }) {
   const status = dup
     ? data.reason === "already_signed_out" ? "Already signed out" : data.reason === "already_signed_in" ? "Already signed in" : "Already tapped"
     : isOut ? (data.early ? "Early release" : "Signed out") : "Signed in";
+  const salutation = dup ? null : isOut ? "Goodbye," : data.greeting ? `${data.greeting},` : null;
 
   return (
-    <div className={cn("flex min-h-dvh flex-col items-center justify-center px-6 text-center text-white", dup ? "bg-brand" : "bg-success")} role="status">
-      <div className="size-56 overflow-hidden rounded-full border-8 border-white/80 bg-white/20 shadow-2xl sm:size-72">
+    <div className={cn("relative flex min-h-dvh flex-col items-center justify-center gap-8 overflow-hidden px-6 py-10 text-white sm:flex-row sm:gap-14 sm:px-12",
+      dup ? "bg-gradient-to-br from-brand-dark to-brand" : isOut ? "bg-gradient-to-br from-[#0b4f6c] to-[#0f766e]" : "bg-gradient-to-br from-[#0f5f3a] via-[#15803d] to-[#16a34a]")} role="status">
+      {/* Full portrait so the gate staff can check the face against the child. */}
+      <div className="kiosk-pop relative aspect-[3/4] w-56 shrink-0 overflow-hidden rounded-[28px] bg-white/15 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.55)] ring-4 ring-white/80 sm:w-72 lg:w-80">
         {data.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={data.photo_url} alt="" className="size-full object-cover" />
         ) : (
-          <span className="flex size-full items-center justify-center text-7xl font-semibold">{initials(data.name ?? "?")}</span>
+          <span className="flex size-full items-center justify-center text-8xl font-semibold">{initials(data.name ?? "?")}</span>
         )}
       </div>
-      {!dup && !isOut && data.greeting && <p className="mt-6 text-3xl text-white/90">{data.greeting},</p>}
-      {isOut && <p className="mt-6 text-3xl text-white/90">Goodbye,</p>}
-      <p className={cn("text-5xl font-semibold leading-tight sm:text-6xl", dup && "mt-6")}>{data.name}</p>
-      {data.late && (
-        <p className="mt-4 rounded-full bg-warn px-6 py-2 text-2xl font-semibold text-amber-950">Late arrival</p>
-      )}
-      <p className="mt-4 text-2xl text-white/90">{data.class}</p>
-      <p className="mt-6 text-3xl font-semibold tabular-nums">{status} · {data.time}</p>
+
+      <div className="kiosk-rise flex max-w-2xl flex-col items-center text-center sm:items-start sm:text-left">
+        {salutation && <p className="text-3xl text-white/85">{salutation}</p>}
+        <p className="mt-1 text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">{data.name}</p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+          {data.class && <span className="rounded-full bg-white/15 px-4 py-1.5 text-xl font-medium ring-1 ring-white/25">{data.class}</span>}
+          {data.id_no && <span className="rounded-full bg-white/10 px-4 py-1.5 text-xl tabular-nums text-white/90 ring-1 ring-white/20">{data.id_no}</span>}
+          {data.late && <span className="rounded-full bg-warn px-4 py-1.5 text-xl font-semibold text-amber-950">Late arrival</span>}
+        </div>
+        <p className="mt-8 flex items-baseline gap-3 text-3xl font-semibold tabular-nums sm:text-4xl">
+          <span>{status}</span><span className="text-white/60">·</span><span>{data.time}</span>
+        </p>
+      </div>
+
+      {/* Drains while the result is up, so the next child knows when to tap. */}
+      <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
+        <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* TapIn design tokens (build plan §11). Light mode first; dashboard dark mode later. */
+/* TapIn design tokens (build plan §11). Light and dark; the kiosk keeps its own colours. */
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -60,47 +60,245 @@
   --radius-4xl: 32px;
 }
 
-:root {
-  --brand: #0f766e;       /* deep teal — buttons, brand */
+:root,
+.theme-light {
+  --brand: #0f766e;       /* deep teal: buttons, brand */
   --brand-dark: #115e59;
-  --brand-light: #ccfbf1; /* mint — highlights */
-  --ink: #0f172a;         /* text */
-  --warn: #f59e0b;        /* amber — badges, focus, late */
+  --brand-light: #d3f4ec; /* mint: highlights */
+  --ink: #0b1716;         /* text */
+  --warn: #f59e0b;        /* amber: late */
   --success: #16a34a;     /* signed in / present */
   --danger: #dc2626;      /* unknown card / absent */
 
-  --background: #f6faf9; /* off-white, one step toward the mint so page and tints read as one family */
-  --foreground: #0f172a;
+  --background: #f4f6f5;
+  --foreground: #0b1716;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #0b1716;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #0b1716;
   --primary: #0f766e;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f0fdfa;
+  --secondary: #eef2f1;
+  --secondary-foreground: #0b1716;
+  --muted: #eef2f1;
+  --muted-foreground: #5b6b68;
+  --accent: #ecf7f3;
   --accent-foreground: #115e59;
   --destructive: #dc2626;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
+  --border: #e1e7e5;
+  --input: #cfd8d5;
   --ring: #f59e0b;
   --chart-1: #0f766e;
   --chart-2: #14b8a6;
   --chart-3: #f59e0b;
   --chart-4: #64748b;
   --chart-5: #dc2626;
-  --radius: 0.5rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
+  --radius: 0.625rem;
+  --sidebar: #fbfcfc;
+  --sidebar-foreground: #0b1716;
   --sidebar-primary: #0f766e;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ccfbf1;
+  --sidebar-accent: #d3f4ec;
   --sidebar-accent-foreground: #115e59;
-  --sidebar-border: #e2e8f0;
+  --sidebar-border: #e1e7e5;
   --sidebar-ring: #f59e0b;
+
+  /* Depth: a hairline plus a long, soft shadow tinted toward the brand. */
+  --shadow-card: 0 1px 2px rgb(11 23 22 / 0.04), 0 10px 28px -14px rgb(9 52 47 / 0.14);
+  --shadow-lift: 0 2px 4px rgb(11 23 22 / 0.05), 0 22px 44px -20px rgb(9 52 47 / 0.28);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --glow: color-mix(in oklab, var(--brand) 11%, transparent);
+}
+
+/* Something that must stay light inside dark mode (QR codes, ID cards): restore the real palette too. */
+.dark .theme-light {
+  --brand: #0f766e;       /* deep teal: buttons, brand */
+  --brand-dark: #115e59;
+  --brand-light: #d3f4ec; /* mint: highlights */
+  --ink: #0b1716;         /* text */
+  --warn: #f59e0b;        /* amber: late */
+  --success: #16a34a;     /* signed in / present */
+  --danger: #dc2626;      /* unknown card / absent */
+
+  --background: #f4f6f5;
+  --foreground: #0b1716;
+  --card: #ffffff;
+  --card-foreground: #0b1716;
+  --popover: #ffffff;
+  --popover-foreground: #0b1716;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f1;
+  --secondary-foreground: #0b1716;
+  --muted: #eef2f1;
+  --muted-foreground: #5b6b68;
+  --accent: #ecf7f3;
+  --accent-foreground: #115e59;
+  --destructive: #dc2626;
+  --border: #e1e7e5;
+  --input: #cfd8d5;
+  --ring: #f59e0b;
+  --chart-1: #0f766e;
+  --chart-2: #14b8a6;
+  --chart-3: #f59e0b;
+  --chart-4: #64748b;
+  --chart-5: #dc2626;
+  --radius: 0.625rem;
+  --sidebar: #fbfcfc;
+  --sidebar-foreground: #0b1716;
+  --sidebar-primary: #0f766e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #d3f4ec;
+  --sidebar-accent-foreground: #115e59;
+  --sidebar-border: #e1e7e5;
+  --sidebar-ring: #f59e0b;
+
+  /* Depth: a hairline plus a long, soft shadow tinted toward the brand. */
+  --shadow-card: 0 1px 2px rgb(11 23 22 / 0.04), 0 10px 28px -14px rgb(9 52 47 / 0.14);
+  --shadow-lift: 0 2px 4px rgb(11 23 22 / 0.05), 0 22px 44px -20px rgb(9 52 47 / 0.28);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --glow: color-mix(in oklab, var(--brand) 11%, transparent);
+    --color-red-50: oklch(97.1% 0.013 17.38);
+    --color-red-100: oklch(93.6% 0.032 17.717);
+    --color-red-200: oklch(88.5% 0.062 18.334);
+    --color-red-300: oklch(80.8% 0.114 19.571);
+    --color-red-400: oklch(70.4% 0.191 22.216);
+    --color-red-500: oklch(63.7% 0.237 25.331);
+    --color-red-600: oklch(57.7% 0.245 27.325);
+    --color-red-700: oklch(50.5% 0.213 27.518);
+    --color-red-800: oklch(44.4% 0.177 26.899);
+    --color-red-900: oklch(39.6% 0.141 25.723);
+    --color-red-950: oklch(25.8% 0.092 26.042);
+    --color-amber-50: oklch(98.7% 0.022 95.277);
+    --color-amber-100: oklch(96.2% 0.059 95.617);
+    --color-amber-200: oklch(92.4% 0.12 95.746);
+    --color-amber-300: oklch(87.9% 0.169 91.605);
+    --color-amber-400: oklch(82.8% 0.189 84.429);
+    --color-amber-500: oklch(76.9% 0.188 70.08);
+    --color-amber-600: oklch(66.6% 0.179 58.318);
+    --color-amber-700: oklch(55.5% 0.163 48.998);
+    --color-amber-800: oklch(47.3% 0.137 46.201);
+    --color-amber-900: oklch(41.4% 0.112 45.904);
+    --color-amber-950: oklch(27.9% 0.077 45.635);
+    --color-green-50: oklch(98.2% 0.018 155.826);
+    --color-green-100: oklch(96.2% 0.044 156.743);
+    --color-green-200: oklch(92.5% 0.084 155.995);
+    --color-green-300: oklch(87.1% 0.15 154.449);
+    --color-green-400: oklch(79.2% 0.209 151.711);
+    --color-green-500: oklch(72.3% 0.219 149.579);
+    --color-green-600: oklch(62.7% 0.194 149.214);
+    --color-green-700: oklch(52.7% 0.154 150.069);
+    --color-green-800: oklch(44.8% 0.119 151.328);
+    --color-green-900: oklch(39.3% 0.095 152.535);
+    --color-green-950: oklch(26.6% 0.065 152.934);
+    --color-slate-50: oklch(98.4% 0.003 247.858);
+    --color-slate-100: oklch(96.8% 0.007 247.896);
+    --color-slate-200: oklch(92.9% 0.013 255.508);
+    --color-slate-300: oklch(86.9% 0.022 252.894);
+    --color-slate-400: oklch(70.4% 0.04 256.788);
+    --color-slate-500: oklch(55.4% 0.046 257.417);
+    --color-slate-600: oklch(44.6% 0.043 257.281);
+    --color-slate-700: oklch(37.2% 0.044 257.287);
+    --color-slate-800: oklch(27.9% 0.041 260.031);
+    --color-slate-900: oklch(20.8% 0.042 265.755);
+    --color-slate-950: oklch(12.9% 0.042 264.695);
+  color: var(--ink);
+}
+
+/* Dark mode. Screen only: printing is always on white paper. Tailwind's red/amber/green/slate scales flip
+   so tinted badges and warnings stay readable without touching every component. */
+@media screen {
+  .dark {
+    color-scheme: dark;
+    --brand: #2dd4bf;
+    --brand-dark: #99f6e4;
+    --brand-light: #0f2f2b;
+    --ink: #e7eeec;
+    --warn: #f5a524;
+    --success: #22c55e;
+    --danger: #f05252;
+  
+    --background: #080e0d;
+    --foreground: #e7eeec;
+    --card: #0f1817;
+    --card-foreground: #e7eeec;
+    --popover: #121d1c;
+    --popover-foreground: #e7eeec;
+    --primary: #2dd4bf;
+    --primary-foreground: #04201d;
+    --secondary: #16211f;
+    --secondary-foreground: #e7eeec;
+    --muted: #142020;
+    --muted-foreground: #8ea29e;
+    --accent: #12302c;
+    --accent-foreground: #99f6e4;
+    --destructive: #f05252;
+    --border: #1d2b29;
+    --input: #2a3b38;
+    --ring: #f5a524;
+    --chart-1: #2dd4bf;
+    --chart-2: #5eead4;
+    --chart-3: #f5a524;
+    --chart-4: #94a3b8;
+    --chart-5: #f05252;
+    --sidebar: #0b1312;
+    --sidebar-foreground: #e7eeec;
+    --sidebar-primary: #2dd4bf;
+    --sidebar-primary-foreground: #04201d;
+    --sidebar-accent: #0f2f2b;
+    --sidebar-accent-foreground: #99f6e4;
+    --sidebar-border: #1a2725;
+    --sidebar-ring: #f5a524;
+  
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.015), 0 14px 32px -16px rgb(0 0 0 / 0.7);
+    --shadow-lift: 0 0 0 1px rgb(255 255 255 / 0.03), 0 24px 48px -20px rgb(0 0 0 / 0.85);
+    --highlight: inset 0 1px 0 rgb(255 255 255 / 0.04);
+    --glow: color-mix(in oklab, var(--brand) 9%, transparent);
+    --color-red-50: color-mix(in oklab, oklch(25.8% 0.092 26.042) 55%, var(--background));
+    --color-red-100: color-mix(in oklab, oklch(25.8% 0.092 26.042) 75%, var(--background));
+    --color-red-200: oklch(44.4% 0.177 26.899);
+    --color-red-300: oklch(50.5% 0.213 27.518);
+    --color-red-400: oklch(70.4% 0.191 22.216);
+    --color-red-500: oklch(63.7% 0.237 25.331);
+    --color-red-600: oklch(63.7% 0.237 25.331);
+    --color-red-700: oklch(80.8% 0.114 19.571);
+    --color-red-800: oklch(88.5% 0.062 18.334);
+    --color-red-900: oklch(93.6% 0.032 17.717);
+    --color-red-950: oklch(97.1% 0.013 17.38);
+    --color-amber-50: color-mix(in oklab, oklch(27.9% 0.077 45.635) 55%, var(--background));
+    --color-amber-100: color-mix(in oklab, oklch(27.9% 0.077 45.635) 75%, var(--background));
+    --color-amber-200: oklch(47.3% 0.137 46.201);
+    --color-amber-300: oklch(55.5% 0.163 48.998);
+    --color-amber-400: oklch(82.8% 0.189 84.429);
+    --color-amber-500: oklch(76.9% 0.188 70.08);
+    --color-amber-600: oklch(76.9% 0.188 70.08);
+    --color-amber-700: oklch(87.9% 0.169 91.605);
+    --color-amber-800: oklch(92.4% 0.12 95.746);
+    --color-amber-900: oklch(96.2% 0.059 95.617);
+    --color-amber-950: oklch(98.7% 0.022 95.277);
+    --color-green-50: color-mix(in oklab, oklch(26.6% 0.065 152.934) 55%, var(--background));
+    --color-green-100: color-mix(in oklab, oklch(26.6% 0.065 152.934) 75%, var(--background));
+    --color-green-200: oklch(44.8% 0.119 151.328);
+    --color-green-300: oklch(52.7% 0.154 150.069);
+    --color-green-400: oklch(79.2% 0.209 151.711);
+    --color-green-500: oklch(72.3% 0.219 149.579);
+    --color-green-600: oklch(72.3% 0.219 149.579);
+    --color-green-700: oklch(87.1% 0.15 154.449);
+    --color-green-800: oklch(92.5% 0.084 155.995);
+    --color-green-900: oklch(96.2% 0.044 156.743);
+    --color-green-950: oklch(98.2% 0.018 155.826);
+    --color-slate-50: oklch(20.8% 0.042 265.755);
+    --color-slate-100: oklch(27.9% 0.041 260.031);
+    --color-slate-200: oklch(27.9% 0.041 260.031);
+    --color-slate-300: oklch(37.2% 0.044 257.287);
+    --color-slate-400: oklch(44.6% 0.043 257.281);
+    --color-slate-500: oklch(55.4% 0.046 257.417);
+    --color-slate-600: oklch(70.4% 0.04 256.788);
+    --color-slate-700: oklch(86.9% 0.022 252.894);
+    --color-slate-800: oklch(92.9% 0.013 255.508);
+    --color-slate-900: oklch(96.8% 0.007 247.896);
+    --color-slate-950: oklch(98.4% 0.003 247.858);
+  }
 }
 
 @layer base {
@@ -115,6 +313,13 @@
   }
   h1, h2, h3 {
     @apply font-heading;
+    letter-spacing: -0.015em;
+  }
+  h1 {
+    letter-spacing: -0.025em;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 25%, transparent);
   }
   table {
     font-variant-numeric: tabular-nums;
@@ -145,6 +350,18 @@
 }
 
 @layer utilities {
+  /* A card: hairline, highlight on the top edge, soft brand-tinted shadow. */
+  .surface { background-color: var(--card); border: 1px solid var(--border); box-shadow: var(--highlight), var(--shadow-card); }
+  .surface-lift { transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease; }
+  .surface-lift:hover { box-shadow: var(--highlight), var(--shadow-lift); transform: translateY(-1px); }
+  /* The dashboard canvas: a faint light from the top of the page. */
+  .canvas {
+    background-color: var(--background);
+    background-image: radial-gradient(1100px 420px at 85% -120px, var(--glow), transparent 70%),
+      radial-gradient(700px 300px at -10% -80px, color-mix(in oklab, var(--warn) 5%, transparent), transparent 70%);
+    background-repeat: no-repeat;
+  }
+
   .motion-rise { animation: tapin-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: var(--d, 0ms); }
   .motion-grow-y { transform-origin: bottom; animation: tapin-grow-y 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: var(--d, 0ms); }
   .motion-grow-x { transform-origin: left; animation: tapin-grow-x 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: var(--d, 0ms); }
@@ -168,4 +385,14 @@
   aside, header, nav, .print\:hidden, [data-sonner-toaster] { display: none !important; }
   body { background: #fff; }
   main { padding: 0 !important; }
+}
+
+/* Kiosk result: the photo pops in, the details follow, a bar drains until the next child. */
+@keyframes kiosk-pop { from { opacity: 0; transform: scale(0.92); } }
+@keyframes kiosk-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.kiosk-pop { animation: kiosk-pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.kiosk-rise { animation: tapin-rise 420ms 90ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.kiosk-drain { transform-origin: left; animation-name: kiosk-drain; animation-timing-function: linear; animation-fill-mode: both; }
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-pop, .kiosk-rise { animation: none; }
 }

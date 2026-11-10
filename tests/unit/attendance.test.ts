@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decideTap, resolveTapTime } from "@/lib/attendance";
-import { greetingForHour, spokenGreeting } from "@/lib/greeting";
+import { greetingForHour, pickVoice, spokenGreeting } from "@/lib/greeting";
+import { SOUNDS, soundLengthMs } from "@/lib/sound";
 
 // Lagos is UTC+1 all year. 06:42Z = 07:42 local.
 const school = { timeZone: "Africa/Lagos", resumptionTime: "07:45:00", closingTime: "14:00:00" };
@@ -91,5 +92,34 @@ describe("greeting (build plan §4 step 7)", () => {
     expect(spokenGreeting("signed_in", "Chioma", 7)).toBe("Good morning, Chioma, welcome to school");
     expect(spokenGreeting("signed_in", "Chioma", 13)).toBe("Good afternoon, Chioma, welcome to school");
     expect(spokenGreeting("signed_out", "Chioma", 14)).toBe("Goodbye, Chioma, take care");
+  });
+});
+
+describe("kiosk voice", () => {
+  const v = (name: string, lang: string) => ({ name, lang, localService: true });
+  it("prefers natural voices and Nigerian or British English", () => {
+    expect(pickVoice([v("Google US English", "en-US"), v("Microsoft Ezinne Online (Natural)", "en-NG"), v("Google français", "fr-FR")])?.name).toBe("Microsoft Ezinne Online (Natural)");
+    expect(pickVoice([v("English (America)", "en-US"), v("Google UK English Female", "en_GB")])?.name).toBe("Google UK English Female");
+    expect(pickVoice([v("eSpeak English", "en-GB"), v("Samantha", "en-US")])?.name).toBe("Samantha");
+  });
+  it("returns nothing without an English voice", () => {
+    expect(pickVoice([v("Google Deutsch", "de-DE")])).toBeNull();
+    expect(pickVoice([])).toBeNull();
+  });
+});
+
+describe("gate sounds", () => {
+  it("every sound is short and gentle, and speech waits for the chime", () => {
+    for (const [name, notes] of Object.entries(SOUNDS)) {
+      for (const n of notes as { freq: number; at: number; length: number; gain?: number }[]) {
+        expect(n.freq, name).toBeGreaterThan(200); // nothing boomy
+        expect(n.freq, name).toBeLessThan(1600);   // nothing piercing
+        expect(n.at + n.length, name).toBeLessThanOrEqual(1.5);
+        expect(n.gain ?? 1, name).toBeLessThanOrEqual(1);
+      }
+      expect(soundLengthMs(name as keyof typeof SOUNDS)).toBeLessThan(700);
+    }
+    expect(SOUNDS.signIn[1]!.freq).toBeGreaterThan(SOUNDS.signIn[0]!.freq); // welcome rises
+    expect(SOUNDS.signOut[1]!.freq).toBeLessThan(SOUNDS.signOut[0]!.freq); // goodbye falls
   });
 });

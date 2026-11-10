@@ -6,7 +6,10 @@ import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAudit } from "@/lib/audit";
-import { processOutbox } from "@/lib/alerts";
+import { ALERT_TYPES, processOutbox, testAlertMessage, type AlertSettings } from "@/lib/alerts";
+import { sendSms, termiiConfig } from "@/lib/termii";
+import { formatNgPhone, normaliseNgPhone } from "@/lib/phone";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { alertSettingsSchema, fieldErrors, idSchema } from "@/lib/validation";
 import type { ActionState } from "@/components/forms/field";
 
@@ -62,4 +65,37 @@ export async function markAllRead(): Promise<ActionState> {
   await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("school_id", user.schoolId).is("read_at", null);
   revalidatePath("/alerts");
   return { ok: "All caught up." };
+}
+
+export type TestAlertState = ActionState & { data?: { message: string; sent: boolean } };
+
+/**
+ * Sends the school's real template, with sample values and a TEST prefix, to one phone number.
+ * Without Termii connected it still shows exactly what parents would get.
+ */
+export async function sendTestAlert(_prev: TestAlertState, formData: FormData): Promise<TestAlertState> {
+  const user = await requireSchoolArea("alerts");
+  const type = String(formData.get("type") ?? "");
+  if (!(ALERT_TYPES as readonly string[]).includes(type)) return { errors: { type: "Choose a message." } };
+  const phone = normaliseNgPhone(String(formData.get("phone") ?? ""));
+  if (!phone) return { errors: { phone: "Enter a Nigerian mobile number, like 0803 123 4567." } };
+  if (!checkRateLimit(`test-alert:${user.id}`, { max: 5, windowMs: 10 * 60_000 }).ok) {
+    return { errors: { _form: "That's 5 test messages in 10 minutes. Please wait a few minutes." } };
+  }
+
+  const supabase = await createClient();
+  const [{ data: settings }, { data: school }] = await Promise.all([
+    supabase.from("alert_settings").select("*").eq("school_id", user.schoolId).single(),
+    supabase.from("schools").select("name, sms_sender_name").eq("id", user.schoolId).single(),
+  ]);
+  if (!settings || !school) return { errors: { _form: "Could not load your alert settings." } };
+  const message = testAlertMessage((settings as AlertSettings)[`${type}_template` as keyof AlertSettings] as string, school.name);
+
+  const cfg = termiiConfig(school.sms_sender_name);
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "alerts.test", entity: "alert_settings", details: { type, sent: !!cfg } });
+  if (!cfg) return { ok: "Preview only. SMS isn't connected yet, so nothing was sent.", data: { message, sent: false } };
+
+  const r = await sendSms(cfg, phone, message);
+  if (!r.ok) return { errors: { _form: `The SMS provider refused it: ${r.error}` }, data: { message, sent: false } };
+  return { ok: `Test SMS sent to ${formatNgPhone(phone)}.`, data: { message, sent: true } };
 }

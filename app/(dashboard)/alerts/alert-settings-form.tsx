@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Field, FormError, useActionFeedback } from "@/components/forms/field";
-import { renderTemplate, smsPages, unknownFields, TEMPLATE_FIELDS, type AlertSettings } from "@/lib/alert-rules";
+import { renderTemplate, SAMPLE_VARS, smsPages, unknownFields, TEMPLATE_FIELDS, type AlertSettings } from "@/lib/alert-rules";
 import { cn } from "@/lib/utils";
 import { saveAlertSettings } from "./actions";
 
@@ -16,7 +16,6 @@ const TYPES = [
   { key: "early", title: "Early release", when: "Signed out before closing, released by the school", to: "All linked guardians · always sent" },
 ] as const;
 
-const SAMPLE = { greeting: "Good morning", full_name: "Chioma Okafor", first_name: "Chioma", time: "7:42 AM", date: "Tuesday 10 November", reason: "Sick, collected by mother" };
 
 function Switch({ name, defaultChecked, label, onChange }: { name: string; defaultChecked: boolean; label: string; onChange?: (v: boolean) => void }) {
   const [on, setOn] = useState(defaultChecked);
@@ -51,12 +50,12 @@ export function AlertSettingsForm({ settings, schoolName }: { settings: AlertSet
 
       <div className="space-y-4">
         {TYPES.map((t) => {
-          const preview = renderTemplate(templates[t.key], { ...SAMPLE, school: schoolName });
+          const preview = renderTemplate(templates[t.key], { ...SAMPLE_VARS, school: schoolName });
           const unknown = unknownFields(templates[t.key]);
           const pages = smsPages(preview);
           const heldBySummary = summary && (t.key === "arrival" || t.key === "departure");
           return (
-            <fieldset key={t.key} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <fieldset key={t.key} className="surface rounded-xl p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <legend className="font-semibold text-ink">{t.title}</legend>
@@ -98,13 +97,13 @@ export function AlertSettingsForm({ settings, schoolName }: { settings: AlertSet
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <fieldset className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <fieldset className="surface rounded-xl p-5 shadow-sm">
           <legend className="font-semibold text-ink">Daily summary</legend>
           <p className="mb-3 text-sm text-muted-foreground">Save cost: one evening SMS with arrival and departure times instead of two.</p>
           <Switch name="summary_mode" defaultChecked={settings.summary_mode} label="Daily summary" onChange={setSummary} />
           <Field name="summary_time" label="Send at" type="time" defaultValue={settings.summary_time.slice(0, 5)} error={e.summary_time} className="mt-3" />
         </fieldset>
-        <fieldset className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <fieldset className="surface rounded-xl p-5 shadow-sm">
           <legend className="font-semibold text-ink">Quiet hours</legend>
           <p className="mb-3 text-sm text-muted-foreground">Messages created during quiet hours wait until they end.</p>
           <div className="grid grid-cols-2 gap-3">
@@ -112,7 +111,7 @@ export function AlertSettingsForm({ settings, schoolName }: { settings: AlertSet
             <Field name="quiet_end" label="Until" type="time" defaultValue={settings.quiet_end.slice(0, 5)} error={e.quiet_end} />
           </div>
         </fieldset>
-        <fieldset className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <fieldset className="surface rounded-xl p-5 shadow-sm">
           <legend className="font-semibold text-ink">Monthly allowance</legend>
           <p className="mb-3 text-sm text-muted-foreground">Sending stops when this many SMS have gone out this month.</p>
           <Field name="monthly_allowance" label="SMS per month" type="number" min={0} inputMode="numeric" defaultValue={settings.monthly_allowance} error={e.monthly_allowance} />

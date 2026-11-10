@@ -36,14 +36,14 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Settings" description={school.name} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm" aria-labelledby="day">
+        <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="day">
           <h2 id="day" className="text-lg font-semibold text-ink">School day</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Used for late arrivals, sign-out and absence alerts.</p>
           <div className="mb-6"><LogoUpload schoolId={user.schoolId} logoUrl={logo} /></div>
           <SchoolDayForm school={school} />
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm" aria-labelledby="calendar">
+        <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="calendar">
           <h2 id="calendar" className="text-lg font-semibold text-ink">School calendar</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Holidays and breaks: no absence alerts, and nobody is counted absent. Weekends are skipped automatically.</p>
           <HolidayForm />
@@ -63,7 +63,7 @@ export default async function SettingsPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="privacy">
+        <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="privacy">
           <h2 id="privacy" className="text-lg font-semibold text-ink">Privacy and data</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">
             When a student leaves (status Withdrawn, Graduated or Inactive), everything about them — attendance, card, photo, messages and
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
         </section>
 
         {(invoices ?? []).length > 0 && (
-          <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="billing">
+          <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="billing">
             <h2 id="billing" className="mb-3 text-lg font-semibold text-ink">Invoices</h2>
             <ul className="divide-y divide-border rounded-xl border border-border text-sm">
               {(invoices ?? []).map((i) => (
@@ -94,7 +94,7 @@ export default async function SettingsPage() {
           </section>
         )}
 
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm xl:col-span-2" aria-labelledby="team">
+        <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="team">
           <h2 id="team" className="text-lg font-semibold text-ink">Team</h2>
           <p className="mt-1 text-sm text-muted-foreground">Dashboard logins for your school. Teachers see attendance for their own classes only.</p>
           <ul className="mt-4 divide-y divide-border rounded-xl border border-border">

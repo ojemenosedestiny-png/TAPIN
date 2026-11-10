@@ -32,6 +32,8 @@ describe.skipIf(!enabled)("parent portal and WhatsApp", () => {
       return data.id as string;
     };
     ids.school = await ins("schools", { name: `Parent Test ${tag}` });
+    // No quiet hours, so these tests pass at any time of day (the default 20:00–06:00 would hold every message).
+    await db.from("alert_settings").update({ quiet_start: "00:00", quiet_end: "00:00" }).eq("school_id", ids.school);
     ids.class = await ins("classes", { school_id: ids.school, name: "JSS1A" });
     ids.mine = await ins("students", { school_id: ids.school, class_id: ids.class, admission_no: "P1", first_name: "Ada", last_name: "Mine", created_at: "2026-10-01T00:00:00Z" });
     ids.other = await ins("students", { school_id: ids.school, class_id: ids.class, admission_no: "P2", first_name: "Bayo", last_name: "Other" });

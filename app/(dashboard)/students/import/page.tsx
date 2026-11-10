@@ -24,7 +24,7 @@ export default async function ImportPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
         <ImportFlow />
-        <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm shadow-sm">
+        <aside className="h-fit surface rounded-xl p-5 text-sm shadow-sm">
           <h2 className="font-semibold text-ink">Columns</h2>
           <ul className="mt-3 space-y-1.5">
             {IMPORT_COLUMNS.map((c) => (

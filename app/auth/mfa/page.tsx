@@ -21,11 +21,11 @@ export default function MfaPage() {
     <main id="main" className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-light/60 via-background to-background px-4 py-12">
       <div className="motion-rise w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-brand text-white"><ShieldCheck className="size-7" aria-hidden /></span>
-          <h1 className="mt-4 text-2xl font-semibold text-ink">Enter your code</h1>
+          <span className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><ShieldCheck className="size-7" aria-hidden /></span>
+          <h1 className="mt-4 text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Enter your code</h1>
           <p className="mt-1 text-sm text-muted-foreground">Open your authenticator app and type the 6-digit code for TapIn.</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="surface rounded-xl p-6 shadow-sm">
           <Suspense fallback={<div className="h-40" aria-busy="true" />}><Gate /></Suspense>
         </div>
       </div>

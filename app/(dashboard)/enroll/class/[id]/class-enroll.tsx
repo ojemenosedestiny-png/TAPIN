@@ -98,9 +98,9 @@ export function ClassEnroll({ className, classId, students }: { className: strin
 
   if (students.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-10 text-center shadow-sm">
+      <div className="surface rounded-xl p-10 text-center shadow-sm">
         <CheckCircle2 className="mx-auto size-12 text-success" aria-hidden />
-        <h1 className="mt-3 text-2xl font-semibold text-ink">Everyone in {className} has a card</h1>
+        <h1 className="mt-3 text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Everyone in {className} has a card</h1>
         <Button asChild className="mt-6"><Link href="/enroll">Choose another class</Link></Button>
       </div>
     );
@@ -110,7 +110,7 @@ export function ClassEnroll({ className, classId, students }: { className: strin
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 print:hidden">
         <div className="flex items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-semibold text-ink sm:text-3xl">{className} — card enrollment</h1>
+          <h1 className="text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">{className} — card enrollment</h1>
           <span className="text-sm tabular-nums text-muted-foreground">{Math.min(queue.index + (finished ? 0 : 1), students.length)} of {students.length}</span>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Enrollment progress">
@@ -155,7 +155,7 @@ export function ClassEnroll({ className, classId, students }: { className: strin
           </div>
 
           {/* Printable list for the ID card printer */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
+          <div className="surface rounded-xl p-6 shadow-sm print:border-0 print:p-0 print:shadow-none">
             <h2 className="text-lg font-semibold text-ink">{className} — enrolled cards</h2>
             <table className="mt-3 w-full text-sm">
               <thead className="text-left text-muted-foreground">

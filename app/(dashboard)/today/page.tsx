@@ -65,7 +65,7 @@ export default async function TodayPage() {
   const title = (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="motion-rise">
-        <h1 className="font-heading text-2xl font-semibold text-ink">Today</h1>
+        <h1 className="font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Today</h1>
         <p className="mt-1 text-sm text-muted-foreground">{dateLine} · {school.name}</p>
       </div>
       <div className="flex items-center gap-3">
@@ -90,7 +90,7 @@ export default async function TodayPage() {
     return (
       <>
         {title}
-        <section className="motion-rise max-w-2xl rounded-xl border border-border bg-card p-6" aria-labelledby="setup">
+        <section className="motion-rise max-w-2xl surface rounded-xl p-6" aria-labelledby="setup">
           <h2 id="setup" className="text-lg font-semibold text-ink">Get {school.name} ready for the gate</h2>
           <p className="mt-1 text-sm text-muted-foreground">Attendance shows here as soon as students tap in.</p>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-brand-light" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Setup progress">
@@ -198,7 +198,7 @@ export default async function TodayPage() {
         <div className="space-y-6">
           <KpiStrip items={kpis} />
 
-          <section className="motion-rise rounded-xl border border-border bg-card p-5" style={{ "--d": "150ms" } as React.CSSProperties} aria-labelledby="gate">
+          <section className="motion-rise surface rounded-xl p-5" style={{ "--d": "150ms" } as React.CSSProperties} aria-labelledby="gate">
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="gate" className="text-base font-semibold text-ink">The morning gate</h2>
               <p className="text-xs text-muted-foreground">Arrivals by time · students</p>
@@ -206,7 +206,7 @@ export default async function TodayPage() {
             <ArrivalsChart buckets={buckets} resumption={hhmm(school.resumption_time)} total={arrivals.length} />
           </section>
 
-          <section className="motion-rise rounded-xl border border-border bg-card p-5" style={{ "--d": "220ms" } as React.CSSProperties} aria-labelledby="classes">
+          <section className="motion-rise surface rounded-xl p-5" style={{ "--d": "220ms" } as React.CSSProperties} aria-labelledby="classes">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="classes" className="text-base font-semibold text-ink">{isAdmin ? "By class" : "My classes"}</h2>
               <p className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -223,7 +223,7 @@ export default async function TodayPage() {
         <div className="space-y-6">
           <section aria-labelledby="feed" className="motion-rise" style={{ "--d": "120ms" } as React.CSSProperties}>
             <BlockHeading title="At the gate" right={<LiveDot />} />
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden surface rounded-xl">
               {feed.length ? <GateFeed items={feed} /> : (
                 <p className="px-4 py-6 text-center text-sm text-muted-foreground">No taps yet today. They appear here the moment a card touches the kiosk.</p>
               )}
@@ -232,7 +232,7 @@ export default async function TodayPage() {
 
           <section aria-labelledby="missing" className="motion-rise" style={{ "--d": "200ms" } as React.CSSProperties}>
             <BlockHeading title={afterCutoff ? `Absent (${absent})` : `Not in yet (${pending + absent})`} />
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden surface rounded-xl">
               {missingRows.length === 0 ? (
                 <p className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-muted-foreground"><CheckCircle2 className="size-4 text-success" aria-hidden /> Everyone is accounted for.</p>
               ) : (
@@ -267,7 +267,7 @@ export default async function TodayPage() {
           {watch.length > 0 && (
             <section aria-labelledby="watch" className="motion-rise" style={{ "--d": "240ms" } as React.CSSProperties}>
               <BlockHeading title="Needs a closer look" right={<Link href={`/reports?from=${monthAgo}&to=${today}`} className="text-xs font-medium text-brand hover:underline">Last 30 days</Link>} />
-              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+              <ul className="divide-y divide-border overflow-hidden surface rounded-xl">
                 {watch.map((w) => {
                   const p = watchById.get(w.student_id);
                   if (!p) return null;

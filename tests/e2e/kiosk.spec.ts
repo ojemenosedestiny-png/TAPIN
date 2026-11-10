@@ -35,13 +35,15 @@ test.describe("kiosk", () => {
     const f = fixture();
     await connectKiosk(page);
     await expect(page.getByText("E2E Gate")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Test sound" })).toBeVisible();
 
     await usbTap(page, f.kioskStudent.uid);
     const result = page.getByRole("status").filter({ hasText: f.kioskStudent.name });
     await expect(result).toBeVisible();
     await expect(result).toContainText(/Signed in/);
     await expect(result).toContainText(f.className);
-    await expect(page.getByText("Tap your ID card")).toBeVisible({ timeout: 6000 }); // back to idle after 3 s
+    await page.screenshot({ path: "test-results/kiosk-result.png" });
+    await expect(page.getByText("Tap your ID card")).toBeVisible({ timeout: 8000 }); // back to idle after 4 s
 
     // Same card again straight away: duplicate, not a second sign-in.
     await usbTap(page, f.kioskStudent.uid);

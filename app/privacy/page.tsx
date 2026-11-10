@@ -33,6 +33,7 @@ export default function PrivacyPage() {
           <li>The school&apos;s administrators see their own school only. Class teachers see their own classes only, and don&apos;t see parents&apos; phone numbers.</li>
           <li>The gate screen shows only the child who just tapped: photo, name, class and time.</li>
           <li>Text messages are sent through Termii, a Nigerian SMS provider, which receives the phone number and the message.</li>
+          <li>If the school uses a recorded voice at the gate, the greeting (for example &ldquo;Good morning, Chioma&rdquo;) is made by ElevenLabs, which receives only the child&apos;s first name. TapIn keeps the recording, so each name is sent once.</li>
           <li>Data is stored with Supabase (database and private photo storage), encrypted in transit and at rest. Photos are only ever shown through short-lived private links.</li>
         </ul>
 

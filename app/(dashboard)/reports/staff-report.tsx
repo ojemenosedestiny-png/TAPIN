@@ -49,7 +49,7 @@ export async function StaffReport({ from, to }: { from: string; to: string }) {
         { label: "Late arrivals", value: t.late, tone: "warn", caption: `${rows.filter((r) => r.late > 0).length} staff` },
         { label: "Left early", value: t.early, caption: "Released before closing" },
       ]} />
-      <section className="motion-rise mt-6 overflow-x-auto rounded-xl border border-border bg-card" aria-labelledby="by-staff">
+      <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="by-staff">
         <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-1 pt-4">
           <h2 id="by-staff" className="text-base font-semibold text-ink">By staff member</h2>
           <p className="text-xs text-muted-foreground">{rows.length} staff · lowest attendance first</p>

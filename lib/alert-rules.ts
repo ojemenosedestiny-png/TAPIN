@@ -13,6 +13,14 @@ export const MESSAGE_TTL_MS = 6 * 60 * 60 * 1000;
 
 export const TEMPLATE_FIELDS = ["greeting", "full_name", "first_name", "school", "time", "date", "reason"] as const;
 
+/** Example values for previews and test messages. */
+export const SAMPLE_VARS = { greeting: "Good morning", full_name: "Chioma Okafor", first_name: "Chioma", time: "7:42 AM", date: "Tuesday 10 November", reason: "Sick, collected by mother" };
+
+/** A test alert: the school's real template with sample values, clearly marked so no parent mistakes it for news. */
+export function testAlertMessage(template: string, school: string): string {
+  return `TEST: ${renderTemplate(template, { ...SAMPLE_VARS, school })}`;
+}
+
 export type AlertSettings = {
   arrival_enabled: boolean;
   departure_enabled: boolean;
