@@ -43,3 +43,19 @@ export async function requireArea(area: Area): Promise<CurrentUser> {
   if (!canAccess(user.role, area)) redirect("/");
   return user;
 }
+
+export type SchoolUser = CurrentUser & { schoolId: string };
+
+/** For school-scoped pages/actions: a school admin (or teacher, if allowed) with a school. */
+export async function requireSchoolArea(area: Area): Promise<SchoolUser> {
+  const user = await requireArea(area);
+  if (!user.schoolId) redirect("/");
+  return user as SchoolUser;
+}
+
+/** For route handlers: returns the school admin or null (caller responds 401/403). */
+export async function getSchoolAdmin(): Promise<SchoolUser | null> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "school_admin" || !user.schoolId) return null;
+  return user as SchoolUser;
+}

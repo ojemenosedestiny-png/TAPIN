@@ -10,19 +10,28 @@ Stack: Next.js 16 (App Router, TypeScript strict), Tailwind CSS v4 + shadcn/ui, 
 | Stage | What | State |
 | --- | --- | --- |
 | 1 | Foundation: project, database, RLS, login, roles | ✅ built |
-| 2 | Admin dashboard: classes, students, guardians, staff, photos, import, cards, devices | — |
+| 2 | Admin dashboard: classes, students, guardians, staff, photos, import, cards, devices | ✅ built |
 | 3 | Kiosk: Web NFC, photo, voice greeting, `/api/tap`, offline queue | — |
 | 4 | Alerts: Termii, `sms_logs`, retries, absence job, calendar | — |
 | 5 | Reports and launch | — |
 
-## Set up
+## Run locally (Docker)
+
+1. `npm install` and start Docker Desktop.
+2. `npx supabase start` — runs Postgres, Auth and Storage locally and applies every migration. It prints the API URL, anon key and service role key.
+3. Put those in `.env.local` (see `.env.example`).
+4. `node --env-file=.env.local scripts/create-super-admin.mjs you@example.com "Your Name"`, then `npm run dev`.
+
+Web NFC needs Chrome on Android over HTTPS, so on a laptop use the USB-reader / type-the-number box to enrol cards.
+
+## Set up (hosted Supabase)
 
 1. `npm install`
 2. Create a Supabase project. Copy `.env.example` to `.env.local` and fill in the URL, anon key and service role key
    (Supabase → Project Settings → API).
 3. Apply the database schema — either:
    - **CLI:** `npx supabase link --project-ref <ref>` then `npx supabase db push`, or
-   - **Dashboard:** paste `supabase/migrations/20261109000001_foundation.sql` into the SQL editor and run it.
+   - **Dashboard:** run each file in `supabase/migrations/` in the SQL editor, oldest first.
 4. Create your super admin login:
    `node --env-file=.env.local scripts/create-super-admin.mjs you@example.com "Your Name"`
 5. `npm run dev`, open http://localhost:3000, sign in, create a school and its school admin under **Schools**.

@@ -62,3 +62,62 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Stage 2: school records
+// ---------------------------------------------------------------------------
+const uuid = z.string().uuid();
+const optionalUuid = z
+  .string()
+  .optional()
+  .transform((v) => (v ? v : null))
+  .pipe(z.string().uuid().nullable());
+const name = (max = 60) => z.string().trim().min(1, "Required.").max(max);
+
+export const classSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Enter a class name, e.g. JSS2A.")
+    .max(40)
+    .transform((v) => v.toUpperCase().replace(/\s+/g, "")),
+  class_teacher_id: optionalUuid,
+});
+
+export const studentSchema = z.object({
+  admission_no: z.string().trim().min(1, "Required.").max(40).transform((v) => v.toUpperCase()),
+  first_name: name(),
+  last_name: name(),
+  class_id: optionalUuid,
+  status: z.enum(["active", "inactive", "graduated", "withdrawn"]).default("active"),
+});
+
+export const guardianSchema = z.object({
+  name: name(120),
+  phone: z.string().trim().min(1, "Required."),
+  relationship: z.string().trim().max(40).optional().transform((v) => v || null),
+});
+
+export const staffSchema = z.object({
+  name: name(120),
+  phone: z.string().trim().max(30).optional().transform((v) => v || null),
+  status: z.enum(["active", "inactive"]).default("active"),
+});
+
+export const deviceSchema = z.object({
+  name: z.string().trim().min(2, "Give the kiosk a name, e.g. Main Gate.").max(60),
+});
+
+export const holderTypeSchema = z.enum(["student", "staff"]);
+
+export const assignCardSchema = z.object({
+  uid: z.string(),
+  holder_type: holderTypeSchema,
+  holder_id: uuid,
+  confirm_reassign: z.boolean().optional().default(false),
+});
+
+export const verifyCardSchema = z.object({ uid: z.string(), holder_type: holderTypeSchema, holder_id: uuid });
+export const blockCardSchema = z.object({ card_id: uuid, status: z.enum(["blocked", "active"]).default("blocked") });
+export const undoCardSchema = z.object({ card_id: uuid, replaced_card_id: uuid.nullable().optional() });
+export const idSchema = uuid;
