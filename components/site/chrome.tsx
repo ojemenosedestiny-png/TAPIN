@@ -21,7 +21,7 @@ export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
         <span className="site-toggle hidden lg:inline-flex"><ThemeToggle /></span>
         <ThemeCycleButton className="theme-dot lg:hidden" />
         <Link href="/login" className="login">Log in</Link>
-        {active !== "pricing" && <Link href="/pricing" className="btn btn-gold" style={{ padding: "12px 20px", fontSize: 15 }}>Get started</Link>}
+        {active !== "pricing" && <Link href="/pricing" className="btn btn-gold get-started" style={{ padding: "12px 20px", fontSize: 15 }}>Get started</Link>}
       </div>
     </header>
   );

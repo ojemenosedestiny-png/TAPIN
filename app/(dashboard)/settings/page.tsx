@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/dashboard/status-pill";
 import { ConfirmAction } from "@/components/forms/confirm-action";
 import { Button } from "@/components/ui/button";
 import { TeamForm } from "./team-form";
+import { TeamMemberActions } from "./team-member";
 import { HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
 import { LogoUpload } from "./logo";
 import { signPhotos } from "@/lib/photos";
@@ -104,7 +105,10 @@ export default async function SettingsPage() {
                   <p className="truncate font-medium text-ink">{m.name}{m.id === user.id && <span className="text-muted-foreground"> (you)</span>}</p>
                   <p className="truncate text-muted-foreground">{m.email}</p>
                 </div>
-                <StatusPill tone={m.role === "school_admin" ? "teal" : "slate"} dot={false}>{m.role === "school_admin" ? "School admin" : "Teacher"}</StatusPill>
+                <div className="flex shrink-0 items-center gap-2">
+                  <StatusPill tone={m.role === "school_admin" ? "teal" : "slate"} dot={false}>{m.role === "school_admin" ? "School admin" : "Teacher"}</StatusPill>
+                  <TeamMemberActions member={m as { id: string; name: string; email: string; role: "school_admin" | "teacher" }} isSelf={m.id === user.id} />
+                </div>
               </li>
             ))}
           </ul>

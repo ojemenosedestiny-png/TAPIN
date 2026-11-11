@@ -45,3 +45,19 @@ export async function saveStaff(_prev: ActionState, formData: FormData): Promise
   revalidatePath("/staff");
   return { ok: isEdit ? `${row.name} updated.` : `${row.name} added.`, data: { id: data.id } };
 }
+
+/** Deletes a staff member entered by mistake, with their attendance and cards. Use Inactive for someone who left. */
+export async function deleteStaff(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("staff");
+  if (user.role !== "school_admin") return { errors: { _form: "Only school admins can delete staff." } };
+  const id = idSchema.safeParse(formData.get("id"));
+  if (!id.success) return { errors: { _form: "Invalid staff member." } };
+  const supabase = await createClient(); // RLS: only this school's staff are visible
+  const { data: s } = await supabase.from("staff").select("id, name").eq("id", id.data).maybeSingle();
+  if (!s) return { errors: { _form: "That staff member wasn't found." } };
+  const { error } = await createAdminClient().rpc("delete_staff_records", { p_id: s.id });
+  if (error) return { errors: { _form: "Could not delete. Please try again." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "staff.delete", entity: "staff", entityId: s.id, details: { name: s.name } });
+  revalidatePath("/staff");
+  return { ok: `${s.name} was deleted.` };
+}

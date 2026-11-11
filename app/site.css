@@ -282,3 +282,68 @@
 .site .theme-dot:hover { background: rgb(255 255 255 / 0.16); }
 .site .theme-dot:active { transform: scale(0.94); }
 @media (min-width: 1024px) { .site .theme-dot { display: none; } }
+
+/* ---------------------------------------------------------------------------
+   Phones: one tidy column, even spacing, full-width actions, nothing breaking onto a second line.
+   --------------------------------------------------------------------------- */
+.site .login, .site .get-started, .site .btn { white-space: nowrap; }
+@media (max-width: 640px) {
+  .site .wrap { padding-left: 20px; padding-right: 20px; }
+  .site .bar { padding-top: 14px; padding-bottom: 14px; gap: 10px; flex-wrap: nowrap; }
+  .site .brand { gap: 10px; }
+  .site .brand svg { width: 34px; height: 34px; }
+  .site .brand-word { font-size: 21px; }
+  .site .login { padding: 9px 4px; font-size: 14px; }
+  .site .get-started { padding: 10px 14px !important; font-size: 14px !important; }
+  .site .theme-dot { width: 36px; height: 36px; }
+
+  .site .hero { padding-top: 24px; padding-bottom: 56px; gap: 44px; }
+  .site .hero-copy { gap: 20px; }
+  .site .pill { font-size: 13px; padding: 7px 12px; }
+  .site .hero h1 { font-size: clamp(34px, 10vw, 42px); line-height: 1.06; }
+  .site .hero .lead { font-size: 17px; }
+  .site .hero-actions { flex-direction: column; gap: 12px !important; }
+  .site .hero-actions > * { width: 100%; }
+  .site .ticks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; font-size: 13px; padding-top: 0; }
+  .site .ticks span:last-child { grid-column: 1 / -1; }
+  .site .hero-visual { padding-bottom: 24px; }
+  .site .device { border-radius: 30px; padding: 12px; }
+  .site .screen { padding: 22px 20px 24px; gap: 14px; }
+
+  .site .trust .grid { grid-template-columns: 1fr 1fr; gap: 20px 16px; padding-top: 28px; padding-bottom: 28px; }
+  .site .trust b { font-size: 16px; }
+  .site .trust span { font-size: 13px; }
+
+  .site .section, .site .pad { padding-top: 72px !important; padding-bottom: 72px !important; gap: 32px !important; }
+  .site h2.big { font-size: 30px; }
+  .site .grid3 { gap: 16px; }
+  .site .card { padding: 24px; gap: 12px; border-radius: 20px; }
+  .site .card h3 { font-size: 20px; }
+  .site .feat-grid { gap: 28px 18px; grid-template-columns: 1fr 1fr; }
+  .site .feat h3 { font-size: 16px; }
+  .site .feat p { font-size: 14px; }
+  .site .ficon { width: 44px; height: 44px; border-radius: 14px; }
+
+  .site .panel { padding: 18px; border-radius: 22px; }
+  .site .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .site .kpi b { font-size: 26px; }
+  .site .tap-row { gap: 10px; font-size: 14px; }
+
+  .site .bubble { max-width: 100%; font-size: 15px; }
+  .site .plan { padding: 26px; border-radius: 22px; }
+  .site .plan .price { font-size: 30px; }
+  .site .plan .price small, .site .unit { display: block; margin-top: 4px; font-size: 13px; }
+
+  .site summary { font-size: 16px; }
+  .site details { padding: 18px 0; }
+
+  .site .cta { border-radius: 26px; padding: 32px 22px; gap: 24px; }
+  .site .cta-actions { flex-direction: column; width: 100%; gap: 12px !important; }
+  .site .cta-actions > * { width: 100%; }
+  .site aside .btn, .site dialog .btn { white-space: normal; text-align: center; }
+
+  .site footer .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 20px; padding-top: 40px; padding-bottom: 28px; }
+  .site footer .cols > :first-child { grid-column: 1 / -1; }
+  .site footer .cols > :last-child { display: contents; }
+  .site footer .cols > :last-child > div { gap: 8px !important; }
+}

@@ -26,7 +26,7 @@ export const AUDIT_GROUPS: Record<string, { label: string; actions: Record<strin
       "staff.create": "Added staff", "staff.update": "Edited staff", "school.update": "Changed school hours",
       "school.logo": "Changed the school logo", "school.create": "Created the school", "calendar.add": "Added holidays",
       "calendar.remove": "Removed a holiday", "alerts.update": "Changed alert settings", "retention.update": "Changed the retention period",
-      "device.create": "Registered a kiosk", "device.revoke": "Revoked a kiosk", "sms.retry": "Retried an SMS", "alerts.test": "Sent a test alert", "demo.handled": "Marked a demo request", "order.status": "Updated a website order", "billing.website_prices": "Changed the website prices",
+      "device.create": "Registered a kiosk", "device.revoke": "Revoked a kiosk", "sms.retry": "Retried an SMS", "alerts.test": "Sent a test alert", "demo.handled": "Marked a demo request", "order.status": "Updated a website order", "billing.website_prices": "Changed the website prices", "student.delete": "Deleted a student", "staff.delete": "Deleted a staff member", "user.update": "Changed a team login", "user.remove": "Removed a team login", "school.edit": "Edited a school", "school.delete": "Deleted a school",
       "report.export": "Exported a report",
     },
   },

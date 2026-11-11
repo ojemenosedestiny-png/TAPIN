@@ -122,7 +122,7 @@ function SchoolTab({ pricing: PRICING, initialPlan, online }: { pricing: WebPric
                 </span>
                 <span style={{ fontSize: 15, color: "var(--slate)" }}>{p.blurb}</span>
                 <span className="jk" style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em" }}>
-                  {p.custom ? "Custom" : price === null ? "Price on request" : <>{naira(price)}<span style={{ fontFamily: "var(--font-inter)", fontSize: 14, fontWeight: 500, color: "var(--slate-2)" }}> {unit}</span></>}
+                  {p.custom ? "Custom" : price === null ? "Price on request" : <>{naira(price)}<span className="unit" style={{ fontFamily: "var(--font-inter)", fontSize: 14, fontWeight: 500, color: "var(--slate-2)" }}> {unit}</span></>}
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 15, color: "var(--slate-3)" }}>
                   {p.features.map((f) => <span key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}><Check />{f}</span>)}

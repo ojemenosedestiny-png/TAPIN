@@ -59,7 +59,7 @@ export default async function Home() {
             <p className="pill"><span className="dot" />Smart attendance for Nigerian schools</p>
             <h1>Every child, <span className="tapin-gold gold-bright">accounted for.</span> From the school gate to the parent&apos;s phone.</h1>
             <p className="lead">Students tap their ID card. The kiosk greets them by name, records attendance, and tells their parents in seconds. Absent children are flagged automatically.</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+            <div className="hero-actions" style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
               <BookDemo />
               <Link href="/pricing" className="btn btn-ghost">See pricing</Link>
             </div>
@@ -149,7 +149,7 @@ export default async function Home() {
       </section>
 
       {/* DASHBOARD PREVIEW */}
-      <section className="wrap" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 56 }} aria-labelledby="dash-h">
+      <section className="wrap pad" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 56 }} aria-labelledby="dash-h">
         <div style={{ flex: "1 1 340px", minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }} data-reveal>
           <p className="eyebrow">For school leaders</p>
           <h2 id="dash-h" className="big" style={{ fontSize: "clamp(32px, 3.6vw, 44px)" }}>Know your school&apos;s attendance before assembly starts.</h2>
@@ -183,7 +183,7 @@ export default async function Home() {
 
       {/* PARENTS */}
       <section id="parents" className="parents" aria-labelledby="par-h">
-        <div className="wrap" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 56 }}>
+        <div className="wrap pad" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 56 }}>
           <div style={{ flex: "1 1 380px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="bubble" data-reveal>TapIn: Chioma arrived at school at 7:42 AM.</div>
             <div className="bubble" data-reveal style={d(3)}>TapIn: Chioma left school at 2:10 PM. Have a good evening.</div>
@@ -225,7 +225,7 @@ export default async function Home() {
 
       {/* FAQ */}
       <section style={{ background: "var(--card)", borderTop: "1px solid var(--line)" }} aria-labelledby="faq-h">
-        <div className="wrap" style={{ maxWidth: 820, paddingTop: 112, paddingBottom: 112, display: "flex", flexDirection: "column", gap: 32 }}>
+        <div className="wrap pad" style={{ maxWidth: 820, paddingTop: 112, paddingBottom: 112, display: "flex", flexDirection: "column", gap: 32 }}>
           <h2 id="faq-h" className="jk" style={{ margin: 0, textAlign: "center", fontSize: "clamp(30px, 3.2vw, 40px)", fontWeight: 800, letterSpacing: "-0.03em" }} data-reveal>Questions schools ask</h2>
           <div data-reveal>
             <details><summary>What happens if the internet goes down?</summary><p>The kiosk keeps working. It greets each child, saves every tap, and sends the records and parent messages as soon as the connection returns.</p></details>
@@ -238,14 +238,14 @@ export default async function Home() {
       </section>
 
       {/* CTA */}
-      <section id="demo" className="wrap" style={{ paddingTop: 96, paddingBottom: 96 }} aria-labelledby="cta-h">
+      <section id="demo" className="wrap pad" style={{ paddingTop: 96, paddingBottom: 96 }} aria-labelledby="cta-h">
         <div className="cta" data-reveal>
           <div className="waves" aria-hidden><Ripple rings={4} durationMs={4800} still={3} /></div>
           <div style={{ flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
             <h2 id="cta-h" className="jk" style={{ margin: 0, fontSize: "clamp(30px, 3.4vw, 44px)", lineHeight: 1.1, fontWeight: 800, letterSpacing: "-0.03em" }}>See TapIn at your school gate.</h2>
             <p style={{ margin: 0, fontSize: 18, color: "var(--on-deep)" }}>We&apos;ll bring a kiosk and sample cards to your school for a free demo.</p>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+          <div className="cta-actions" style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
             <BookDemo />
             {pricing.contact.whatsapp && (
               <a href={`https://wa.me/${pricing.contact.whatsapp}`} className="btn btn-ghost" target="_blank" rel="noreferrer">Chat on WhatsApp</a>

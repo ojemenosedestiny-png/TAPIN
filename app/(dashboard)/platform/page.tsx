@@ -3,7 +3,7 @@ import { Building2 } from "lucide-react";
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
-import { CreateSchoolForm, CreateUserForm, DemoHandledButton } from "./forms";
+import { CreateSchoolForm, CreateUserForm, DeleteSchoolButton, DemoHandledButton, EditSchoolDialog } from "./forms";
 import { formatNgPhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BACKUP_BUCKET, backupIsStale } from "@/lib/backup";
@@ -16,7 +16,7 @@ export default async function PlatformPage() {
   const supabase = await createClient(); // RLS: super admin can read schools, users and devices — not students
 
   const [{ data: schools }, { data: users }, { data: devices }, { data: demos }] = await Promise.all([
-    supabase.from("schools").select("id, name, timezone, resumption_time, closing_time, created_at").order("name"),
+    supabase.from("schools").select("id, name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, created_at").order("name"),
     supabase.from("users").select("school_id, role"),
     supabase.from("devices").select("school_id, last_seen, revoked_at"),
     supabase.from("demo_requests").select("id, name, school, phone, pupils, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
@@ -47,6 +47,7 @@ export default async function PlatformPage() {
                 <th scope="col" className="px-4 py-3 font-medium">Admins</th>
                 <th scope="col" className="px-4 py-3 font-medium">Teachers</th>
                 <th scope="col" className="px-4 py-3 font-medium">Kiosks</th>
+                <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -57,6 +58,7 @@ export default async function PlatformPage() {
                   <td className="px-4 py-3">{count(s.id, "school_admin")}</td>
                   <td className="px-4 py-3">{count(s.id, "teacher")}</td>
                   <td className="px-4 py-3">{deviceCount(s.id)}</td>
+                  <td className="px-4 py-2 text-right"><div className="flex justify-end gap-1"><EditSchoolDialog school={s} /><DeleteSchoolButton school={s} /></div></td>
                 </tr>
               ))}
             </tbody>

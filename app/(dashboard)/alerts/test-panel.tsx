@@ -54,7 +54,7 @@ export function TestPanel({ templates, schoolName, channels }: { templates: Reco
             <p className="mt-0.5 text-sm text-muted-foreground">Hear exactly what plays at the kiosk. Turn your volume up.</p>
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-2.5">
+        <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {SOUNDS.map((s) => (
             <button key={s.name} type="button" onClick={() => trySound(s)} aria-label={`Play ${s.label}`}
               className={cn("motion-press group flex items-center gap-3 rounded-xl border border-border bg-background/60 p-3 text-left transition-colors hover:border-brand/40 hover:bg-accent",

@@ -17,6 +17,8 @@ import { BlockCardButton } from "@/components/enroll/card-actions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffDialog } from "./staff-dialog";
+import { deleteStaff } from "./actions";
+import { ConfirmDelete } from "@/components/forms/confirm-delete";
 import { ReleaseButton } from "@/components/enroll/release-button";
 import { friendlyTime, localDate } from "@/lib/time";
 
@@ -102,7 +104,16 @@ async function StaffDrawer({ id, user, closeHref }: { id: string; user: SchoolUs
     <DrawerShell closeHref={closeHref} title={s.name} description={s.phone ? formatNgPhone(s.phone) : "Staff"}>
       <div className="py-6"><PhotoEditor schoolId={user.schoolId} holderType="staff" holderId={s.id} name={s.name} photoUrl={photo} /></div>
       <section className="border-t border-border py-6">
-        <div className="mb-3 flex items-center justify-between"><h3 className="text-base font-semibold text-ink">Details</h3><StaffDialog existing={s} /></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold text-ink">Details</h3>
+          <div className="flex gap-2">
+            <StaffDialog existing={s} />
+            <ConfirmDelete action={deleteStaff} id={s.id} label="Delete" title={`Delete ${s.name}?`} afterHref="/staff"
+              body={<>
+                <p>This permanently removes {s.name}, their attendance and card. It can&apos;t be undone.</p>
+                <p><strong>Have they left?</strong> Set their status to <em>Inactive</em> instead to keep their records.</p>
+              </>} />
+          </div>
+        </div>
         <StatusPill tone={s.status === "active" ? "green" : "slate"}>{s.status === "active" ? "Active" : "Inactive"}</StatusPill>
       </section>
       {todayRow?.sign_in_at && (

@@ -17,7 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StudentDialog } from "./student-dialog";
 import { GuardianForm } from "./guardian-form";
 import { GuardianChannel } from "./guardian-channel";
-import { unlinkGuardian } from "./actions";
+import { deleteStudent, unlinkGuardian } from "./actions";
+import { ConfirmDelete } from "@/components/forms/confirm-delete";
 import { ExcusalForm } from "./excusal-form";
 import { ConsentForm } from "./consent-form";
 import { withdrawConsent } from "./consent-actions";
@@ -29,7 +30,7 @@ import { removeExcusal } from "./excusal-actions";
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section className="border-t border-border py-6 first:border-t-0">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-ink">{title}</h3>
         {action}
       </div>
@@ -123,7 +124,16 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
         {s.consent_at && !s.photo_url && <p className="mt-3 text-center text-sm text-amber-900">A photo is required before the card can be verified.</p>}
       </Section>
 
-      <Section title="Details" action={isAdmin ? <StudentDialog classes={classes} existing={s} /> : undefined}>
+      <Section title="Details" action={isAdmin ? (
+        <div className="flex gap-2">
+          <StudentDialog classes={classes} existing={s} />
+          <ConfirmDelete action={deleteStudent} id={s.id} label="Delete" title={`Delete ${s.first_name} ${s.last_name}?`} afterHref="/students"
+            body={<>
+              <p>This permanently removes {s.first_name}, their attendance history, card and messages. Parents linked only to {s.first_name} are removed too. It can&apos;t be undone.</p>
+              <p><strong>Has {s.first_name} left the school?</strong> Use <em>Edit details → Status: Withdrawn</em> instead. That keeps their records for reports.</p>
+            </>} />
+        </div>
+      ) : undefined}>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div><dt className="text-muted-foreground">Admission no.</dt><dd className="font-medium tabular-nums text-ink">{s.admission_no}</dd></div>
           <div><dt className="text-muted-foreground">Class</dt><dd className="font-medium text-ink">{className ?? "—"}</dd></div>

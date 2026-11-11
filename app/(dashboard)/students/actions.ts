@@ -7,6 +7,8 @@ import { writeAudit } from "@/lib/audit";
 import { normaliseNgPhone } from "@/lib/phone";
 import { fieldErrors, guardianSchema, idSchema, studentSchema } from "@/lib/validation";
 import type { ActionState } from "@/components/forms/field";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { PHOTO_BUCKET } from "@/lib/photos";
 
 async function adminOnly() {
   const user = await requireSchoolArea("students");
@@ -133,4 +135,28 @@ export async function setGuardianChannel(_prev: ActionState, formData: FormData)
   await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "guardian.channel", entity: "guardians", entityId: id.data, details: { channel } });
   revalidatePath("/students");
   return { ok: `${data.name} will get alerts by ${channel === "whatsapp" ? "WhatsApp" : "text message"}.` };
+}
+
+/**
+ * Deletes a student added by mistake (a duplicate, a wrong entry), with their attendance, cards and messages.
+ * For a pupil who has left, set the status to Withdrawn instead: that keeps the history.
+ */
+export async function deleteStudent(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("students");
+  if (user.role !== "school_admin") return { errors: { _form: "Only school admins can delete students." } };
+  const id = idSchema.safeParse(formData.get("id"));
+  if (!id.success) return { errors: { _form: "Invalid student." } };
+  const supabase = await createClient(); // RLS: only this school's students are visible
+  const { data: s } = await supabase.from("students").select("id, first_name, last_name, admission_no, photo_url").eq("id", id.data).maybeSingle();
+  if (!s) return { errors: { _form: "That student wasn't found." } };
+  const db = createAdminClient();
+  const { count: payments } = await db.from("parent_payments").select("id", { count: "exact", head: true }).eq("student_id", s.id);
+  if (payments) return { errors: { _form: "This student has payments on record, so they can't be deleted. Set their status to Withdrawn instead." } };
+  const { error } = await db.rpc("delete_student_records", { p_ids: [s.id] });
+  if (error) return { errors: { _form: "Could not delete the student. Please try again." } };
+  if (s.photo_url) await db.storage.from(PHOTO_BUCKET).remove([s.photo_url]).catch(() => {});
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "student.delete", entity: "students", entityId: s.id, details: { admission_no: s.admission_no } });
+  revalidatePath("/students");
+  revalidatePath("/today");
+  return { ok: `${s.first_name} ${s.last_name} was deleted.` };
 }

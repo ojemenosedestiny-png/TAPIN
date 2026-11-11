@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Field as FormField, FormError, useActionFeedback } from "@/components/forms/field";
+import { ConfirmDelete } from "@/components/forms/confirm-delete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createSchool, createSchoolUser, setDemoHandled, type FormState } from "./actions";
+import { createSchool, createSchoolUser, deleteSchool, setDemoHandled, updateSchool, type FormState } from "./actions";
 
 function Field({ name, label, error, ...props }: { name: string; label: string; error?: string } & React.ComponentProps<"input">) {
   return (
@@ -100,5 +104,54 @@ export function DemoHandledButton({ id, handled }: { id: string; handled: boolea
       </Button>
       {state.errors?._form && <span className="ml-2 text-xs text-red-700">{state.errors._form}</span>}
     </form>
+  );
+}
+
+type SchoolRow = { id: string; name: string; timezone: string; resumption_time: string; absence_cutoff_time: string; closing_time: string; sms_sender_name: string | null };
+
+/** Edit a school's name, hours, timezone or SMS sender name. */
+export function EditSchoolDialog({ school }: { school: SchoolRow }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<FormState, FormData>(updateSchool, {});
+  useActionFeedback(state, () => setOpen(false));
+  const e = state.errors ?? {};
+  const id = (n: string) => `edit-${school.id}-${n}`;
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" aria-label={`Edit ${school.name}`}><Pencil className="size-4" aria-hidden /> Edit</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <form action={action} className="space-y-4" noValidate>
+          <DialogHeader>
+            <DialogTitle>Edit {school.name}</DialogTitle>
+            <DialogDescription>Changes apply straight away, including on the school&apos;s kiosks.</DialogDescription>
+          </DialogHeader>
+          <input type="hidden" name="id" value={school.id} />
+          <FormError state={state} />
+          <FormField id={id("name")} name="name" label="School name" defaultValue={school.name} error={e.name} required />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <FormField id={id("res")} name="resumption_time" label="Resumption" type="time" defaultValue={school.resumption_time.slice(0, 5)} error={e.resumption_time} required />
+            <FormField id={id("cut")} name="absence_cutoff_time" label="Absence cutoff" type="time" defaultValue={school.absence_cutoff_time.slice(0, 5)} error={e.absence_cutoff_time} required />
+            <FormField id={id("close")} name="closing_time" label="Closing" type="time" defaultValue={school.closing_time.slice(0, 5)} error={e.closing_time} required />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField id={id("tz")} name="timezone" label="Timezone" defaultValue={school.timezone} error={e.timezone} required />
+            <FormField id={id("sms")} name="sms_sender_name" label="SMS sender name (optional)" maxLength={11} defaultValue={school.sms_sender_name ?? ""} error={e.sms_sender_name} />
+          </div>
+          <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save school"}</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function DeleteSchoolButton({ school }: { school: { id: string; name: string } }) {
+  return (
+    <ConfirmDelete action={deleteSchool} id={school.id} label="Delete" title={`Delete ${school.name}?`} confirmText={school.name}
+      body={<>
+        <p>This permanently deletes the school and <strong>everything in it</strong>: students, staff, attendance, cards, kiosks, photos and every login for this school. It can&apos;t be undone.</p>
+        <p>Schools with invoices or payments on record can&apos;t be deleted.</p>
+      </>} />
   );
 }

@@ -27,12 +27,12 @@ export function SetupChecklist({ steps, schoolName }: { steps: SetupStep[]; scho
           const isNext = s.next?.id === st.id;
           const pct = st.progress ? Math.round((Math.min(st.progress.done, st.progress.of) / st.progress.of) * 100) : null;
           return (
-            <li key={st.id} className={cn("motion-rise flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4", isNext && "bg-accent")} style={{ "--d": `${80 + i * 50}ms` } as React.CSSProperties}>
+            <li key={st.id} className={cn("motion-rise flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 sm:px-6", isNext && "bg-accent")} style={{ "--d": `${80 + i * 50}ms` } as React.CSSProperties}>
               <span aria-hidden className={cn("flex size-7 shrink-0 items-center justify-center rounded-full",
                 st.done ? "bg-success text-white" : isNext ? "bg-brand text-primary-foreground" : "bg-muted text-muted-foreground")}>
                 {st.done ? <Check className="size-4" /> : <span className="text-xs font-semibold tabular-nums">{i + 1}</span>}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-[calc(100%-2.75rem)] sm:basis-0">
                 <p className={cn("font-medium", st.done ? "text-muted-foreground" : "text-ink")}>
                   {st.title}
                   {st.optional && <span className="ml-2 text-xs font-normal text-muted-foreground">Optional</span>}
@@ -49,7 +49,7 @@ export function SetupChecklist({ steps, schoolName }: { steps: SetupStep[]; scho
                 )}
               </div>
               {!st.done && (
-                <Link href={st.href} className={cn("motion-press group inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium",
+                <Link href={st.href} className={cn("motion-press group ml-11 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium sm:ml-0",
                   isNext ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-brand hover:bg-muted")}>
                   {st.action}<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                 </Link>
