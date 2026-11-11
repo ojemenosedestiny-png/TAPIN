@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BellRing, CheckCircle2, Circle, FileBarChart } from "lucide-react";
+import { ArrowRight, BellRing, CheckCircle2, FileBarChart } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signPhotos } from "@/lib/photos";
@@ -8,6 +8,9 @@ import { fetchAllPages } from "@/lib/reports";
 import { bucketArrivals } from "@/lib/today";
 import { friendlyTime, hhmm, localDate, localTime } from "@/lib/time";
 import { Button } from "@/components/ui/button";
+import { setupSteps } from "@/lib/setup";
+import { loadSetupCounts } from "@/lib/setup-data";
+import { SetupBanner, SetupChecklist } from "@/components/dashboard/setup-checklist";
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { PersonAvatar } from "@/components/dashboard/person-avatar";
 import { AttendancePill } from "@/components/dashboard/status-pill";
@@ -41,14 +44,7 @@ export default async function TodayPage() {
     isAdmin ? supabase.from("attendance").select("id", { count: "exact", head: true }).eq("holder_type", "staff").eq("date", today) : Promise.resolve({ count: 0 }),
     isAdmin ? supabase.from("staff").select("id", { count: "exact", head: true }).eq("status", "active") : Promise.resolve({ count: 0 }),
     isAdmin ? supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null) : Promise.resolve({ count: 0 }),
-    isAdmin
-      ? Promise.all([
-          supabase.from("classes").select("id", { count: "exact", head: true }),
-          supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
-          supabase.from("cards").select("id", { count: "exact", head: true }).eq("status", "active"),
-          supabase.from("devices").select("id", { count: "exact", head: true }).is("revoked_at", null),
-        ])
-      : Promise.resolve(null),
+    isAdmin ? loadSetupCounts(supabase) : Promise.resolve(null),
   ]);
 
   const counts = (byClass ?? []) as ClassCounts[];
@@ -77,38 +73,13 @@ export default async function TodayPage() {
     </div>
   );
 
-  // First run: nothing to show yet → a setup checklist at its true percentage.
-  if (isAdmin && total === 0 && setup) {
-    const [c, s, k, d] = setup.map((r) => r.count ?? 0);
-    const steps = [
-      { done: c > 0, label: "Create your classes", href: "/classes" },
-      { done: s > 0, label: "Import students and guardians", href: "/students/import" },
-      { done: k > 0, label: "Enrol ID cards", href: "/enroll" },
-      { done: d > 0, label: "Register the gate kiosk", href: "/devices" },
-    ];
-    const pct = Math.round((steps.filter((x) => x.done).length / steps.length) * 100);
+  // First run: nothing to show yet, so the full getting-started list.
+  const steps = setup ? setupSteps(setup) : null;
+  if (isAdmin && total === 0 && steps) {
     return (
       <>
         {title}
-        <section className="motion-rise max-w-2xl surface rounded-xl p-6" aria-labelledby="setup">
-          <h2 id="setup" className="text-lg font-semibold text-ink">Get {school.name} ready for the gate</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Attendance shows here as soon as students tap in.</p>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-brand-light" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Setup progress">
-            <div className="motion-grow-x h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="mt-1 text-xs tabular-nums text-muted-foreground">{pct}% done</p>
-          <ol className="mt-4 divide-y divide-border">
-            {steps.map((st, i) => (
-              <li key={st.label} className="motion-rise" style={{ "--d": `${100 + i * 70}ms` } as React.CSSProperties}>
-                <Link href={st.href} className="motion-press group flex items-center gap-3 py-3">
-                  {st.done ? <CheckCircle2 className="size-5 text-success" aria-hidden /> : <Circle className="size-5 text-slate-300" aria-hidden />}
-                  <span className={st.done ? "text-muted-foreground line-through" : "font-medium text-ink"}>{st.label}</span>
-                  {!st.done && <ArrowRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden />}
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <div className="max-w-3xl"><SetupChecklist steps={steps} schoolName={school.name} /></div>
       </>
     );
   }
@@ -192,6 +163,7 @@ export default async function TodayPage() {
     <>
       <AutoRefresh seconds={20} />
       {title}
+      {steps && <SetupBanner steps={steps} />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_384px]">
         {/* Main column */}

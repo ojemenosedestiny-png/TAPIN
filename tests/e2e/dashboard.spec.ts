@@ -117,6 +117,18 @@ test.describe("today and reports", () => {
     for (const s of f.students) await expect(page.getByText(s.name).first()).toBeVisible();
   });
 
+  test("getting started: the checklist ticks off what the school has already done", async ({ page }) => {
+    await page.goto("/setup");
+    await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible();
+    const step = (name: string) => page.getByRole("listitem").filter({ hasText: name });
+    await expect(step("Create your classes")).toContainText("(done)");
+    await expect(step("Import students and parents")).toContainText("(done)");
+    await expect(step("Register the gate kiosk")).toContainText("(done)");
+    await expect(step("Enrol ID cards")).toContainText(/\d+ of 5/); // the test school has 5 pupils
+    await step("Send yourself a test alert").getByRole("link", { name: "Try it" }).click();
+    await expect(page).toHaveURL(/\/alerts#try-it/);
+  });
+
   test("staff are sent back to the dashboard from the parent portal", async ({ page }) => {
     await page.goto("/parent");
     await expect(page).toHaveURL(/\/today/);
