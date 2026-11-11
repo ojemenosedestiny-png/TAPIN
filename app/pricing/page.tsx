@@ -24,7 +24,7 @@ async function Body({ searchParams }: { searchParams: Search }) {
 export default async function PricingPage({ searchParams }: { searchParams: Search }) {
   const pricing = await loadPricing();
   return (
-    <main id="main" className="site theme-light">
+    <main id="main" className="site">
       <Reveal />
       <section className="site-dark plain">
         <SiteHeader active="pricing" />

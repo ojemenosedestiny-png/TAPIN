@@ -45,7 +45,7 @@ export function PricingClient({ pricing, initialTab, initialPlan, online }: { pr
             {(["school", "parent"] as const).map((t) => (
               <button key={t} type="button" role="tab" id={`tab-${t}`} aria-selected={tab === t} aria-controls={`panel-${t}`} onClick={() => setTab(t)}
                 style={{ height: 48, padding: "0 24px", border: "none", borderRadius: 999, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "background-color 200ms ease, color 200ms ease",
-                  background: tab === t ? "#fff" : "transparent", color: tab === t ? "var(--ink)" : "var(--on-deep-2)" }}>
+                  background: tab === t ? "#fff" : "transparent", color: tab === t ? "#0f172a" : "var(--on-deep-2)" }}>
                 {t === "school" ? "For schools" : "For parents"}
               </button>
             ))}
@@ -98,7 +98,7 @@ function SchoolTab({ pricing: PRICING, initialPlan, online }: { pricing: WebPric
               {(["term", "year"] as const).map((b) => (
                 <button key={b} type="button" aria-pressed={billing === b} onClick={() => setBilling(b)}
                   style={{ height: 44, padding: "0 18px", border: "none", borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background-color 200ms ease",
-                    background: billing === b ? "#fff" : "transparent", color: billing === b ? "var(--ink)" : "var(--slate)", boxShadow: billing === b ? "0 1px 3px rgba(15,23,42,0.15)" : "none" }}>
+                    background: billing === b ? "var(--card)" : "transparent", color: billing === b ? "var(--ink)" : "var(--slate)", boxShadow: billing === b ? "0 1px 3px rgba(15,23,42,0.15)" : "none" }}>
                   {b === "term" ? "Per term" : `Per year · save ${PRICING.yearlyDiscountPct}%`}
                 </button>
               ))}
@@ -111,7 +111,7 @@ function SchoolTab({ pricing: PRICING, initialPlan, online }: { pricing: WebPric
             const price = pricePerStudent(p, billing, PRICING.yearlyDiscountPct);
             return (
               <button key={p.id} type="button" role="radio" aria-checked={on} onClick={() => setPlan(p.id)}
-                style={{ all: "unset", boxSizing: "border-box", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, padding: 28, borderRadius: 24, background: "#fff",
+                style={{ all: "unset", boxSizing: "border-box", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, padding: 28, borderRadius: 24, background: "var(--card)",
                   border: `2px solid ${on ? "var(--teal)" : "var(--line)"}`, boxShadow: on ? "0 20px 40px rgba(15,118,110,0.14)" : "none",
                   transition: "border-color 200ms ease, box-shadow 240ms ease, transform 240ms ease", transform: on ? "translateY(-4px)" : "none", ["--i" as string]: i } as React.CSSProperties}>
                 <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, width: "100%" }}>
@@ -136,7 +136,7 @@ function SchoolTab({ pricing: PRICING, initialPlan, online }: { pricing: WebPric
 
       <section className="wrap" style={{ paddingTop: 56, paddingBottom: 112, display: "flex", flexWrap: "wrap", gap: 32, alignItems: "flex-start" }}>
         <form id="school-order" action={action} noValidate
-          style={{ flex: "1.5 1 520px", minWidth: 0, background: "#fff", border: "1px solid var(--line)", borderRadius: 28, padding: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: 28 }}>
+          style={{ flex: "1.5 1 520px", minWidth: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 28, padding: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: 28 }}>
           <input type="hidden" name="plan" value={plan} />
           <input type="hidden" name="billing" value={billing} />
           <input type="hidden" name="method" value={method} />
@@ -208,7 +208,7 @@ function ParentTab({ online }: { online: boolean }) {
 
   return (
     <section className="wrap" style={{ paddingTop: 56, paddingBottom: 112, display: "flex", flexWrap: "wrap", gap: 32, alignItems: "flex-start" }}>
-      <div style={{ flex: "1.3 1 480px", minWidth: 0, background: "#fff", border: "1px solid var(--line)", borderRadius: 28, padding: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ flex: "1.3 1 480px", minWidth: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 28, padding: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h2 className="jk" style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>Pay your child&apos;s TapIn fee</h2>
           <p style={{ margin: 0, fontSize: 16, color: "var(--slate)" }}>Use the school code and student ID on the school&apos;s letter, and the phone number the school has for you.</p>
@@ -229,13 +229,13 @@ function ParentTab({ online }: { online: boolean }) {
             <input type="hidden" name="student_id" value={sid} />
             <input type="hidden" name="phone" value={phone} />
             <input type="hidden" name="method" value={method} />
-            <div role="status" style={{ border: "1px solid #99F6E4", background: "var(--mint-2)", borderRadius: 20, padding: 20, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", animation: "site-pop 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both" }}>
+            <div role="status" style={{ border: "1px solid var(--line-2)", background: "var(--mint-2)", borderRadius: 20, padding: 20, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", animation: "site-pop 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both" }}>
               <span className="jk" style={{ flex: "none", width: 60, height: 60, borderRadius: 999, background: "var(--mint)", border: "3px solid var(--teal)", color: "var(--teal)", fontSize: 22, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{child.first.slice(0, 1)}</span>
               <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                 <p className="jk" style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>{child.first}</p>
                 <p style={{ margin: 0, fontSize: 14, color: "var(--slate)" }}>{[child.className, child.schoolName].filter(Boolean).join(" · ")}</p>
               </div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#166534", background: "#DCFCE7", padding: "6px 12px", borderRadius: 999 }}>Student found</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink-green)", background: "var(--badge-in)", padding: "6px 12px", borderRadius: 999 }}>Student found</p>
             </div>
             {canPay ? (
               <>
@@ -268,7 +268,7 @@ function ParentTab({ online }: { online: boolean }) {
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--on-deep)" }}>Find your child first. You&apos;ll get a receipt as soon as the payment is confirmed.</p>
         </div>
-        <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 24, padding: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 24, padding: 24, display: "flex", flexDirection: "column", gap: 8 }}>
           <p className="jk" style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Can&apos;t find your child?</p>
           <p style={{ margin: 0, fontSize: 15, color: "var(--slate)" }}>Check the codes on the school&apos;s letter, and use the phone number you gave the school. Or ask the school office.</p>
         </div>

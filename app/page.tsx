@@ -47,16 +47,17 @@ export default async function Home() {
   const plans = pricing.plans;
   const live = pricing.liveWithinDays;
   return (
-    <main id="main" className="site theme-light">
+    <main id="main" className="site">
       <Reveal />
 
       {/* HERO */}
       <section className="site-dark">
+        <div className="hero-grid" aria-hidden />
         <SiteHeader active="home" />
         <div className="wrap hero">
           <div className="hero-copy load-in">
             <p className="pill"><span className="dot" />Smart attendance for Nigerian schools</p>
-            <h1>Every child, accounted for. From the school gate to the parent&apos;s phone.</h1>
+            <h1>Every child, <span className="tapin-gold gold-bright">accounted for.</span> From the school gate to the parent&apos;s phone.</h1>
             <p className="lead">Students tap their ID card. The kiosk greets them by name, records attendance, and tells their parents in seconds. Absent children are flagged automatically.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
               <BookDemo />
@@ -158,19 +159,19 @@ export default async function Home() {
         <div className="panel" style={{ flex: "1.4 1 520px", minWidth: 0 }} data-reveal data-ui>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <p className="jk" style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Today · Main campus</p>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "var(--slate-2)", background: "#F1F5F9", padding: "6px 10px", borderRadius: 999 }}>Sample data</p>
+            <p className="chip">Sample data</p>
           </div>
           <div className="kpis">
-            <div className="kpi" style={{ background: "#F0FDF4" }}><p style={{ color: "#166534" }}>Present</p><b><CountUp value={412} /></b></div>
-            <div className="kpi" style={{ background: "#FEF2F2" }}><p style={{ color: "#991B1B" }}>Absent</p><b><CountUp value={18} /></b></div>
-            <div className="kpi" style={{ background: "#FFFBEB" }}><p style={{ color: "#92400E" }}>Late</p><b><CountUp value={9} /></b></div>
-            <div className="kpi" style={{ background: "#F0FDFA" }}><p style={{ color: "#115E59" }}>Staff in</p><b><CountUp value={31} /></b></div>
+            <div className="kpi green"><p>Present</p><b><CountUp value={412} /></b></div>
+            <div className="kpi red"><p>Absent</p><b><CountUp value={18} /></b></div>
+            <div className="kpi amber"><p>Late</p><b><CountUp value={9} /></b></div>
+            <div className="kpi teal"><p>Staff in</p><b><CountUp value={31} /></b></div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, color: "var(--slate-2)" }}>Live taps</p>
             {TAPS.map((t, i) => (
               <div key={t.name} className="tap-row" style={d(i)}>
-                <span className="initials" style={t.staff ? { background: "#FEF3C7", color: "#92400E" } : undefined}>{t.i}</span>
+                <span className="initials" style={t.staff ? { background: "var(--badge-late)", color: "var(--ink-amber)" } : undefined}>{t.i}</span>
                 <span style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{t.name} <span style={{ fontWeight: 400, color: "var(--slate-2)" }}>· {t.cls}</span></span>
                 <span style={{ fontSize: 13, color: "var(--slate-2)" }}>{t.t}</span>
                 <span className={`badge ${t.late ? "late" : "in"}`}>{t.late ? "Late" : "In"}</span>
@@ -223,7 +224,7 @@ export default async function Home() {
       </section>
 
       {/* FAQ */}
-      <section style={{ background: "#fff", borderTop: "1px solid var(--line)" }} aria-labelledby="faq-h">
+      <section style={{ background: "var(--card)", borderTop: "1px solid var(--line)" }} aria-labelledby="faq-h">
         <div className="wrap" style={{ maxWidth: 820, paddingTop: 112, paddingBottom: 112, display: "flex", flexDirection: "column", gap: 32 }}>
           <h2 id="faq-h" className="jk" style={{ margin: 0, textAlign: "center", fontSize: "clamp(30px, 3.2vw, 40px)", fontWeight: 800, letterSpacing: "-0.03em" }} data-reveal>Questions schools ask</h2>
           <div data-reveal>

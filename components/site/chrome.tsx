@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import type { WebPricing } from "@/lib/pricing";
+import { ThemeToggle } from "@/components/theme/theme";
 
 /** Top bar of the public site, on the deep teal header. */
 export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
@@ -17,6 +18,7 @@ export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
         <Link href="/pricing" aria-current={active === "pricing" ? "page" : undefined}>Pricing</Link>
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span className="site-toggle hidden lg:inline-flex"><ThemeToggle /></span>
         <Link href="/login" className="login">Log in</Link>
         {active !== "pricing" && <Link href="/pricing" className="btn btn-gold" style={{ padding: "12px 20px", fontSize: 15 }}>Get started</Link>}
       </div>
@@ -53,7 +55,10 @@ export function SiteFooter({ contact: c }: { contact: WebPricing["contact"] }) {
           </div>
         </div>
       </div>
-      <div className="wrap" style={{ paddingBottom: 40, fontSize: 13, color: "var(--slate-2)" }}>© 2026 TapIn. All rights reserved.</div>
+      <div className="wrap" style={{ paddingBottom: 40, fontSize: 13, color: "var(--slate-2)", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+        <span>© 2026 TapIn. All rights reserved.</span>
+        <ThemeToggle />
+      </div>
     </footer>
   );
 }

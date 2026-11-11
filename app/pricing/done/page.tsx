@@ -43,7 +43,7 @@ async function Result({ searchParams }: { searchParams: Search }) {
 export default async function DonePage({ searchParams }: { searchParams: Search }) {
   const pricing = await loadPricing();
   return (
-    <main id="main" className="site theme-light">
+    <main id="main" className="site">
       <section className="site-dark"><SiteHeader /></section>
       <section className="wrap" style={{ paddingTop: 80, paddingBottom: 120 }}>
         <Suspense fallback={<p style={{ textAlign: "center" }} aria-busy="true">Checking your payment…</p>}>
