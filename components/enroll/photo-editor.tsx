@@ -14,7 +14,7 @@ import { setPhoto } from "@/app/(dashboard)/_actions/photos";
 
 type Props = {
   schoolId: string;
-  holderType: "student" | "staff";
+  holderType: "student" | "staff" | "pickup";
   holderId: string;
   name: string;
   photoUrl: string | null;

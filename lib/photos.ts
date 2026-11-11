@@ -5,7 +5,7 @@ export const PHOTO_BUCKET = "photos";
 export const PHOTO_URL_TTL = 10 * 60;
 
 /** Storage path for a person's photo: <school_id>/<holder_type>/<id>-<timestamp>.jpg */
-export function photoPath(schoolId: string, holderType: "student" | "staff", holderId: string, at = Date.now()): string {
+export function photoPath(schoolId: string, holderType: "student" | "staff" | "pickup", holderId: string, at = Date.now()): string {
   return `${schoolId}/${holderType}/${holderId}-${at}.jpg`;
 }
 

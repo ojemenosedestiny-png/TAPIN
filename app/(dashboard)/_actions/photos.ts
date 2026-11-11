@@ -8,7 +8,7 @@ import { writeAudit } from "@/lib/audit";
 import { PHOTO_BUCKET, pathInSchool } from "@/lib/photos";
 import { holderTypeSchema, idSchema } from "@/lib/validation";
 
-const setPhotoSchema = z.object({ holder_type: holderTypeSchema, holder_id: idSchema, path: z.string().max(300) });
+const setPhotoSchema = z.object({ holder_type: holderTypeSchema.or(z.literal("pickup")), holder_id: idSchema, path: z.string().max(300) });
 
 /**
  * Saves an uploaded photo's storage path on the person, and removes their previous photo.
@@ -25,7 +25,7 @@ export async function setPhoto(input: z.infer<typeof setPhotoSchema>): Promise<{
   }
 
   const supabase = await createClient();
-  const table = holder_type === "student" ? "students" : "staff";
+  const table = holder_type === "student" ? "students" : holder_type === "pickup" ? "pickup_people" : "staff";
   if (holder_type === "student") {
     const { data: st } = await supabase.from("students").select("consent_at").eq("id", holder_id).maybeSingle();
     if (!st?.consent_at) return { ok: false, error: "Record the parent's consent before adding a photo." };
@@ -38,7 +38,7 @@ export async function setPhoto(input: z.infer<typeof setPhotoSchema>): Promise<{
     await supabase.storage.from(PHOTO_BUCKET).remove([before.photo_url]);
   }
   await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "photo.set", entity: table, entityId: holder_id });
-  revalidatePath(holder_type === "student" ? "/students" : "/staff");
+  revalidatePath(holder_type === "student" ? "/students" : holder_type === "pickup" ? "/pickup" : "/staff");
   return { ok: true };
 }
 

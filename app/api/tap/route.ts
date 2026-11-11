@@ -9,6 +9,8 @@ import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour } from "@/lib/time";
 import { PHOTO_BUCKET } from "@/lib/photos";
 import { processOutbox, queueTapAlerts } from "@/lib/alerts";
+import { pickupCardTap, type Picker } from "@/lib/pickup-server";
+import type { PickupChild } from "@/lib/pickup";
 import { decideStaffTap, directorLessonMessage, directorWantsLesson, lessonFlags, minutesBetween, type DirectorMode, type LessonFlag } from "@/lib/lessons";
 
 const bodySchema = z.object({
@@ -17,7 +19,7 @@ const bodySchema = z.object({
   client_id: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
 });
 
-export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked" | "menu" | "lesson_started" | "lesson_ended";
+export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked" | "menu" | "lesson_started" | "lesson_ended" | "pickup" | "picked_up" | "not_authorised";
 export type LessonChoice = { class_id: string; class_name: string; subject_id: string; subject_name: string };
 export type LessonOptions = { assignments: LessonChoice[]; classes: { id: string; name: string }[]; subjects: { id: string; name: string }[] };
 export type TapResponse = {
@@ -41,6 +43,11 @@ export type TapResponse = {
   subject?: string;
   minutes?: number;
   flags?: LessonFlag[];
+  /** Safe pickup: who is collecting, and the children they may take. */
+  picker?: Picker;
+  children?: PickupChild[];
+  /** Picked up: first names to speak. */
+  spoken?: string;
 };
 
 const PLAIN_RESULTS: readonly TapAction[] = ["signed_in", "signed_out", "duplicate", "unknown", "blocked"];
@@ -84,7 +91,7 @@ export async function POST(req: NextRequest) {
   }
 
   const uid = normaliseUid(parsed.data.uid);
-  const log = async (result: TapAction, extra: { holder_type?: string; holder_id?: string; late?: boolean } = {}): Promise<number | null> => {
+  const log = async (result: TapAction | "pickup", extra: { holder_type?: string; holder_id?: string; late?: boolean } = {}): Promise<number | null> => {
     const { data, error } = await db.from("tap_events").insert({
       school_id: school.id, device_id: device.id, uid: uid ?? parsed.data.uid.slice(0, 64), result,
       tapped_at: tappedAt.toISOString(), client_id: parsed.data.client_id ?? null, ...extra,
@@ -112,6 +119,9 @@ export async function POST(req: NextRequest) {
 
   const { data: card } = await db.from("cards").select("id, holder_type, holder_id, status").eq("uid", uid).eq("school_id", school.id).maybeSingle();
   if (!card) {
+    // Safe pickup card?
+    const pickup = await pickupCardTap(db, device, uid, tappedAt, log).catch((e) => { console.error("pickup tap", e); return null; });
+    if (pickup) return json({ ...pickup, time } as TapResponse);
     await log("unknown");
     notifyUnknown("Unrecognised");
     return json({ action: "unknown", time });

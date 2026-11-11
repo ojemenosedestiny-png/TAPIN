@@ -1,5 +1,5 @@
 import {
-  Bell, BookOpen, History, ListChecks, LifeBuoy, Nfc, Wallet, CalendarCheck, CreditCard, FileBarChart, GraduationCap, Settings, Smartphone, Users, Building2, Presentation, UserRound,
+  Bell, BookOpen, History, ListChecks, LifeBuoy, Nfc, Wallet, CalendarCheck, CreditCard, FileBarChart, GraduationCap, Settings, Smartphone, Users, Building2, Presentation, UserRound, ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { canAccess, type Area, type Role } from "@/lib/auth/roles";
@@ -14,6 +14,7 @@ const ITEMS: NavItem[] = [
   { area: "students", label: "Students", href: "/students", icon: GraduationCap },
   { area: "staff", label: "Staff", href: "/staff", icon: Users },
   { area: "lessons", label: "Lessons", href: "/lessons", icon: Presentation },
+  { area: "pickup", label: "Safe pickup", href: "/pickup", icon: ShieldCheck },
   { area: "classes", label: "Classes", href: "/classes", icon: BookOpen },
   { area: "cards", label: "Cards", href: "/cards", icon: CreditCard },
   { area: "enroll", label: "Enrol cards", href: "/enroll", icon: Nfc },

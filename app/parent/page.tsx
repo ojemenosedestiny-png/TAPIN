@@ -13,6 +13,7 @@ import { PersonAvatar } from "@/components/dashboard/person-avatar";
 import { AttendancePill } from "@/components/dashboard/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChannelChoice } from "./channel-choice";
+import { ParentPickup, type ParentPickupPerson } from "./pickup";
 import { parentSignOut } from "./login/actions";
 import { PoweredBy } from "@/components/brand/powered-by";
 
@@ -55,6 +56,19 @@ async function Portal() {
   const paths = withDays.map((w) => w.child.photo_url).filter((p): p is string => !!p);
   const { data: signed } = paths.length ? await createAdminClient().storage.from(PHOTO_BUCKET).createSignedUrls(paths, 300) : { data: [] };
   const photo = new Map((signed ?? []).filter((s) => s.path && s.signedUrl).map((s) => [s.path!, s.signedUrl]));
+
+  // Pickup people for these children (the database already proved they are this parent's).
+  const kidName = new Map(unique.map((c) => [c.student_id, c.first_name]));
+  const { data: pickupLinks } = await createAdminClient().from("pickup_people_students")
+    .select("student_id, pickup_people(id, name, relationship, status, card_uid)").in("student_id", unique.map((c) => c.student_id));
+  const pickupPeople = new Map<string, ParentPickupPerson>();
+  for (const l of pickupLinks ?? []) {
+    const p = l.pickup_people as unknown as { id: string; name: string; relationship: string | null; status: string; card_uid: string | null } | null;
+    if (!p) continue;
+    const row = pickupPeople.get(p.id) ?? { id: p.id, name: p.name, relationship: p.relationship, status: p.status, card: !!p.card_uid, children: [] };
+    row.children.push(kidName.get(l.student_id as string) ?? "");
+    pickupPeople.set(p.id, row);
+  }
 
   return (
     <div className="space-y-6">
@@ -117,6 +131,8 @@ async function Portal() {
           </section>
         );
       })}
+
+      <ParentPickup people={[...pickupPeople.values()]} kids={unique.map((c) => ({ id: c.student_id, name: c.first_name }))} />
 
       <section className="motion-rise rounded-2xl border border-border bg-card p-5" aria-labelledby="alerts-how">
         <h2 id="alerts-how" className="font-semibold text-ink">How should the school reach you?</h2>

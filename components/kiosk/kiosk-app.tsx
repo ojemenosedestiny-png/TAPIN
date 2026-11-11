@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, BookOpen, CloudOff, LogOut, Maximize, Nfc, Play, Settings, Volume2, WifiOff, XCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, CloudOff, Delete, KeyRound, LogOut, Maximize, Nfc, Play, Settings, ShieldX, Volume2, WifiOff, XCircle } from "lucide-react";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import { Ripple } from "@/components/brand/ripple";
 import { PoweredBy } from "@/components/brand/powered-by";
@@ -22,6 +22,8 @@ import { clockSnapshot, readToken, subscribeClock, subscribeToken, writeToken } 
 const RESULT_MS = 4000;
 /** The teacher menu waits this long for a choice (each touch restarts it). */
 const MENU_MS = 15_000;
+/** Pickup confirmation and code entry wait longer: staff check faces before releasing a child. */
+const PICKUP_MS = 60_000;
 const HEARTBEAT_MS = 60_000;
 const FLUSH_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -31,6 +33,8 @@ type Screen =
   | { kind: "idle" }
   | { kind: "result"; data: TapResponse }
   | { kind: "menu"; data: TapResponse; error?: string }
+  | { kind: "pickup"; data: TapResponse; error?: string }
+  | { kind: "code"; error?: string }
   | { kind: "saved_offline" };
 
 const noop = () => () => {};
@@ -138,7 +142,34 @@ function Kiosk({ token }: { token: string }) {
   const show = (s: Screen) => {
     setScreen(s);
     if (resetTimer.current) clearTimeout(resetTimer.current);
-    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : RESULT_MS);
+    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" ? PICKUP_MS : RESULT_MS);
+  };
+
+  /** A one-day pickup code typed on the kiosk. */
+  const submitCode = async (code: string) => {
+    try {
+      const res = await api("/api/pickup/code", token, { method: "POST", body: JSON.stringify({ code }) });
+      const out = await res.json().catch(() => ({}));
+      if (res.ok) return presentResult(out as TapResponse);
+      if (handleAuthFailure(res.status, out.error)) return;
+      play("error");
+      show({ kind: "code", error: out.error ?? "That code didn't work." });
+    } catch {
+      show({ kind: "code", error: "No connection. Pickup needs the kiosk to be online." });
+    }
+  };
+
+  /** Staff confirmed which children are leaving. */
+  const confirmPickup = async (data: TapResponse, studentIds: string[]) => {
+    try {
+      const res = await api("/api/pickup", token, { method: "POST", body: JSON.stringify({ tap_id: data.tap_id, student_ids: studentIds }) });
+      const out = await res.json().catch(() => ({}));
+      if (res.ok) return presentResult(out as TapResponse);
+      if (handleAuthFailure(res.status, out.error)) return;
+      show({ kind: "pickup", data, error: out.error ?? "That didn't work. Please try again." });
+    } catch {
+      show({ kind: "pickup", data, error: "No connection. Pickup needs the kiosk to be online." });
+    }
   };
 
   /** The teacher chose on the menu: start a lesson or sign out. Times are set by the server. */
@@ -219,6 +250,24 @@ function Kiosk({ token }: { token: string }) {
 
   const presentResult = (data: TapResponse) => {
     const name = data.first_name ?? "";
+    if (data.action === "pickup") {
+      show({ kind: "pickup", data });
+      play("duplicate");
+      say({ kind: "pickup_wait" }, soundLengthMs("duplicate"));
+      return;
+    }
+    if (data.action === "picked_up") {
+      show({ kind: "result", data });
+      play("signOut");
+      say({ kind: "pickup", name: (data.name ?? "").split(" ")[0] ?? "", child: data.spoken ?? "" }, soundLengthMs("signOut"));
+      return;
+    }
+    if (data.action === "not_authorised") {
+      show({ kind: "result", data });
+      play("error");
+      say({ kind: "not_authorised" }, soundLengthMs("error"));
+      return;
+    }
     if (data.action === "menu") {
       show({ kind: "menu", data });
       play("duplicate");
@@ -376,7 +425,7 @@ function Kiosk({ token }: { token: string }) {
   return (
     <main id="main" className="theme-light relative min-h-dvh select-none overflow-hidden">
       {screen.kind === "idle" && (
-        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} />
+        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} onPickupCode={() => show({ kind: "code" })} />
       )}
       {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "") + screen.data.action} data={screen.data} />}
       {screen.kind === "menu" && (
@@ -386,6 +435,13 @@ function Kiosk({ token }: { token: string }) {
           onSignOut={() => void choose(screen.data, { choice: "sign_out" })} />
       )}
       {screen.kind === "saved_offline" && <SavedOffline />}
+      {screen.kind === "pickup" && (
+        <PickupConfirm key={String(screen.data.tap_id) + (screen.error ?? "")} data={screen.data} error={screen.error}
+          onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onConfirm={(ids) => void confirmPickup(screen.data, ids)} />
+      )}
+      {screen.kind === "code" && (
+        <CodeEntry key={screen.error ?? "code"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(c) => void submitCode(c)} />
+      )}
 
       {/* Status badges */}
       <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-2">
@@ -445,8 +501,8 @@ function localHour(timeZone = "Africa/Lagos") {
   return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone }).format(new Date()));
 }
 
-function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound }: {
-  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void;
+function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound, onPickupCode }: {
+  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void; onPickupCode: () => void;
 }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden bg-[#03201e] px-6 py-10 text-white">
@@ -502,9 +558,16 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
             </p>
           </>
         )}
-        <button onClick={onTestSound} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
-          <Volume2 className="size-5" aria-hidden /> Test sound
-        </button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button onClick={onTestSound} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
+            <Volume2 className="size-5" aria-hidden /> Test sound
+          </button>
+          {scanning && (
+            <button onClick={onPickupCode} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
+              <KeyRound className="size-5" aria-hidden /> Pickup code
+            </button>
+          )}
+        </div>
         {nfcError && <p role="alert" className="max-w-md rounded-xl bg-red-600/90 px-5 py-3 text-center text-lg">{nfcError}</p>}
         <PoweredBy onDark className="mt-1" />
       </div>
@@ -513,6 +576,31 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
 }
 
 function Result({ data }: { data: TapResponse }) {
+  if (data.action === "not_authorised") {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+        <ShieldX className="size-32" aria-hidden />
+        <p className="text-5xl font-semibold sm:text-6xl">Not authorised</p>
+        <p className="text-3xl font-medium">{data.name}</p>
+        <p className="max-w-xl text-2xl text-white/90">Do not release any child. The office and the parents have been told.</p>
+        <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
+      </div>
+    );
+  }
+  if (data.action === "picked_up") {
+    return (
+      <div className="relative flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-br from-[#0b4f6c] to-[#0f766e] px-6 text-center text-white" role="status">
+        <span className="kiosk-pop flex size-28 items-center justify-center rounded-full bg-white/15 ring-4 ring-white/70"><Check className="size-16" aria-hidden /></span>
+        <p className="kiosk-rise text-5xl font-semibold tracking-tight sm:text-6xl">Picked up</p>
+        <p className="text-3xl text-white/90">{(data.children ?? []).map((c) => c.first_name).join(", ")} <span className="text-white/60">with</span> {data.name}</p>
+        <p className="text-2xl tabular-nums text-white/80">{data.time} · parents notified</p>
+        <PoweredBy onDark className="absolute bottom-6 left-1/2 -translate-x-1/2" />
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
+          <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
+        </div>
+      </div>
+    );
+  }
   if (data.action === "unknown" || data.action === "blocked") {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
@@ -663,6 +751,111 @@ function TeacherMenu({ data, error, onActivity, onCancel, onStart, onSignOut }: 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PickupConfirm({ data, error, onActivity, onCancel, onConfirm }: {
+  data: TapResponse; error?: string; onActivity: () => void; onCancel: () => void; onConfirm: (ids: string[]) => void;
+}) {
+  const children = data.children ?? [];
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(children.filter((c) => c.state === "in_school").map((c) => c.id)));
+  const [busy, setBusy] = useState(false);
+  const picker = data.picker;
+  const toggle = (id: string) => setChosen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const none = children.every((c) => c.state !== "in_school");
+
+  return (
+    <div className="relative flex min-h-dvh flex-col bg-gradient-to-br from-[#082f49] via-[#0b4f6c] to-[#0f766e] px-6 py-8 text-white sm:px-12"
+      role="dialog" aria-modal="true" aria-label="Confirm pickup" onPointerDown={onActivity}>
+      <p className="text-lg font-medium uppercase tracking-widest text-white/70">Safe pickup · staff check</p>
+      <div className="mt-4 flex flex-col gap-8 lg:flex-row lg:items-start">
+        {/* The person collecting: face first, so staff can check it. */}
+        <div className="flex items-center gap-5 lg:w-80 lg:flex-col lg:items-start">
+          <div className="aspect-[3/4] w-32 shrink-0 overflow-hidden rounded-3xl bg-white/15 ring-4 ring-white/80 sm:w-40 lg:w-64">
+            {picker?.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={picker.photo_url} alt="" className="size-full object-cover" />
+            ) : (
+              <span className="flex size-full items-center justify-center text-6xl font-semibold">{initials(picker?.name ?? "?")}</span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-4xl font-semibold leading-tight tracking-tight">{picker?.name}</p>
+            {picker?.relationship && <p className="mt-1 text-2xl text-white/80">{picker.relationship}</p>}
+            <p className="mt-2 text-lg text-white/70">{data.time}</p>
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-2xl font-semibold">{none ? "No child to collect right now" : "Children going home"}</p>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+            {children.map((c) => {
+              const can = c.state === "in_school";
+              const on = chosen.has(c.id);
+              return (
+                <li key={c.id}>
+                  <button type="button" disabled={!can || busy} onClick={() => toggle(c.id)} aria-pressed={on}
+                    className={cn("flex w-full items-center gap-4 rounded-2xl p-3 text-left ring-2 transition-colors",
+                      !can ? "bg-white/5 opacity-60 ring-white/10" : on ? "bg-white text-ink ring-white" : "bg-white/10 ring-white/30")}>
+                    <span className="size-20 shrink-0 overflow-hidden rounded-xl bg-slate-200">
+                      {c.photo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.photo_url} alt="" className="size-full object-cover" />
+                      ) : <span className="flex size-full items-center justify-center text-2xl font-semibold text-slate-600">{initials(c.name)}</span>}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-2xl font-semibold">{c.name}</span>
+                      <span className={cn("block text-lg", on ? "text-muted-foreground" : "text-white/75")}>
+                        {c.class ?? ""}{c.state === "signed_out" ? " · already gone home" : c.state === "not_in" ? " · not in school today" : ""}
+                      </span>
+                    </span>
+                    {can && <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", on ? "bg-brand text-white" : "ring-2 ring-white/60")}>{on && <Check className="size-6" aria-hidden />}</span>}
+                  </button>
+                </li>
+              );
+            })}
+            {children.length === 0 && <li className="text-xl text-white/80">No children are linked to this person.</li>}
+          </ul>
+          {error && <p role="alert" className="mt-4 rounded-2xl bg-red-600/90 px-5 py-3 text-xl">{error}</p>}
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button type="button" disabled={busy || chosen.size === 0} onClick={() => { setBusy(true); onConfirm([...chosen]); }}
+              className="flex min-h-20 flex-1 items-center justify-center gap-3 rounded-3xl bg-white px-6 text-3xl font-semibold text-brand shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50">
+              <Check className="size-8" aria-hidden /> Release {chosen.size === 1 ? "child" : `${chosen.size} children`}
+            </button>
+            <button type="button" onClick={onCancel} className="min-h-20 rounded-3xl px-8 text-2xl font-medium text-white ring-2 ring-white/40 hover:bg-white/10">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CodeEntry({ error, onActivity, onCancel, onSubmit }: { error?: string; onActivity: () => void; onCancel: () => void; onSubmit: (code: string) => void }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const press = (d: string) => setCode((c) => (c.length < 6 ? c + d : c));
+  const key = "flex h-20 items-center justify-center rounded-2xl bg-white/10 text-4xl font-semibold ring-1 ring-white/20 active:scale-95 active:bg-white/20";
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-br from-[#03201e] via-[#073b37] to-[#0f766e] px-6 py-8 text-white"
+      role="dialog" aria-modal="true" aria-label="Enter pickup code" onPointerDown={onActivity}>
+      <KeyRound className="size-12 text-teal-200" aria-hidden />
+      <p className="text-4xl font-semibold">Pickup code</p>
+      <p className="max-w-md text-center text-xl text-white/75">Enter the 6-digit code the parent sent you.</p>
+      <div className="flex gap-2" aria-live="polite" aria-label={`${code.length} of 6 digits entered`}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} className={cn("flex h-16 w-12 items-center justify-center rounded-xl text-4xl font-semibold tabular-nums ring-2", code[i] ? "bg-white text-ink ring-white" : "ring-white/30")}>{code[i] ?? ""}</span>
+        ))}
+      </div>
+      {error && <p role="alert" className="max-w-md rounded-2xl bg-red-600/90 px-5 py-3 text-center text-xl">{error}</p>}
+      <div className="grid w-full max-w-xs grid-cols-3 gap-3">
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <button key={d} type="button" className={key} onClick={() => press(d)}>{d}</button>)}
+        <button type="button" className={key} onClick={() => setCode((c) => c.slice(0, -1))} aria-label="Delete"><Delete className="size-8" /></button>
+        <button type="button" className={key} onClick={() => press("0")}>0</button>
+        <button type="button" disabled={code.length !== 6 || busy} onClick={() => { setBusy(true); onSubmit(code); }}
+          className={cn(key, "bg-white text-brand disabled:opacity-40")} aria-label="Check code"><Check className="size-9" /></button>
+      </div>
+      <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
     </div>
   );
 }

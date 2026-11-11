@@ -8,6 +8,9 @@ export type Phrase =
   | { kind: "choose"; name: string }
   | { kind: "lesson_start"; name: string }
   | { kind: "lesson_end"; name: string }
+  | { kind: "pickup"; name: string; child: string }
+  | { kind: "pickup_wait" }
+  | { kind: "not_authorised" }
   | { kind: "unknown" }
   | { kind: "already_in" }
   | { kind: "already_out" };
@@ -39,6 +42,13 @@ export function parsePhrase(body: unknown): Phrase | null {
       const name = cleanName(b.name);
       return name ? { kind: b.kind, name } : null;
     }
+    case "pickup": {
+      const name = cleanName(b.name);
+      const child = cleanName(b.child);
+      return name && child ? { kind: "pickup", name, child } : null;
+    }
+    case "pickup_wait":
+    case "not_authorised":
     case "unknown":
     case "already_in":
     case "already_out":
@@ -61,6 +71,12 @@ export function phraseText(p: Phrase): string {
       return `Lesson started. Have a good class, ${p.name}.`;
     case "lesson_end":
       return `Lesson ended. Thank you, ${p.name}.`;
+    case "pickup":
+      return `${p.name}, picking up ${p.child}. Thank you.`;
+    case "pickup_wait":
+      return "Please wait while staff confirm the pickup.";
+    case "not_authorised":
+      return "Not authorised. Please see the admin office.";
     case "unknown":
       return "Card not recognised. Please see the admin office.";
     case "already_in":
