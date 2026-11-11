@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/logo";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export const instant = true;
 export const metadata: Metadata = { title: "Privacy notice", robots: { index: true, follow: true } };
@@ -47,6 +48,7 @@ export default function PrivacyPage() {
         <p>Every school&apos;s data is kept separate by the database itself. Staff logins use strong passwords with optional two-factor codes, sessions end after 30 minutes of inactivity, every sensitive action is logged, and lost cards and gate devices can be blocked instantly.</p>
 
         <p className="mt-10 text-sm text-muted-foreground"><Link href="/login" className="font-medium text-brand hover:underline">Staff sign in</Link></p>
+        <div className="mt-10 flex justify-center"><PoweredBy /></div>
       </article>
     </main>
   );

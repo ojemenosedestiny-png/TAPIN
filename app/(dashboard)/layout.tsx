@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 /** Reads the session at request time, so it lives inside the Suspense boundary below. */
 async function Shell({ children }: { children: React.ReactNode }) {
@@ -14,6 +15,9 @@ async function Shell({ children }: { children: React.ReactNode }) {
       <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} />
       <main id="main" className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-12 lg:py-12">
         {children}
+        <footer className="mt-16 flex justify-center pb-2">
+          <PoweredBy />
+        </footer>
       </main>
     </div>
   );

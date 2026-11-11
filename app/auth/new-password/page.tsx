@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { createClient } from "@/lib/supabase/server";
 import { NewPasswordForm } from "./new-password-form";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export const metadata: Metadata = { title: "Choose a new password" };
 
@@ -16,7 +17,7 @@ async function Gate() {
 
 export default function NewPasswordPage() {
   return (
-    <main id="main" className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-light/60 via-background to-background px-4 py-12">
+    <main id="main" className="flex min-h-dvh items-center justify-center canvas px-4 py-12">
       <div className="motion-rise w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo className="size-14" />
@@ -27,6 +28,7 @@ export default function NewPasswordPage() {
             <Gate />
           </Suspense>
         </div>
+        <div className="mt-10 flex justify-center"><PoweredBy /></div>
       </div>
     </main>
   );

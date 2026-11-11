@@ -434,3 +434,45 @@
   .ripple-ring, .kiosk-breathe, .kiosk-float, .kiosk-sweep, .kiosk-signal { animation: none; }
   .ripple-ring { opacity: 0; }
 }
+
+/* ---------------------------------------------------------------------------
+   TapIn gold. The "In" of the wordmark, in a light-catching gradient that slowly shimmers.
+   Deeper on light backgrounds (readable on white), brighter on dark ones.
+   --------------------------------------------------------------------------- */
+:root, .theme-light { --gold-deep: #a8690a; --gold: #d4930f; --gold-light: #f2c24a; }
+@media screen { .dark { --gold-deep: #e0a326; --gold: #f5b82e; --gold-light: #ffe08a; } }
+.gold-bright { --gold-deep: #e0a326; --gold: #f5b82e; --gold-light: #ffe08a; }
+
+.tapin-gold {
+  background-image: linear-gradient(100deg, var(--gold-deep) 0%, var(--gold) 30%, var(--gold-light) 50%, var(--gold) 70%, var(--gold-deep) 100%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: tapin-shimmer 7s ease-in-out infinite;
+}
+@keyframes tapin-shimmer {
+  0%, 55% { background-position: 100% 0; }
+  85%, 100% { background-position: 0% 0; }
+}
+
+/* The logo's two waves pulse out, one after the other, like a card being read. */
+.logo-wave { animation: logo-wave 2.6s ease-in-out infinite; }
+.logo-wave-2 { animation-delay: 0.35s; }
+@keyframes logo-wave {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.2; }
+}
+
+.powered-by { transition: color 200ms ease, box-shadow 200ms ease; }
+.powered-by:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tapin-gold, .logo-wave { animation: none; }
+}
+@media print {
+  .tapin-gold { background: none; color: #b7791f; -webkit-text-fill-color: #b7791f; }
+  .logo-wave { animation: none; }
+  .powered-by { backdrop-filter: none; }
+}

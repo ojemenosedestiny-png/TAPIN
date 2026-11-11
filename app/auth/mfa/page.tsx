@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { MfaForm } from "./mfa-form";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export const metadata: Metadata = { title: "Two-factor code" };
 
@@ -18,7 +19,7 @@ async function Gate() {
 
 export default function MfaPage() {
   return (
-    <main id="main" className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-light/60 via-background to-background px-4 py-12">
+    <main id="main" className="flex min-h-dvh items-center justify-center canvas px-4 py-12">
       <div className="motion-rise w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><ShieldCheck className="size-7" aria-hidden /></span>
@@ -28,6 +29,7 @@ export default function MfaPage() {
         <div className="surface rounded-xl p-6 shadow-sm">
           <Suspense fallback={<div className="h-40" aria-busy="true" />}><Gate /></Suspense>
         </div>
+        <div className="mt-10 flex justify-center"><PoweredBy /></div>
       </div>
     </main>
   );

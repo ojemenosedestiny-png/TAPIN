@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { ForgotForm } from "./forgot-form";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export const instant = true;
 export const metadata: Metadata = { title: "Reset password" };
 
 export default function ForgotPage() {
   return (
-    <main id="main" className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-light/60 via-background to-background px-4 py-12">
+    <main id="main" className="flex min-h-dvh items-center justify-center canvas px-4 py-12">
       <div className="motion-rise w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo className="size-14" />
@@ -19,6 +20,7 @@ export default function ForgotPage() {
           <ForgotForm />
         </div>
         <p className="mt-6 text-center text-sm"><Link href="/login" className="font-medium text-brand hover:underline">Back to sign in</Link></p>
+        <div className="mt-10 flex justify-center"><PoweredBy /></div>
       </div>
     </main>
   );

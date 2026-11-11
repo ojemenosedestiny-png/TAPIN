@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export default function NotFound() {
   return (
@@ -12,6 +13,7 @@ export default function NotFound() {
         <Button asChild className="mt-6">
           <Link href="/">Go to dashboard</Link>
         </Button>
+        <div className="mt-10 flex justify-center"><PoweredBy /></div>
       </div>
     </main>
   );

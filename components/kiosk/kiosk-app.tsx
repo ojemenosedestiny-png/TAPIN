@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CloudOff, Maximize, Nfc, Settings, Volume2, WifiOff, XCircle } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { Logo, TapInWord } from "@/components/brand/logo";
 import { Ripple } from "@/components/brand/ripple";
+import { PoweredBy } from "@/components/brand/powered-by";
 import { initials } from "@/components/dashboard/person-avatar";
 import { NFC_ERROR_MESSAGES, nfcSupported, startNfcScan, type NfcErrorKind } from "@/lib/nfc";
 import { createWedgeReader } from "@/lib/keyboard-wedge";
@@ -78,9 +79,10 @@ function Setup({ message }: { message?: string }) {
   };
 
   return (
-    <main id="main" className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-brand-dark via-brand to-teal-500 p-6">
-      <form onSubmit={submit} className="w-full max-w-md rounded-2xl bg-card p-8 shadow-xl">
-        <Logo className="size-14" />
+    <main id="main" className="theme-light relative flex min-h-dvh flex-col items-center justify-center gap-8 overflow-hidden bg-[#03201e] p-6">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_600px_at_80%_-10%,rgb(45_212_191/0.32),transparent_60%),radial-gradient(700px_500px_at_10%_110%,rgb(245_158_11/0.16),transparent_60%)]" />
+      <form onSubmit={submit} className="relative w-full max-w-md rounded-2xl bg-card p-8 shadow-2xl">
+        <Logo className="size-14" animated />
         <h1 className="mt-4 text-2xl font-semibold text-ink">Set up this kiosk</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           In the TapIn dashboard, go to <strong>Devices → Register kiosk</strong>, then paste the device token here. You only do this once.
@@ -94,6 +96,7 @@ function Setup({ message }: { message?: string }) {
           {busy ? "Checking…" : "Connect kiosk"}
         </button>
       </form>
+      <PoweredBy onDark className="relative" />
     </main>
   );
 }
@@ -421,7 +424,7 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
           // eslint-disable-next-line @next/next/no-img-element
           <img src={school.logo_url} alt="" className="size-20 rounded-2xl bg-white object-contain p-2 shadow-lg" />
         ) : (
-          <Logo variant="inverse" className="size-20 shadow-lg" />
+          <Logo variant="inverse" className="size-20 shadow-lg" animated />
         )}
         <p className="text-2xl font-semibold tracking-tight">{school?.name ?? "TapIn"}</p>
         {deviceName && <p className="text-sm text-white/60">{deviceName}</p>}
@@ -433,7 +436,7 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
         {scanning ? (
           <>
             {/* The scan target: a card floating in its own NFC field. */}
-            <div className="relative flex size-[min(82vw,36vh,26rem)] items-center justify-center">
+            <div className="relative flex size-[min(82vw,33vh,26rem)] items-center justify-center">
               <Ripple rings={5} durationMs={4200} still={3} className="text-teal-200" ringClassName="[border-width:2px]" />
               <span aria-hidden className="kiosk-breathe absolute size-[55%] rounded-full bg-teal-300/35 blur-3xl" />
               <div className="kiosk-float relative">
@@ -442,7 +445,7 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
                   <Nfc className="absolute right-5 top-5 size-7 text-brand" aria-hidden />
                   <span aria-hidden className="absolute bottom-10 left-5 h-2 w-28 rounded-full bg-slate-200" />
                   <span aria-hidden className="absolute bottom-5 left-5 h-2 w-16 rounded-full bg-slate-200" />
-                  <span aria-hidden className="absolute bottom-5 right-5 font-heading text-sm font-bold text-brand/80">TapIn</span>
+                  <TapInWord className="absolute bottom-5 right-5 text-sm" />
                   <span aria-hidden className="kiosk-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/90 to-transparent" />
                 </div>
               </div>
@@ -469,6 +472,7 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
           <Volume2 className="size-5" aria-hidden /> Test sound
         </button>
         {nfcError && <p role="alert" className="max-w-md rounded-xl bg-red-600/90 px-5 py-3 text-center text-lg">{nfcError}</p>}
+        <PoweredBy onDark className="mt-1" />
       </div>
     </div>
   );
@@ -481,6 +485,7 @@ function Result({ data }: { data: TapResponse }) {
         <XCircle className="size-32" aria-hidden />
         <p className="text-5xl font-semibold sm:text-6xl">Card not recognised</p>
         <p className="text-2xl text-white/90">Please see the admin office.</p>
+        <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
       </div>
     );
   }
@@ -518,6 +523,7 @@ function Result({ data }: { data: TapResponse }) {
         </p>
       </div>
 
+      <PoweredBy onDark className="absolute bottom-6 left-1/2 -translate-x-1/2" />
       {/* Drains while the result is up, so the next child knows when to tap. */}
       <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
         <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />

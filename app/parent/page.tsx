@@ -14,6 +14,7 @@ import { AttendancePill } from "@/components/dashboard/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChannelChoice } from "./channel-choice";
 import { parentSignOut } from "./login/actions";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export const metadata: Metadata = { title: "My children" };
 
@@ -142,6 +143,7 @@ export default function ParentPage() {
         <Suspense fallback={<div className="space-y-4" aria-busy="true"><Skeleton className="h-64 w-full rounded-2xl" /><Skeleton className="h-40 w-full rounded-2xl" /></div>}>
           <Portal />
         </Suspense>
+        <div className="mt-10 flex justify-center"><PoweredBy /></div>
       </main>
     </div>
   );

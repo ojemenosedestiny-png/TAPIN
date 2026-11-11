@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Logo, TAGLINE } from "@/components/brand/logo";
+import { Logo, TAGLINE, TapInWord } from "@/components/brand/logo";
 import { Ripple } from "@/components/brand/ripple";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme/theme";
 import { LoginForm } from "./login-form";
+import { PoweredBy } from "@/components/brand/powered-by";
 
 export const instant = true;
 
@@ -52,8 +53,8 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
           <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-200 shadow-[0_0_24px_6px_rgb(94_234_212/0.5)]" />
         </div>
         <div className="relative flex items-center gap-3">
-          <Logo className="size-11" variant="inverse" title="" />
-          <span className="font-heading text-2xl font-bold tracking-tight">Tap<span className="text-amber-400">In</span></span>
+          <Logo className="size-11" variant="inverse" title="" animated />
+          <TapInWord onDark className="text-2xl" />
         </div>
         <div className="relative max-w-md">
           <p className="font-heading text-4xl font-semibold leading-[1.1] tracking-tight">Every child.<br />Accounted for.</p>
@@ -85,6 +86,7 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
           </div>
           <p className="mt-6 text-center text-sm lg:text-left"><Link href="/forgot" className="font-medium text-brand hover:underline">Forgot password?</Link></p>
           <p className="mt-2 text-center text-xs text-muted-foreground lg:text-left">Accounts are created by your school admin. <Link href="/privacy" className="hover:underline">Privacy</Link></p>
+          <div className="mt-10 flex justify-center"><PoweredBy /></div>
         </div>
       </section>
     </main>
