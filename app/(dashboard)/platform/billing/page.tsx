@@ -6,7 +6,8 @@ import { invoiceLines, monthLabel, naira } from "@/lib/billing";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusPill, type PillTone } from "@/components/dashboard/status-pill";
 import { KpiStrip } from "@/components/dashboard/today-blocks";
-import { GenerateInvoices, InvoiceStatusButton, PlatformSettingsForm, PricingDialog } from "./forms";
+import { GenerateInvoices, InvoiceStatusButton, OrderStatusButtons, PlatformSettingsForm, PricingDialog, WebsitePricesForm } from "./forms";
+import { formatNgPhone } from "@/lib/phone";
 
 export const metadata: Metadata = { title: "Billing" };
 
@@ -20,11 +21,13 @@ export default async function BillingPage() {
   const thisMonth = `${now.toISOString().slice(0, 7)}-01`;
   const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
 
-  const [{ data: schools }, { data: usage }, { data: invoices }, { data: settings }] = await Promise.all([
-    db.from("schools").select("id, name, price_per_student, setup_fee, price_per_sms, billing_start, billing_email").order("name"),
+  const [{ data: schools }, { data: usage }, { data: invoices }, { data: settings }, { data: orders }, { data: parentPays }] = await Promise.all([
+    db.from("schools").select("id, name, price_per_student, setup_fee, price_per_sms, billing_start, billing_email, public_code, parent_fee").order("name"),
     db.rpc("school_usage", { p_month: thisMonth }),
     db.from("invoices").select("id, school_id, number, period, total, status, issued_at").order("issued_at", { ascending: false }).limit(60),
     db.from("platform_settings").select("*").eq("id", true).single(),
+    db.from("orders").select("id, reference, plan, billing, students, school_name, contact_name, phone, email, state, method, amount, status, created_at").order("created_at", { ascending: false }).limit(50),
+    db.from("parent_payments").select("id, reference, school_id, amount, status, method, created_at, paid_at").order("created_at", { ascending: false }).limit(50),
   ]);
   const usageBy = new Map(((usage ?? []) as { school_id: string; active_students: number; sms_sent: number }[]).map((u) => [u.school_id, u]));
   const invoiced = new Set((invoices ?? []).map((i) => i.school_id));
@@ -34,7 +37,7 @@ export default async function BillingPage() {
     const u = usageBy.get(s.id) ?? { active_students: 0, sms_sent: 0 };
     const pricing = { price_per_student: Number(s.price_per_student), setup_fee: Number(s.setup_fee), price_per_sms: Number(s.price_per_sms) };
     const estimate = invoiceLines(pricing, u, { period: thisMonth, firstInvoice: !invoiced.has(s.id) }).total;
-    return { ...s, ...pricing, usage: u, estimate };
+    return { ...s, ...pricing, parent_fee: s.parent_fee === null ? null : Number(s.parent_fee), usage: u, estimate };
   });
   const unpaid = (invoices ?? []).filter((i) => i.status === "issued").reduce((a, i) => a + Number(i.total), 0);
   const students = rows.reduce((a, r) => a + r.usage.active_students, 0);
@@ -122,6 +125,84 @@ export default async function BillingPage() {
               })}
             </tbody>
           </table>
+        )}
+      </section>
+
+      <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="orders">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-2 pt-4">
+          <h2 id="orders" className="text-base font-semibold text-ink">Website orders</h2>
+          <p className="text-xs text-muted-foreground">Schools that chose a plan on the pricing page</p>
+        </div>
+        {(orders ?? []).length === 0 ? (
+          <p className="px-5 pb-5 text-sm text-muted-foreground">No orders yet.</p>
+        ) : (
+          <table className="w-full min-w-[860px] text-sm">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr>
+                <th scope="col" className="px-5 py-2 font-normal">School</th>
+                <th scope="col" className="px-3 py-2 font-normal">Contact</th>
+                <th scope="col" className="px-3 py-2 font-normal">Plan</th>
+                <th scope="col" className="px-3 py-2 text-right font-normal">Amount</th>
+                <th scope="col" className="px-3 py-2 font-normal">Status</th>
+                <th scope="col" className="px-5 py-2"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(orders ?? []).map((o) => (
+                <tr key={o.id} className="border-t border-border align-top">
+                  <td className="px-5 py-2.5"><span className="font-medium text-ink">{o.school_name}</span><span className="block text-xs text-muted-foreground">{o.state} · {o.students.toLocaleString()} students · {o.reference}</span></td>
+                  <td className="px-3 py-2.5">{o.contact_name}<span className="block text-xs"><a href={`tel:${o.phone}`} className="text-brand hover:underline">{formatNgPhone(o.phone)}</a> · <a href={`mailto:${o.email}`} className="text-brand hover:underline">{o.email}</a></span></td>
+                  <td className="px-3 py-2.5 capitalize">{o.plan} <span className="text-xs text-muted-foreground">per {o.billing} · {o.method}</span></td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{o.amount === null ? "Quote" : naira(Number(o.amount))}</td>
+                  <td className="px-3 py-2.5"><StatusPill tone={o.status === "paid" ? "green" : o.status === "cancelled" || o.status === "failed" ? "slate" : "amber"}>{o.status === "quote" ? "Wants a quote" : o.status[0]!.toUpperCase() + o.status.slice(1)}</StatusPill></td>
+                  <td className="px-5 py-2.5 text-right">{(o.status === "pending" || o.status === "quote") && <OrderStatusButtons id={o.id} />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="parent-pays">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-2 pt-4">
+          <h2 id="parent-pays" className="text-base font-semibold text-ink">Parent payments</h2>
+          <p className="text-xs text-muted-foreground">TapIn fees paid by parents online</p>
+        </div>
+        {(parentPays ?? []).length === 0 ? (
+          <p className="px-5 pb-5 text-sm text-muted-foreground">None yet. Give a school a code and a parent fee (Pricing) to switch this on.</p>
+        ) : (
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr><th scope="col" className="px-5 py-2 font-normal">School</th><th scope="col" className="px-3 py-2 font-normal">Reference</th><th scope="col" className="px-3 py-2 text-right font-normal">Amount</th><th scope="col" className="px-5 py-2 font-normal">Status</th></tr>
+            </thead>
+            <tbody>
+              {(parentPays ?? []).map((p) => (
+                <tr key={p.id} className="border-t border-border">
+                  <td className="px-5 py-2.5">{name.get(p.school_id) ?? "—"}</td>
+                  <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{p.reference}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{naira(Number(p.amount))}</td>
+                  <td className="px-5 py-2.5"><StatusPill tone={p.status === "paid" ? "green" : p.status === "failed" ? "slate" : "amber"}>{p.status[0]!.toUpperCase() + p.status.slice(1)}</StatusPill></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="motion-rise mt-6 max-w-3xl surface rounded-xl p-6" aria-labelledby="web-prices">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="web-prices" className="text-base font-semibold text-ink">Website prices</h2>
+          <a href="/pricing" target="_blank" rel="noreferrer" className="text-sm font-medium text-brand hover:underline">Open the pricing page</a>
+        </div>
+        {settings && (
+          <WebsitePricesForm prices={{
+            starter_price: settings.starter_price === null ? null : Number(settings.starter_price),
+            standard_price: settings.standard_price === null ? null : Number(settings.standard_price),
+            web_setup_fee: settings.web_setup_fee === null ? null : Number(settings.web_setup_fee),
+            yearly_discount_pct: settings.yearly_discount_pct === null ? null : Number(settings.yearly_discount_pct),
+            live_within_days: settings.live_within_days,
+            whatsapp: settings.whatsapp,
+          }} />
         )}
       </section>
 

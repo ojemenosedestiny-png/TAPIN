@@ -8,7 +8,7 @@ import { useEffect } from "react";
  */
 export function Reveal() {
   useEffect(() => {
-    const root = document.querySelector(".home");
+    const root = document.querySelector(".site, .home");
     if (!root || !("IntersectionObserver" in window)) return;
     const items = [...root.querySelectorAll<HTMLElement>("[data-reveal]")];
     // Anything already on screen stays put; only what is below the fold animates in.

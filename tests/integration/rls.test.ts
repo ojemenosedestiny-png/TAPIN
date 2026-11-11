@@ -219,6 +219,32 @@ describe.skipIf(!enabled)("Row Level Security", () => {
     }
   });
 
+  it("website orders are for the super admin only; parent payments for that school's admins too", async () => {
+    const ref = `TAPIN-SCH-${Date.now().toString(16).toUpperCase().padStart(12, "0").slice(-12)}`;
+    const { data: order } = await admin.from("orders").insert({
+      reference: ref, plan: "standard", billing: "term", students: 100, school_name: "RLS Order School", contact_name: "Test",
+      phone: "+2348030000000", email: "rls@example.com", state: "Lagos", method: "card", amount: 1000,
+    }).select("id").single();
+    const { data: student } = await admin.from("students").select("id").eq("school_id", ids.schoolA).limit(1).single();
+    const { data: pay } = await admin.from("parent_payments").insert({
+      reference: ref.replace("SCH", "PAR"), school_id: ids.schoolA, student_id: student!.id, phone: "+2348030000000", amount: 500, method: "card",
+    }).select("id").single();
+    try {
+      expect((await asSuper.from("orders").select("id").eq("id", order!.id)).data).toHaveLength(1);
+      for (const c of [asAdminA, asTeacherA, anonClient]) expect((await c.from("orders").select("id").eq("id", order!.id)).data ?? []).toEqual([]);
+      expect((await asAdminA.from("parent_payments").select("id").eq("id", pay!.id)).data).toHaveLength(1);
+      expect((await asSuper.from("parent_payments").select("id").eq("id", pay!.id)).data).toHaveLength(1);
+      for (const c of [asTeacherA, anonClient]) expect((await c.from("parent_payments").select("id").eq("id", pay!.id)).data ?? []).toEqual([]);
+      // Nobody marks a payment paid from the browser.
+      expect((await asAdminA.from("parent_payments").update({ status: "paid" }).eq("id", pay!.id).select()).data ?? []).toEqual([]);
+      const { error } = await anonClient.from("orders").insert({ reference: "X", plan: "starter", billing: "term", students: 1, school_name: "Sneaky", contact_name: "S", phone: "+2348030000001", email: "s@example.com", state: "Lagos", method: "card" });
+      expect(error).not.toBeNull();
+    } finally {
+      await admin.from("parent_payments").delete().eq("id", pay!.id);
+      await admin.from("orders").delete().eq("id", order!.id);
+    }
+  });
+
   it("anonymous visitors see nothing", async () => {
     for (const table of ["schools", "users", ...TENANT_TABLES]) {
       const { data } = await anonClient.from(table).select("*").limit(1);

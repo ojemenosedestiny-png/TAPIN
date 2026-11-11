@@ -1,6 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { PRICING_TAG } from "@/lib/pricing-data";
+import { normaliseNgPhone } from "@/lib/phone";
 import { z } from "zod";
 import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,6 +20,8 @@ const pricingSchema = z.object({
   price_per_sms: money,
   billing_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")).transform((v) => v || null),
   billing_email: z.string().trim().email("Enter a valid email.").optional().or(z.literal("")).transform((v) => v || null),
+  public_code: z.string().trim().toUpperCase().regex(/^([A-Z0-9]{2,8}(-[A-Z0-9]{2,8})?)?$/, "Letters and numbers, like GFA-ABJ.").optional().transform((v) => v || null),
+  parent_fee: z.union([z.literal(""), z.coerce.number().positive("Leave empty, or enter an amount.").max(1_000_000)]).optional().transform((v) => (v === "" || v === undefined ? null : v)),
 });
 
 export async function saveSchoolPricing(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -26,6 +30,7 @@ export async function saveSchoolPricing(_prev: ActionState, formData: FormData):
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
   const { school_id, ...pricing } = parsed.data;
   const { error } = await createAdminClient().from("schools").update(pricing).eq("id", school_id);
+  if (error?.code === "23505") return { errors: { public_code: "Another school already uses this code." } };
   if (error) return { errors: { _form: "Could not save pricing." } };
   await writeAudit({ schoolId: school_id, actorId: user.id, action: "billing.pricing", entity: "schools", entityId: school_id, details: pricing });
   revalidatePath("/platform/billing");
@@ -110,4 +115,48 @@ export async function setInvoiceStatus(_prev: ActionState, formData: FormData): 
   await writeAudit({ schoolId: data.school_id, actorId: user.id, action: `billing.invoice_${status.data}`, entity: "invoices", entityId: id.data, details: { number: data.number } });
   revalidatePath("/platform/billing");
   return { ok: `Invoice ${data.number} marked ${status.data}.` };
+}
+
+/** Website orders: mark one paid (e.g. paid by invoice and bank transfer) or cancelled. */
+export async function setOrderStatus(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireArea("platform");
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !["paid", "cancelled"].includes(status)) return { errors: { _form: "Invalid request." } };
+  const { error } = await createAdminClient().from("orders")
+    .update({ status, paid_at: status === "paid" ? new Date().toISOString() : null }).eq("id", id).in("status", ["pending", "quote"]);
+  if (error) return { errors: { _form: "Could not update the order." } };
+  await writeAudit({ schoolId: null, actorId: user.id, action: "order.status", entity: "orders", entityId: id, details: { status } });
+  revalidatePath("/platform/billing");
+  return { ok: status === "paid" ? "Order marked paid." : "Order cancelled." };
+}
+
+const optionalMoney = (msg: string) =>
+  z.union([z.literal(""), z.coerce.number().min(0, msg).max(10_000_000, msg)]).optional().transform((v) => (v === "" || v === undefined ? null : v));
+
+const webPricesSchema = z.object({
+  starter_price: optionalMoney("Enter an amount, or leave it empty."),
+  standard_price: optionalMoney("Enter an amount, or leave it empty."),
+  web_setup_fee: optionalMoney("Enter an amount (0 for free), or leave it empty."),
+  yearly_discount_pct: z.union([z.literal(""), z.coerce.number().min(0, "0 to 99.").max(99, "0 to 99.")]).optional().transform((v) => (v === "" || v === undefined ? null : v)),
+  live_within_days: z.union([z.literal(""), z.coerce.number().int("Whole days.").min(1, "1 to 365.").max(365, "1 to 365.")]).optional().transform((v) => (v === "" || v === undefined ? null : v)),
+  whatsapp: z.string().trim().optional().transform((v, ctx) => {
+    if (!v) return null;
+    const p = normaliseNgPhone(v);
+    if (!p) { ctx.addIssue({ code: "custom", message: "Enter a Nigerian mobile number, like 0803 123 4567." }); return z.NEVER; }
+    return p.replace("+", "");
+  }),
+}).refine((v) => !(v.starter_price === 0 || v.standard_price === 0), { message: "A plan price can't be 0. Leave it empty to show \"Price on request\".", path: ["_form"] });
+
+/** The prices shown on the public website. Empty fields are left off the site. */
+export async function saveWebsitePrices(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireArea("platform");
+  const parsed = webPricesSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { errors: fieldErrors(parsed.error) };
+  const { error } = await createAdminClient().from("platform_settings").update(parsed.data).eq("id", true);
+  if (error) return { errors: { _form: "Could not save the website prices." } };
+  await writeAudit({ schoolId: null, actorId: user.id, action: "billing.website_prices", entity: "platform_settings", details: parsed.data });
+  updateTag(PRICING_TAG); // the website shows the new prices straight away
+  revalidatePath("/platform/billing");
+  return { ok: "Website prices saved. The website shows them now." };
 }

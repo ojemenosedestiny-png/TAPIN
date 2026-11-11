@@ -1,222 +1,259 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { CloudOff, KeyRound } from "lucide-react";
-import { Wordmark } from "@/components/brand/logo";
+import { Ripple } from "@/components/brand/ripple";
 import { Reveal } from "@/components/home/reveal";
-import { Showcase } from "@/components/home/live-greeting";
-import { SchoolDay } from "@/components/home/school-day";
-import { DemoCoupon } from "@/components/home/demo-coupon";
-import "./home.css";
+import { SiteFooter, SiteHeader } from "@/components/site/chrome";
+import { BookDemo } from "@/components/site/book-demo";
+import { CountUp } from "@/components/site/count-up";
+import { naira } from "@/lib/pricing";
+import { loadPricing } from "@/lib/pricing-data";
+import "./site.css";
 
 // Signed-in staff and parents never see this page: proxy.ts sends them to their own home first.
 export const metadata: Metadata = {
-  title: { absolute: "TapIn · NFC attendance for Nigerian schools" },
-  description: "Children tap an ID card at the school gate, the kiosk greets them by name, and parents get a WhatsApp the same minute.",
+  title: { absolute: "TapIn · School attendance that keeps every child accounted for" },
+  description: "Students tap their ID card. The kiosk greets them by name, records attendance, and tells their parents in seconds.",
   robots: { index: true, follow: true },
 };
 
 const d = (i: number) => ({ "--i": i }) as React.CSSProperties;
+const Tick = ({ c = "#5EEAD4", s = 18 }: { c?: string; s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12l5 5L20 7" /></svg>
+);
+const Icon = ({ children, color = "#0F766E" }: { children: React.ReactNode; color?: string }) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{children}</svg>
+);
 
-export default function Home() {
+const FEATURES: { title: string; body: string; icon: React.ReactNode; warn?: boolean }[] = [
+  { title: "Photo check at the gate", body: "Every tap shows the cardholder's photo, so a borrowed card is spotted straight away.", icon: <Icon><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2" /><path d="M15 10h3M15 13h3" /></Icon> },
+  { title: "A warm voice greeting", body: "“Good morning, David.” “Goodbye, take care.” Children hear their name every day.", icon: <Icon><path d="M11 5L6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></Icon> },
+  { title: "Arrival and departure alerts", body: "Parents get the exact time their child signed in and out, by WhatsApp or SMS, under the school's own name.", icon: <Icon><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></Icon> },
+  { title: "Automatic absence alerts", body: "Not in by the cutoff? Parents are asked to check in. Weekends and holidays are skipped.", warn: true, icon: <Icon color="#B45309"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" /></Icon> },
+  { title: "Keeps working offline", body: "Network down? The kiosk still greets every child and sends everything once it reconnects.", icon: <Icon><path d="M2 8.8a15 15 0 0 1 20 0" /><path d="M5 12.5a10 10 0 0 1 14 0" /><path d="M8.5 16a5 5 0 0 1 7 0" /><circle cx="12" cy="19.5" r="1" /></Icon> },
+  { title: "Live dashboard for principals", body: "Who is present, absent or late, by class, in real time. Export termly reports in one click.", icon: <Icon><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Icon> },
+  { title: "Staff attendance too", body: "Teachers tap the same kiosk. Punctuality reports for staff with no extra hardware.", icon: <Icon><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><path d="M18 14.8c2 .6 3.2 2.4 3.5 5.2" /></Icon> },
+  { title: "Private and secure", body: "Each school's data is locked to that school. Lost cards are blocked in seconds.", icon: <Icon><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6l8-3z" /><path d="M9 12l2 2 4-4" /></Icon> },
+];
+
+const TAPS = [
+  { i: "DB", name: "David Bello", cls: "JSS 1B", t: "7:51", late: true },
+  { i: "AI", name: "Amina Ibrahim", cls: "SS 1A", t: "7:44" },
+  { i: "CO", name: "Chioma Okafor", cls: "JSS 2A", t: "7:42" },
+  { i: "MA", name: "Mrs. Adeyemi", cls: "Staff", t: "7:30", staff: true },
+];
+
+export default async function Home() {
+  const pricing = await loadPricing();
+  const plans = pricing.plans;
+  const live = pricing.liveWithinDays;
   return (
-    <main id="main" className="home">
+    <main id="main" className="site theme-light">
       <Reveal />
 
-      {/* Hero: the waterline. Above it the school, below it the parent's phone. */}
-      <section className="hero" aria-labelledby="hero-h">
-        <div className="field-top" aria-hidden />
-        <div className="field-bottom" aria-hidden />
-        <div className="bar">
-          <Link href="/" aria-label="TapIn home"><Wordmark className="text-base" /></Link>
-          <div className="bar-actions">
-            <Link href="/login" className="signin link">Sign in</Link>
-            <a href="#demo" className="btn">Book a demo</a>
+      {/* HERO */}
+      <section className="site-dark">
+        <SiteHeader active="home" />
+        <div className="wrap hero">
+          <div className="hero-copy load-in">
+            <p className="pill"><span className="dot" />Smart attendance for Nigerian schools</p>
+            <h1>Every child, accounted for. From the school gate to the parent&apos;s phone.</h1>
+            <p className="lead">Students tap their ID card. The kiosk greets them by name, records attendance, and tells their parents in seconds. Absent children are flagged automatically.</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+              <BookDemo />
+              <Link href="/pricing" className="btn btn-ghost">See pricing</Link>
+            </div>
+            <div className="ticks">
+              <span><Tick />Works offline</span>
+              <span><Tick />WhatsApp or SMS to any phone</span>
+              <span><Tick />Set up in days</span>
+            </div>
           </div>
-        </div>
-        <div className="headline heavy">
-          <h1 id="hero-h" className="copy">
-            <span className="line"><span>Every child</span></span>
-            <span className="line"><span className="split">counted.</span></span>
-          </h1>
-        </div>
-        <p className="support">
-          TapIn is NFC attendance for Nigerian schools: a tap at the gate, a greeting by name, and a WhatsApp to the parent
-          in the same minute.
-        </p>
-      </section>
 
-      <Showcase />
-
-      {/* One photograph across the page, with its caption on a solid bar. */}
-      <section className="band" aria-labelledby="band-h">
-        <div className="band-pic">
-          <Image src="/home/western-education-in-northern-nigeria-03.jpg" alt="Pupils in blue uniforms lining up outside their classroom in the morning" fill sizes="100vw" />
-        </div>
-        <div className="band-cap" data-reveal>
-          <h2 id="band-h" className="heavy">Every morning, every child</h2>
-          <p>Hundreds of children come through one gate in half an hour. TapIn reads a card in under a second, so the line keeps moving and nobody is missed.</p>
-        </div>
-      </section>
-
-      {/* The school day */}
-      <section className="day wrap" aria-labelledby="day-h">
-        <div className="intro grid12">
-          <h2 id="day-h" className="heavy" data-reveal>The school day</h2>
-          <p data-reveal style={d(1)}>
-            From the first child at the gate to the head teacher&apos;s report, TapIn keeps the register for you. Choose a
-            part of the day to see what happens.
-          </p>
-        </div>
-        <div data-reveal style={d(2)}><SchoolDay /></div>
-      </section>
-
-      {/* Board of close-ups from the product */}
-      <section className="board-section" aria-labelledby="board-h">
-        <div className="board">
-          <div className="tile t62" style={{ "--t-bg": "var(--paper-2)", "--t-ink": "var(--h-ink)" } as React.CSSProperties} data-reveal>
-            <h2 id="board-h" className="heavy">School mornings</h2>
-          </div>
-          <div className="tile t62" style={{ "--t-bg": "#cdeee6", "--t-ink": "#03201e" } as React.CSSProperties} data-reveal data-ui-tile>
-            <div className="el" data-ui style={{ fontSize: "clamp(22px, 2.6vw, 40px)", top: "14%", right: "-0.4em", display: "flex" }}>
-              {["AE", "KA", "TB", "DB", "CO"].map((x, i) => <span key={x} className="ui-disc" style={{ marginLeft: i ? "-0.4em" : 0 }}>{x}</span>)}
+          <div className="hero-visual">
+            <div className="device">
+              <div className="screen" role="img" aria-label="The TapIn kiosk greeting Chioma Okafor at 7:42 AM">
+                <div className="screen-top"><span>Main gate</span><span>7:42 AM</span></div>
+                <div className="avatar-wrap"><Ripple rings={3} durationMs={3000} still={0} /><div className="avatar">CO</div></div>
+                <div style={{ textAlign: "center" }}>
+                  <p className="jk" style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>Chioma Okafor</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 15, color: "var(--slate-2)" }}>JSS 2A</p>
+                </div>
+                <p className="signed"><Tick c="#166534" s={16} />Signed in</p>
+                <p className="quote">“Good morning, Chioma. Welcome to school.”</p>
+                <div className="tap-hint">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F766E" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M8.5 9a4 4 0 0 1 0 6" /><path d="M12 6.5a8 8 0 0 1 0 11" /><path d="M15.5 4a12 12 0 0 1 0 16" /></svg>
+                  Tap your card to sign in
+                </div>
+              </div>
             </div>
-            <div className="cap"><b>Who is missing, by 9:00</b><span>Absent pupils listed for each class teacher.</span></div>
-          </div>
-          <div className="tile t64" style={{ "--t-bg": "#03201e", "--t-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(18px, 2.4vw, 36px)", top: "18%", left: "8%" }}>
-              <span className="ui-pill" style={{ background: "#fbbf24", color: "#451a03" }}><CloudOff style={{ width: "1em", height: "1em" }} aria-hidden /> Offline: taps are being saved (3)</span>
+            <div className="sms-toast" aria-hidden>
+              <div className="sms-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg></div>
+              <div>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "var(--slate-2)" }}>WhatsApp · now</p>
+                <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 500, lineHeight: 1.4 }}>TapIn: Chioma arrived at school at 7:42 AM.</p>
+              </div>
             </div>
-            <div className="cap"><b>Works when the internet doesn&apos;t</b><span>Taps are kept on the kiosk and sent the moment it reconnects.</span></div>
-          </div>
-          <div className="tile t34" style={{ "--t-bg": "#0f766e", "--t-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(22px, 3vw, 48px)", top: "16%", left: "-0.3em", display: "grid", gap: "0.35em", fontWeight: 700 }}>
-              <span>WhatsApp <span className="ui-switch" style={{ background: "#e8a317" }} /></span>
-              <span style={{ opacity: 0.7 }}>SMS</span>
-            </div>
-            <div className="cap"><b>WhatsApp or SMS</b><span>Each parent chooses how to hear.</span></div>
-          </div>
-          <div className="tile t32" style={{ "--t-bg": "#e8a317", "--t-ink": "#1a1204" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(16px, 1.8vw, 28px)", top: "14%", right: "-1.2em" }}>
-              <span className="ui-pill" style={{ background: "#451a03", color: "#fde68a" }}>Late arrival · 7:46</span>
-            </div>
-            <div className="cap"><b>Late, marked kindly</b><span>After resumption time.</span></div>
-          </div>
-          <div className="tile t32" style={{ "--t-bg": "#063b36", "--t-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(16px, 1.8vw, 28px)", top: "14%", left: "-0.6em" }}>
-              <span className="ui-pill" style={{ background: "#fecaca", color: "#7f1d1d" }}>Card blocked</span>
-            </div>
-            <div className="cap"><b>Lost card? Blocked at once</b><span>And a new one assigned.</span></div>
-          </div>
-          <div className="tile t34" style={{ "--t-bg": "var(--paper-2)", "--t-ink": "var(--h-ink)" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(20px, 2.6vw, 42px)", top: "14%", left: "10%", display: "flex", gap: "0.4em" }}>
-              <span className="ui-key">Excel</span><span className="ui-key">PDF</span>
-            </div>
-            <div className="cap"><b>Reports in one click</b><span>Any week, any term, any class.</span></div>
-          </div>
-          <div className="tile t32" style={{ "--t-bg": "#0b1716", "--t-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(18px, 2.2vw, 34px)", top: "12%", right: "-0.5em", display: "flex", gap: "0.25em", alignItems: "center" }}>
-              <KeyRound style={{ width: "1em", height: "1em", color: "#e8a317" }} aria-hidden />
-              {["4", "8", "2", "9", "1", "3"].map((n, i) => <span key={i} className="ui-key" style={{ minWidth: "1.6em", height: "1.9em" }}>{n}</span>)}
-            </div>
-            <div className="cap"><b>Two-factor login</b><span>For every staff account.</span></div>
-          </div>
-          <div className="tile t32" style={{ "--t-bg": "#cdeee6", "--t-ink": "#03201e" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(16px, 1.8vw, 28px)", top: "14%", left: "8%" }}>
-              <span className="ui-pill" style={{ background: "#0f766e", color: "#fff" }}>Signed out · Early release</span>
-            </div>
-            <div className="cap"><b>Early pick-up, recorded</b><span>With the reason, for the parent.</span></div>
-          </div>
-          <div className="tile t62" style={{ "--t-bg": "#0f766e", "--t-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <div className="el" data-ui style={{ fontSize: "clamp(16px, 1.7vw, 26px)", top: "12%", left: "4%", right: "4%" }}>
-              <p className="wa" style={{ margin: 0, maxWidth: "26ch" }}>Kemi Adeyemi has not signed in at school today. Please contact the school if anything is wrong.</p>
-            </div>
-            <div className="cap"><b>The school&apos;s own wording</b><span>Every message can be edited by the school admin.</span></div>
-          </div>
-          <div className="tile t62 photo" style={{ "--t-bg": "#03201e", "--t-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <Image src="/home/public-school-children-playing-during-break-time.jpg" alt="Schoolgirls in white hijabs and green trousers playing a circle game at break time" fill sizes="(max-width: 1023px) 100vw, 50vw" style={{ objectFit: "cover", objectPosition: "center 40%" }} />
-            <div className="cap"><b>Break time, then back in</b><span>Staff can tap in and out at the gate too.</span></div>
           </div>
         </div>
       </section>
 
-      {/* Promises, printed on a card */}
-      <section className="promises" aria-labelledby="promise-h">
-        <div className="card" data-reveal>
-          <h2 id="promise-h" className="heavy">What we promise schools</h2>
-          <div className="pic">
-            <Image src="/home/nigeria-students.jpg" alt="Pupils in green check uniforms in a school corridor" fill sizes="(max-width: 767px) 85vw, 50vw" />
-          </div>
-          <p className="names">
-            Each school sees only its own pupils&nbsp;· Parents see only their own child&nbsp;· Photos only with parental
-            consent&nbsp;· Two-factor login for staff&nbsp;· Records deleted after the school&apos;s retention period&nbsp;·
-            Nightly backups&nbsp;· Built to the Nigeria Data Protection Act 2023&nbsp;· Your data is never sold or shared
-          </p>
+      {/* TRUST STRIP */}
+      <section className="trust" aria-label="Why schools choose TapIn">
+        <div className="wrap grid">
+          <div data-reveal><b>Seconds, not minutes</b><span>From card tap to the parent&apos;s message on a normal connection</span></div>
+          <div data-reveal style={d(1)}><b>No internet? No problem</b><span>Taps are saved on the kiosk and sent when the network returns</span></div>
+          <div data-reveal style={d(2)}><b>Any phone</b><span>Parents need no app. Alerts arrive by WhatsApp or SMS</span></div>
+          <div data-reveal style={d(3)}><b>Data protected</b><span>Built to Nigeria Data Protection Act standards</span></div>
         </div>
       </section>
 
-      {/* Pricing: plans that step up */}
-      <section className="pricing" aria-labelledby="price-h">
-        <div className="steps">
-          <h2 id="price-h" className="heavy" data-reveal>Priced per pupil</h2>
-          <div className="plan" style={{ "--p-bg": "#cdeee6", "--p-ink": "#03201e", "--p-strip": "#a6ddd1", "--p-strip-ink": "#03201e" } as React.CSSProperties} data-reveal>
-            <div className="body">
-              <h3>Pilot</h3>
-              <p className="price">One term</p>
-              <ul><li>One gate kiosk set up with you</li><li>Cards enrolled for every pupil</li><li>Alerts to parents</li></ul>
+      {/* HOW IT WORKS */}
+      <section id="how" className="wrap section" aria-labelledby="how-h">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 640 }} data-reveal>
+          <p className="eyebrow">How it works</p>
+          <h2 id="how-h" className="big">One tap does the whole morning register.</h2>
+        </div>
+        <div className="grid3">
+          {[
+            ["01", "Tap the ID card", "Each student and teacher gets a smart ID card. They tap it on the kiosk at the gate. No queues, no paper register."],
+            ["02", "Greeted and recorded", "The screen shows their photo so the gate staff can check it, says good morning by name, and saves the exact time."],
+            ["03", "Parents are told", "Parents get a message when their child arrives and leaves. If a child hasn't arrived by the cutoff time, parents are alerted."],
+          ].map(([n, t, b], i) => (
+            <div key={n} className="card" data-reveal style={d(i)}>
+              <p className="num">{n}</p><h3>{t}</h3><p>{b}</p>
             </div>
-            <a href="#demo" className="strip">Start a pilot</a>
+          ))}
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" className="features" aria-labelledby="feat-h">
+        <div className="wrap section" style={{ paddingBottom: 112 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 24 }} data-reveal>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 620 }}>
+              <p className="eyebrow">What you get</p>
+              <h2 id="feat-h" className="big">Everything a school needs to know who is in, and who is not.</h2>
+            </div>
+            <p style={{ margin: 0, maxWidth: 360, fontSize: 16, color: "var(--slate)" }}>Kiosk, cards, software, alerts and setup. One service, one bill.</p>
           </div>
-          <div className="plan" style={{ "--p-bg": "#0f766e", "--p-ink": "#f4f6f5", "--p-strip": "#0a5550", "--p-strip-ink": "#f4f6f5" } as React.CSSProperties} data-reveal>
-            <div className="body">
-              <h3>School</h3>
-              <p className="price">Per pupil, monthly</p>
-              <ul><li>Everything in the pilot</li><li>Every gate and staff attendance</li><li>Reports, ID card printing</li><li>Parent portal</li><li>Monthly invoice, by transfer</li></ul>
-            </div>
-            <a href="#demo" className="strip">Ask for a quote</a>
-          </div>
-          <div className="plan" style={{ "--p-bg": "#03201e", "--p-ink": "#f4f6f5", "--p-strip": "#e8a317", "--p-strip-ink": "#1a1204" } as React.CSSProperties} data-reveal>
-            <div className="body">
-              <h3>Group</h3>
-              <p className="price">One invoice</p>
-              <ul><li>Several campuses or schools</li><li>Each school&apos;s data kept apart</li><li>One bill for the group</li><li>Set-up visits at every site</li><li>A named person to call</li></ul>
-            </div>
-            <a href="#demo" className="strip">Talk to us</a>
+          <div className="feat-grid">
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className="feat" data-reveal style={d(i % 4)}>
+                <div className={`ficon${f.warn ? " warn" : ""}`}>{f.icon}</div>
+                <h3>{f.title}</h3><p>{f.body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Book a demo */}
-      <section id="demo" className="coupon-wrap" aria-labelledby="demo-h">
-        <DemoCoupon />
+      {/* DASHBOARD PREVIEW */}
+      <section className="wrap" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 56 }} aria-labelledby="dash-h">
+        <div style={{ flex: "1 1 340px", minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }} data-reveal>
+          <p className="eyebrow">For school leaders</p>
+          <h2 id="dash-h" className="big" style={{ fontSize: "clamp(32px, 3.6vw, 44px)" }}>Know your school&apos;s attendance before assembly starts.</h2>
+          <p style={{ margin: 0, fontSize: 17, color: "var(--slate)" }}>The dashboard updates with every tap. See late arrivals, chase absences, and print class registers without collecting a single paper sheet.</p>
+          <div style={{ marginTop: 8 }}><BookDemo label="See a live demo" className="btn btn-teal" /></div>
+        </div>
+        <div className="panel" style={{ flex: "1.4 1 520px", minWidth: 0 }} data-reveal data-ui>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <p className="jk" style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Today · Main campus</p>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "var(--slate-2)", background: "#F1F5F9", padding: "6px 10px", borderRadius: 999 }}>Sample data</p>
+          </div>
+          <div className="kpis">
+            <div className="kpi" style={{ background: "#F0FDF4" }}><p style={{ color: "#166534" }}>Present</p><b><CountUp value={412} /></b></div>
+            <div className="kpi" style={{ background: "#FEF2F2" }}><p style={{ color: "#991B1B" }}>Absent</p><b><CountUp value={18} /></b></div>
+            <div className="kpi" style={{ background: "#FFFBEB" }}><p style={{ color: "#92400E" }}>Late</p><b><CountUp value={9} /></b></div>
+            <div className="kpi" style={{ background: "#F0FDFA" }}><p style={{ color: "#115E59" }}>Staff in</p><b><CountUp value={31} /></b></div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, color: "var(--slate-2)" }}>Live taps</p>
+            {TAPS.map((t, i) => (
+              <div key={t.name} className="tap-row" style={d(i)}>
+                <span className="initials" style={t.staff ? { background: "#FEF3C7", color: "#92400E" } : undefined}>{t.i}</span>
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{t.name} <span style={{ fontWeight: 400, color: "var(--slate-2)" }}>· {t.cls}</span></span>
+                <span style={{ fontSize: 13, color: "var(--slate-2)" }}>{t.t}</span>
+                <span className={`badge ${t.late ? "late" : "in"}`}>{t.late ? "Late" : "In"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
-      {/* Close */}
-      <footer className="close">
-        <div className="top grid12">
-          <div className="invite">
-            <h2 className="heavy">Bring TapIn<br />to your gate.</h2>
-            <a href="#demo" className="btn">Book a demo</a>
+      {/* PARENTS */}
+      <section id="parents" className="parents" aria-labelledby="par-h">
+        <div className="wrap" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 56 }}>
+          <div style={{ flex: "1 1 380px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="bubble" data-reveal>TapIn: Chioma arrived at school at 7:42 AM.</div>
+            <div className="bubble" data-reveal style={d(3)}>TapIn: Chioma left school at 2:10 PM. Have a good evening.</div>
+            <div className="bubble warn" data-reveal style={d(6)}>TapIn: David has not arrived at school today. Please contact the school if you were not expecting this.</div>
           </div>
-          <nav aria-label="More">
-            <Link href="/login">Staff sign in</Link>
-            <Link href="/parent/login">Parents</Link>
-            <Link href="/privacy">Privacy notice</Link>
-            <a href="#demo">Book a demo</a>
-          </nav>
+          <div style={{ flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }} data-reveal>
+            <p className="eyebrow" style={{ color: "var(--mint)" }}>For parents</p>
+            <h2 id="par-h" className="big">Peace of mind, every school day.</h2>
+            <p style={{ margin: 0, fontSize: 18, color: "#D5F3EE" }}>You&apos;ll know your child got to school safely, and when they left. No app to install. Just a message on the phone you already have.</p>
+            <Link href="/pricing?for=parents" className="btn btn-white" style={{ alignSelf: "flex-start", marginTop: 8 }}>Pay your child&apos;s TapIn fee</Link>
+          </div>
         </div>
-        <div className="legal">
-          <p className="credits">
-            Pictures:{" "}
-            <a href="https://commons.wikimedia.org/wiki/File:Female_school_security_staff_watching_out_for_students.jpg">school security staff</a> by Adebukola Bassey,{" "}
-            <a href="https://commons.wikimedia.org/w/index.php?curid=4416214">pupils in a corridor</a> by Dolapo Falola,{" "}
-            <a href="https://commons.wikimedia.org/wiki/File:Western_Education_in_Northern_Nigeria_03.jpg">pupils lining up</a> by MicahTer,{" "}
-            <a href="https://commons.wikimedia.org/w/index.php?curid=77301974">break time in Anchau, Kaduna State</a> by Benjamin Egbodo; CC BY-SA, via Wikimedia Commons.
-          </p>
-          <p>© 2026 TapIn</p>
+      </section>
+
+      {/* PRICING TEASER */}
+      <section className="wrap section" style={{ gap: 48, paddingBottom: 112 }} aria-labelledby="price-h">
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }} data-reveal>
+          <p className="eyebrow">Pricing</p>
+          <h2 id="price-h" className="big" style={{ maxWidth: 680 }}>Simple plans. Priced per student, per term.</h2>
         </div>
-        <p className="name" aria-hidden><span className="tap">Tap</span><span className="tapin-gold gold-bright">In</span></p>
-      </footer>
+        <div className="grid3" style={{ alignItems: "stretch" }}>
+          {plans.map((p, i) => (
+            <div key={p.id} className={`plan${p.popular ? " featured" : ""}`} data-reveal style={d(i)}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <p className="name">{p.name}</p>{p.popular && <p className="popular">Most popular</p>}
+              </div>
+              <p className="blurb">{p.blurb}</p>
+              <p className="price">
+                {p.custom ? "Custom" : p.termPrice === null ? "Price on request" : <>{naira(p.termPrice)}<small> / student / term</small></>}
+              </p>
+              <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
+              <Link href={p.custom ? "/#demo" : `/pricing?plan=${p.id}`} className={`btn ${p.popular ? "btn-gold" : "btn-line"}`} style={{ marginTop: "auto", padding: "14px 20px" }}>
+                {p.custom ? "Talk to us" : `Choose ${p.name}`}
+              </Link>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section style={{ background: "#fff", borderTop: "1px solid var(--line)" }} aria-labelledby="faq-h">
+        <div className="wrap" style={{ maxWidth: 820, paddingTop: 112, paddingBottom: 112, display: "flex", flexDirection: "column", gap: 32 }}>
+          <h2 id="faq-h" className="jk" style={{ margin: 0, textAlign: "center", fontSize: "clamp(30px, 3.2vw, 40px)", fontWeight: 800, letterSpacing: "-0.03em" }} data-reveal>Questions schools ask</h2>
+          <div data-reveal>
+            <details><summary>What happens if the internet goes down?</summary><p>The kiosk keeps working. It greets each child, saves every tap, and sends the records and parent messages as soon as the connection returns.</p></details>
+            <details><summary>Do parents need a smartphone?</summary><p>No. Alerts arrive by WhatsApp, or as a normal SMS on any phone.</p></details>
+            <details><summary>What if a student loses their card?</summary><p>The admin blocks the old card from the dashboard in seconds and links a new one to the same student.</p></details>
+            <details><summary>Is our students&apos; data safe?</summary><p>Each school&apos;s data is kept separate and only staff you approve can see it. We follow the Nigeria Data Protection Act and record parental consent before any photo is added.</p></details>
+            <details><summary>How long does setup take?</summary><p>We install the kiosk, print the cards and register your students{live ? `. Most schools are live within ${live} days.` : ", usually within a few days."}</p></details>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section id="demo" className="wrap" style={{ paddingTop: 96, paddingBottom: 96 }} aria-labelledby="cta-h">
+        <div className="cta" data-reveal>
+          <div className="waves" aria-hidden><Ripple rings={4} durationMs={4800} still={3} /></div>
+          <div style={{ flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+            <h2 id="cta-h" className="jk" style={{ margin: 0, fontSize: "clamp(30px, 3.4vw, 44px)", lineHeight: 1.1, fontWeight: 800, letterSpacing: "-0.03em" }}>See TapIn at your school gate.</h2>
+            <p style={{ margin: 0, fontSize: 18, color: "var(--on-deep)" }}>We&apos;ll bring a kiosk and sample cards to your school for a free demo.</p>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+            <BookDemo />
+            {pricing.contact.whatsapp && (
+              <a href={`https://wa.me/${pricing.contact.whatsapp}`} className="btn btn-ghost" target="_blank" rel="noreferrer">Chat on WhatsApp</a>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <SiteFooter contact={pricing.contact} />
     </main>
   );
 }

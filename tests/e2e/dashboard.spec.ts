@@ -72,6 +72,8 @@ test.describe("super admin billing", () => {
     await expect(page).toHaveURL(/\/platform/);
     await page.getByRole("link", { name: "Billing" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Billing" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Website prices" })).toBeVisible();
+    await expect(page.getByLabel("Starter (₦ per student, per term)")).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: f.schoolName });
     await row.getByRole("button", { name: /Pricing/ }).click();
