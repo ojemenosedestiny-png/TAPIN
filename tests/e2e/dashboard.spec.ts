@@ -10,7 +10,7 @@ test.describe("signing in", () => {
     await context.addCookies([{ name: "tapin_last_active", value: String(Date.now() - 2 * 86_400_000), domain: base.hostname, path: "/" }]);
     await page.goto("/login");
     await page.getByLabel("Email").fill(f.adminEmail);
-    await page.getByLabel("Password").fill(f.adminPassword);
+    await page.getByLabel("Password", { exact: true }).fill(f.adminPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/today/);
     await page.reload();
@@ -33,6 +33,23 @@ test.describe("signing in", () => {
     await expect(page.getByText(/Enter your mobile number/)).toBeVisible();
   });
 
+  test("the eye button shows and hides the password", async ({ page }) => {
+    await page.goto("/login");
+    const box = page.getByLabel("Password", { exact: true });
+    await box.fill("Secret-pass1");
+    await expect(box).toHaveAttribute("type", "password");
+    await page.getByRole("button", { name: "Show password" }).click();
+    await expect(box).toHaveAttribute("type", "text");
+    await page.getByRole("button", { name: "Hide password" }).click();
+    await expect(box).toHaveAttribute("type", "password");
+  });
+
+  test("an old or broken reset link explains itself instead of failing", async ({ page }) => {
+    await page.goto("/auth/callback?token_hash=not-a-real-token&type=recovery");
+    await expect(page).toHaveURL(/\/login\?reason=link/);
+    await expect(page.getByText(/That link has expired or was already used/)).toBeVisible();
+  });
+
   test("forgot password page validates the email", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("link", { name: "Forgot password?" }).click();
@@ -50,7 +67,7 @@ test.describe("super admin billing", () => {
     const f = fixture();
     await page.goto("/login");
     await page.getByLabel("Email").fill(f.superEmail);
-    await page.getByLabel("Password").fill(f.adminPassword);
+    await page.getByLabel("Password", { exact: true }).fill(f.adminPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/platform/);
     await page.getByRole("link", { name: "Billing" }).click();

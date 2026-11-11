@@ -6,7 +6,7 @@ setup("sign in as school admin", async ({ page }) => {
   const f = fixture();
   await page.goto("/login");
   await page.getByLabel("Email").fill(f.adminEmail);
-  await page.getByLabel("Password").fill(f.adminPassword);
+  await page.getByLabel("Password", { exact: true }).fill(f.adminPassword);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/today/);
   await page.context().storageState({ path: ADMIN_STATE });

@@ -3,10 +3,17 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "./password-input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 export type ActionState = { ok?: string; errors?: Record<string, string>; data?: unknown };
+
+function withoutType<T extends { type?: unknown }>(p: T): Omit<T, "type"> {
+  const { type: _type, ...rest } = p;
+  void _type;
+  return rest;
+}
 
 export function Field({
   name,
@@ -21,7 +28,9 @@ export function Field({
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={name} aria-invalid={!!error} aria-describedby={describedBy} {...props} />
+      {props.type === "password"
+        ? <PasswordInput id={id} name={name} aria-invalid={!!error} aria-describedby={describedBy} {...withoutType(props)} />
+        : <Input id={id} name={name} aria-invalid={!!error} aria-describedby={describedBy} {...props} />}
       {hint && !error && <p id={`${id}-hint`} className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p id={`${id}-error`} className="text-sm text-red-700">{error}</p>}
     </div>
