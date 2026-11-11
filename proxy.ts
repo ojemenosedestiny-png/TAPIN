@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
   const isParentPage = pathname === "/parent" || (pathname.startsWith("/parent/") && pathname !== "/parent/login");
   if (!user) {
     if (isParentPage) return redirectTo("/parent/login");
-    if (protectedArea || pathname === "/") return redirectTo("/login");
+    if (protectedArea) return redirectTo("/login"); // "/" is the public home page
     return response;
   }
   // Parents sign in with a phone number and have no email; staff always have an email.

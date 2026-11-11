@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/audit";
 import { createSchoolSchema, createStaffUserSchema, fieldErrors } from "@/lib/validation";
 
@@ -59,4 +60,18 @@ export async function createSchoolUser(_prev: FormState, formData: FormData): Pr
   });
   revalidatePath("/platform");
   return { ok: `Account created for ${input.name}. Share the password with them securely.` };
+}
+
+/** "Book a demo" requests: mark one as called (or back to waiting). */
+export async function setDemoHandled(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireArea("platform");
+  const id = String(formData.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { errors: { _form: "Invalid request." } };
+  const handled = formData.get("handled") === "1";
+  const supabase = await createClient(); // RLS: super admin only
+  const { error } = await supabase.from("demo_requests").update({ handled_at: handled ? new Date().toISOString() : null }).eq("id", id);
+  if (error) return { errors: { _form: "Could not update the request." } };
+  await writeAudit({ schoolId: null, actorId: actor.id, action: "demo.handled", entity: "demo_requests", entityId: id, details: { handled } });
+  revalidatePath("/platform");
+  return { ok: handled ? "Marked as called." : "Moved back to waiting." };
 }

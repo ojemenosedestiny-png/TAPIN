@@ -3,7 +3,8 @@ import { Building2 } from "lucide-react";
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
-import { CreateSchoolForm, CreateUserForm } from "./forms";
+import { CreateSchoolForm, CreateUserForm, DemoHandledButton } from "./forms";
+import { formatNgPhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BACKUP_BUCKET, backupIsStale } from "@/lib/backup";
 import { DatabaseBackup } from "lucide-react";
@@ -14,10 +15,11 @@ export default async function PlatformPage() {
   await requireArea("platform");
   const supabase = await createClient(); // RLS: super admin can read schools, users and devices — not students
 
-  const [{ data: schools }, { data: users }, { data: devices }] = await Promise.all([
+  const [{ data: schools }, { data: users }, { data: devices }, { data: demos }] = await Promise.all([
     supabase.from("schools").select("id, name, timezone, resumption_time, closing_time, created_at").order("name"),
     supabase.from("users").select("school_id, role"),
     supabase.from("devices").select("school_id, last_seen, revoked_at"),
+    supabase.from("demo_requests").select("id, name, school, phone, pupils, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
   ]);
 
   const list = schools ?? [];
@@ -61,6 +63,51 @@ export default async function PlatformPage() {
           </table>
         </div>
       )}
+
+      <section className="mt-10" aria-labelledby="demos">
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <h2 id="demos" className="font-heading text-lg font-semibold text-ink">Demo requests</h2>
+          <p className="text-xs text-muted-foreground">From the &ldquo;Book a demo&rdquo; slip on the home page</p>
+        </div>
+        {(demos ?? []).length === 0 ? (
+          <p className="surface rounded-xl px-4 py-6 text-center text-sm text-muted-foreground">No requests yet. They appear here as soon as a school sends the slip.</p>
+        ) : (
+          <div className="surface overflow-x-auto rounded-xl">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="text-left text-xs text-muted-foreground">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-normal">School</th>
+                  <th scope="col" className="px-4 py-3 font-normal">Contact</th>
+                  <th scope="col" className="px-4 py-3 text-right font-normal">Pupils</th>
+                  <th scope="col" className="px-4 py-3 font-normal">Received</th>
+                  <th scope="col" className="px-4 py-3"><span className="sr-only">Status</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(demos ?? []).map((d) => (
+                  <tr key={d.id} className={`border-t border-border ${d.handled_at ? "text-muted-foreground" : ""}`}>
+                    <td className="px-4 py-3 font-medium text-ink">{d.school}</td>
+                    <td className="px-4 py-3">
+                      {d.name}
+                      <span className="block text-xs">
+                        <a href={`tel:${d.phone}`} className="text-brand hover:underline">{formatNgPhone(d.phone)}</a>
+                        {" · "}
+                        <a href={`https://wa.me/${d.phone.replace("+", "")}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">WhatsApp</a>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{d.pupils ?? "—"}</td>
+                    <td className="px-4 py-3 tabular-nums">{new Date(d.created_at).toLocaleString("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" })}</td>
+                    <td className="px-4 py-3 text-right">
+                      {d.handled_at && <span className="mr-2 text-xs">Called</span>}
+                      <DemoHandledButton id={d.id} handled={!!d.handled_at} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <div className="mt-10 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="new-school">

@@ -200,6 +200,25 @@ describe.skipIf(!enabled)("Row Level Security", () => {
     await admin.storage.from("photos").remove([`${ids.schoolA}/student/x-1.jpg`]);
   });
 
+  it("demo requests: only the super admin reads them, and nobody can write them directly", async () => {
+    const { data: row } = await admin.from("demo_requests")
+      .insert({ name: "RLS Test", school: `RLS Test School ${Date.now()}`, phone: "+2348030000000", pupils: 10 }).select("id").single();
+    try {
+      const { data: seen } = await asSuper.from("demo_requests").select("id").eq("id", row!.id);
+      expect(seen).toHaveLength(1);
+      for (const c of [asAdminA, asTeacherA, anonClient]) {
+        const { data } = await c.from("demo_requests").select("id").eq("id", row!.id);
+        expect(data ?? []).toEqual([]);
+        const { error } = await c.from("demo_requests").insert({ name: "Sneaky", school: "Sneaky School", phone: "+2348030000001" });
+        expect(error).not.toBeNull();
+      }
+      const { data: changed } = await asAdminA.from("demo_requests").update({ handled_at: new Date().toISOString() }).eq("id", row!.id).select();
+      expect(changed ?? []).toEqual([]);
+    } finally {
+      await admin.from("demo_requests").delete().eq("id", row!.id);
+    }
+  });
+
   it("anonymous visitors see nothing", async () => {
     for (const table of ["schools", "users", ...TENANT_TABLES]) {
       const { data } = await anonClient.from(table).select("*").limit(1);

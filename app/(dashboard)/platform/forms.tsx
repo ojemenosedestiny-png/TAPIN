@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createSchool, createSchoolUser, type FormState } from "./actions";
+import { createSchool, createSchoolUser, setDemoHandled, type FormState } from "./actions";
 
 function Field({ name, label, error, ...props }: { name: string; label: string; error?: string } & React.ComponentProps<"input">) {
   return (
@@ -85,6 +85,20 @@ export function CreateUserForm({ schools }: { schools: { id: string; name: strin
       </div>
       <p className="text-xs text-muted-foreground">At least 10 characters with upper and lower case letters and a number.</p>
       <Button type="submit" disabled={pending || schools.length === 0}>{pending ? "Creating…" : "Create account"}</Button>
+    </form>
+  );
+}
+
+export function DemoHandledButton({ id, handled }: { id: string; handled: boolean }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setDemoHandled, {});
+  return (
+    <form action={action} className="inline">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="handled" value={handled ? "0" : "1"} />
+      <Button type="submit" size="sm" variant={handled ? "ghost" : "outline"} disabled={pending}>
+        {handled ? "Undo" : "Mark as called"}
+      </Button>
+      {state.errors?._form && <span className="ml-2 text-xs text-red-700">{state.errors._form}</span>}
     </form>
   );
 }
