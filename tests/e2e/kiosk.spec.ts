@@ -50,6 +50,26 @@ test.describe("kiosk", () => {
     await expect(page.getByRole("status").filter({ hasText: f.kioskStudent.name })).toContainText(/Already/);
   });
 
+  test("on an NFC phone, Start scanning asks for NFC before going full screen", async ({ page }, info) => {
+    test.skip(info.project.name !== "phone", "pretends to be an Android phone with NFC");
+    // A stand-in for Chrome's NFC reader that records the order of calls. Going full screen first uses up the
+    // tap, and Chrome then refuses NFC without asking (seen on a Samsung).
+    await page.addInitScript(() => {
+      const w = window as unknown as { __calls: string[]; NDEFReader: unknown };
+      w.__calls = [];
+      w.NDEFReader = class { onreading = null; onreadingerror = null; async scan() { w.__calls.push("nfc"); } };
+      const original = Element.prototype.requestFullscreen;
+      Element.prototype.requestFullscreen = function (...args) { w.__calls.push("fullscreen"); return original.apply(this, args).catch(() => {}); };
+    });
+    const f = fixture();
+    await page.goto("/kiosk");
+    await page.getByLabel("Device token").fill(f.deviceToken);
+    await page.getByRole("button", { name: "Connect kiosk" }).click();
+    await page.getByRole("button", { name: "Start scanning" }).click();
+    await expect(page.getByText("Listening for cards")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __calls: string[] }).__calls)).toEqual(["nfc", "fullscreen"]);
+  });
+
   test("unknown card shows the red screen", async ({ page }, info) => {
     test.skip(info.project.name !== "laptop");
     await connectKiosk(page);

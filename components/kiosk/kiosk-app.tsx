@@ -297,30 +297,31 @@ function Kiosk({ token }: { token: string }) {
 
   const startScanning = async () => {
     setNfcError(null);
-    try {
-      await document.documentElement.requestFullscreen?.();
-    } catch {
-      // fullscreen is optional
-    }
-    // Prime audio and speech on a user gesture so later greetings are allowed to play.
+    // NFC FIRST, before anything else is awaited. Chrome only asks for NFC permission during the tap itself;
+    // going full screen first uses that tap up, and Chrome then refuses NFC without asking.
+    let failed = false;
+    const nfc = supported
+      ? startNfcScan({
+          onUid: onTap,
+          onError: (kind: NfcErrorKind) => {
+            if (kind === "read_failed") return;
+            failed = true;
+            setNfcError(NFC_ERROR_MESSAGES[kind]);
+            setScanning(false);
+          },
+        })
+      : null;
+    // Prime audio and speech on the same tap so later greetings are allowed to play.
     unlockAudio();
     speak(" ");
     prefetchPhrases([{ kind: "unknown" }, { kind: "already_in" }, { kind: "already_out" }], token);
-    if (supported) {
-      let failed = false;
-      stopNfc.current = await startNfcScan({
-        onUid: onTap,
-        onError: (kind: NfcErrorKind) => {
-          if (kind === "read_failed") return;
-          failed = true;
-          setNfcError(NFC_ERROR_MESSAGES[kind]);
-          setScanning(false);
-        },
-      });
-      if (!failed) setScanning(true);
-    } else {
-      setScanning(true); // USB reader mode
+    if (nfc) {
+      stopNfc.current = await nfc;
+      if (failed) return;
     }
+    setScanning(true);
+    // Full screen last, and optional (the corner button does it too).
+    document.documentElement.requestFullscreen?.().catch(() => {});
   };
 
   /** Plays exactly what a child hears at the gate, so the volume can be set before the first morning. */
