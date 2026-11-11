@@ -8,10 +8,10 @@ import { Field, FormError, SelectField, useActionFeedback } from "@/components/f
 import { ConfirmDelete } from "@/components/forms/confirm-delete";
 import { removeTeamMember, updateTeamMember } from "./actions";
 
-type Member = { id: string; name: string; email: string; role: "school_admin" | "teacher" };
+type Member = { id: string; name: string; email: string; role: "school_admin" | "teacher"; staff_id: string | null };
 
 /** Edit name/role and remove a dashboard login. You can edit your own name but not remove yourself. */
-export function TeamMemberActions({ member, isSelf }: { member: Member; isSelf: boolean }) {
+export function TeamMemberActions({ member, isSelf, staff }: { member: Member; isSelf: boolean; staff: { id: string; name: string }[] }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(updateTeamMember, {});
   useActionFeedback(state, () => setOpen(false));
@@ -36,6 +36,11 @@ export function TeamMemberActions({ member, isSelf }: { member: Member; isSelf: 
               <option value="teacher">Teacher</option>
             </SelectField>
             {isSelf && <input type="hidden" name="role" value={member.role} />}
+            <SelectField name="staff_id" id={`staff-${member.id}`} label="Staff profile" defaultValue={member.staff_id ?? ""} error={e.staff_id}>
+              <option value="">Not linked</option>
+              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </SelectField>
+            <p className="-mt-2 text-xs text-muted-foreground">Linked teachers see their own monthly report under My report.</p>
             <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button></DialogFooter>
           </form>
         </DialogContent>

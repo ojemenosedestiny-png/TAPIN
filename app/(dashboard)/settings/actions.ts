@@ -38,6 +38,7 @@ const teamEditSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(2, "Enter a name.").max(120),
   role: z.enum(["school_admin", "teacher"], { message: "Choose a role." }),
+  staff_id: idSchema.or(z.literal("")).optional(),
 });
 
 /** Changes a team member's name or role. You can't demote yourself (so a school is never left without an admin). */
@@ -46,11 +47,21 @@ export async function updateTeamMember(_prev: ActionState, formData: FormData): 
   const parsed = teamEditSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
   const { id, name, role } = parsed.data;
+  const staffId = parsed.data.staff_id || null;
   if (id === user.id && role !== "school_admin") return { errors: { role: "You can't remove your own admin role. Ask another admin." } };
   const db = createAdminClient();
-  const { data, error } = await db.from("users").update({ name, role }).eq("id", id).eq("school_id", user.schoolId).select("id").maybeSingle();
+  if (staffId) {
+    const { data: st } = await db.from("staff").select("id").eq("id", staffId).eq("school_id", user.schoolId).maybeSingle();
+    if (!st) return { errors: { staff_id: "Choose a staff member from your school." } };
+  }
+  let { data, error } = await db.from("users").update({ name, role, staff_id: staffId }).eq("id", id).eq("school_id", user.schoolId).select("id").maybeSingle();
+  // Database not updated yet (no staff_id column): still save the name and role.
+  if (error && (error.code === "PGRST204" || error.code === "42703")) {
+    ({ data, error } = await db.from("users").update({ name, role }).eq("id", id).eq("school_id", user.schoolId).select("id").maybeSingle());
+  }
+  if (error?.code === "23505") return { errors: { staff_id: "Another login is already linked to this staff member." } };
   if (error || !data) return { errors: { _form: "Could not save. Please try again." } };
-  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "user.update", entity: "users", entityId: id, details: { name, role } });
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "user.update", entity: "users", entityId: id, details: { name, role, staff_id: staffId } });
   revalidatePath("/settings");
   return { ok: "Saved." };
 }

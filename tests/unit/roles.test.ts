@@ -24,6 +24,16 @@ describe("role access", () => {
     }
   });
 
+  it("lessons are for school admins; teachers see only their own report", () => {
+    expect(canAccess("school_admin", "lessons")).toBe(true);
+    expect(canAccess("teacher", "lessons")).toBe(false);
+    expect(canAccess("teacher", "my-report")).toBe(true);
+    expect(canAccess("super_admin", "lessons")).toBe(false);
+    expect(areaForPath("/lessons/monthly")).toBe("lessons");
+    expect(areaForPath("/my-report")).toBe("my-report");
+    expect(areaForPath("/r/abc")).toBeNull();
+  });
+
   it("sends each role to its home page", () => {
     expect(homePath("super_admin")).toBe("/platform");
     expect(homePath("school_admin")).toBe("/today");

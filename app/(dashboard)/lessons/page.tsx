@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, Presentation, Settings2 } from "lucide-react";
+import { CalendarRange, Download, Presentation, Settings2 } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signPhotos } from "@/lib/photos";
@@ -96,6 +96,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
       <AutoRefresh seconds={30} />
       <PageHeader title="Lessons" description="Live from the kiosk: who is teaching, for how long, and which lessons need a look.">
         <div className="flex flex-wrap gap-2 print:hidden">
+          <Button asChild variant="outline"><Link href="/lessons/monthly"><CalendarRange className="size-4" aria-hidden /> Monthly report</Link></Button>
           <Button asChild variant="outline"><Link href="/lessons/setup"><Settings2 className="size-4" aria-hidden /> Setup</Link></Button>
           <Button asChild variant="outline"><a href={`/api/reports/lessons?${exportQs}`}><Download className="size-4" aria-hidden /> CSV</a></Button>
           <PrintButton />

@@ -25,11 +25,14 @@ export default async function SettingsPage() {
     .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
-  const [{ data: team }, { data: holidays }, { data: invoices }] = await Promise.all([
+  const [{ data: team }, { data: holidays }, { data: invoices }, { data: links }, { data: staffList }] = await Promise.all([
     supabase.from("users").select("id, name, email, role").eq("school_id", user.schoolId).order("role").order("name"),
     supabase.from("school_calendar").select("date, note").eq("is_holiday", true).gte("date", today).order("date").limit(60),
     supabase.from("invoices").select("id, number, period, total, status").order("period", { ascending: false }).limit(12),
+    supabase.from("users").select("id, staff_id").eq("school_id", user.schoolId),
+    supabase.from("staff").select("id, name").eq("status", "active").order("name"),
   ]);
+  const staffOf = new Map(((links ?? []) as { id: string; staff_id: string | null }[]).map((l) => [l.id, l.staff_id]));
   const logo = school.logo_url ? (await signPhotos(supabase, [school.logo_url])).get(school.logo_url) ?? null : null;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
@@ -107,7 +110,7 @@ export default async function SettingsPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <StatusPill tone={m.role === "school_admin" ? "teal" : "slate"} dot={false}>{m.role === "school_admin" ? "School admin" : "Teacher"}</StatusPill>
-                  <TeamMemberActions member={m as { id: string; name: string; email: string; role: "school_admin" | "teacher" }} isSelf={m.id === user.id} />
+                  <TeamMemberActions member={{ ...(m as { id: string; name: string; email: string; role: "school_admin" | "teacher" }), staff_id: staffOf.get(m.id) ?? null }} isSelf={m.id === user.id} staff={staffList ?? []} />
                 </div>
               </li>
             ))}
