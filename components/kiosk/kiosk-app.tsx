@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { CloudOff, Maximize, Nfc, Settings, Volume2, WifiOff, XCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, CloudOff, LogOut, Maximize, Nfc, Play, Settings, Volume2, WifiOff, XCircle } from "lucide-react";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import { Ripple } from "@/components/brand/ripple";
 import { PoweredBy } from "@/components/brand/powered-by";
@@ -14,11 +14,14 @@ import { phraseForTap, phraseText, type Phrase } from "@/lib/voice-phrases";
 import { prefetchPhrases, sayPhrase } from "@/lib/voice-client";
 import { play, soundLengthMs, unlockAudio } from "@/lib/sound";
 import { cn } from "@/lib/utils";
-import type { TapResponse } from "@/app/api/tap/route";
+import type { LessonChoice, TapResponse } from "@/app/api/tap/route";
+import { FLAG_LABEL, formatMinutes } from "@/lib/lessons";
 import { clockSnapshot, readToken, subscribeClock, subscribeToken, writeToken } from "./kiosk-store";
 
 /** How long a tap's result stays on screen before the kiosk is ready for the next child. */
 const RESULT_MS = 4000;
+/** The teacher menu waits this long for a choice (each touch restarts it). */
+const MENU_MS = 15_000;
 const HEARTBEAT_MS = 60_000;
 const FLUSH_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -27,6 +30,7 @@ type SchoolInfo = { name: string; logo_url: string | null; timezone: string };
 type Screen =
   | { kind: "idle" }
   | { kind: "result"; data: TapResponse }
+  | { kind: "menu"; data: TapResponse; error?: string }
   | { kind: "saved_offline" };
 
 const noop = () => () => {};
@@ -134,7 +138,20 @@ function Kiosk({ token }: { token: string }) {
   const show = (s: Screen) => {
     setScreen(s);
     if (resetTimer.current) clearTimeout(resetTimer.current);
-    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), RESULT_MS);
+    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : RESULT_MS);
+  };
+
+  /** The teacher chose on the menu: start a lesson or sign out. Times are set by the server. */
+  const choose = async (data: TapResponse, body: { choice: "start"; class_id: string; subject_id: string } | { choice: "sign_out" }) => {
+    try {
+      const res = await api("/api/lesson", token, { method: "POST", body: JSON.stringify({ tap_id: data.tap_id, ...body }) });
+      const out = await res.json().catch(() => ({}));
+      if (res.ok) return presentResult(out as TapResponse);
+      if (handleAuthFailure(res.status, out.error)) return;
+      show({ kind: "menu", data, error: out.error ?? "That didn't work. Please try again." });
+    } catch {
+      show({ kind: "menu", data, error: "No connection. Lessons can't start while the kiosk is offline." });
+    }
   };
 
   const handleAuthFailure = (status: number, error?: string) => {
@@ -201,8 +218,19 @@ function Kiosk({ token }: { token: string }) {
   const say = (p: Phrase, delayMs: number) => void sayPhrase(p, phraseText(p), { token, delayMs });
 
   const presentResult = (data: TapResponse) => {
+    const name = data.first_name ?? "";
+    if (data.action === "menu") {
+      show({ kind: "menu", data });
+      play("duplicate");
+      say({ kind: "choose", name }, soundLengthMs("duplicate"));
+      return;
+    }
     show({ kind: "result", data });
-    if (data.action === "unknown" || data.action === "blocked") {
+    if (data.action === "lesson_started" || data.action === "lesson_ended") {
+      const sound = data.action === "lesson_started" ? "signIn" : "signOut";
+      play(sound);
+      say({ kind: data.action === "lesson_started" ? "lesson_start" : "lesson_end", name }, soundLengthMs(sound));
+    } else if (data.action === "unknown" || data.action === "blocked") {
       play("error");
       say({ kind: "unknown" }, soundLengthMs("error"));
     } else if (data.action === "signed_in" || data.action === "signed_out") {
@@ -350,7 +378,13 @@ function Kiosk({ token }: { token: string }) {
       {screen.kind === "idle" && (
         <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} />
       )}
-      {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "")} data={screen.data} />}
+      {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "") + screen.data.action} data={screen.data} />}
+      {screen.kind === "menu" && (
+        <TeacherMenu key={String(screen.data.tap_id) + (screen.error ?? "")} data={screen.data} error={screen.error}
+          onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })}
+          onStart={(c) => void choose(screen.data, { choice: "start", class_id: c.class_id, subject_id: c.subject_id })}
+          onSignOut={() => void choose(screen.data, { choice: "sign_out" })} />
+      )}
       {screen.kind === "saved_offline" && <SavedOffline />}
 
       {/* Status badges */}
@@ -492,14 +526,17 @@ function Result({ data }: { data: TapResponse }) {
 
   const isOut = data.action === "signed_out";
   const dup = data.action === "duplicate";
-  const status = dup
+  const started = data.action === "lesson_started";
+  const ended = data.action === "lesson_ended";
+  const lesson = started || ended;
+  const status = started ? "Lesson started" : ended ? `Lesson ended · ${formatMinutes(data.minutes ?? 0)}` : dup
     ? data.reason === "already_signed_out" ? "Already signed out" : data.reason === "already_signed_in" ? "Already signed in" : "Already tapped"
     : isOut ? (data.early ? "Early release" : "Signed out") : "Signed in";
-  const salutation = dup ? null : isOut ? "Goodbye," : data.greeting ? `${data.greeting},` : null;
+  const salutation = lesson || dup ? null : isOut ? "Goodbye," : data.greeting ? `${data.greeting},` : null;
 
   return (
     <div className={cn("relative flex min-h-dvh flex-col items-center justify-center gap-8 overflow-hidden px-6 py-10 text-white sm:flex-row sm:gap-14 sm:px-12",
-      dup ? "bg-gradient-to-br from-brand-dark to-brand" : isOut ? "bg-gradient-to-br from-[#0b4f6c] to-[#0f766e]" : "bg-gradient-to-br from-[#0f5f3a] via-[#15803d] to-[#16a34a]")} role="status">
+      started ? "bg-gradient-to-br from-[#134e4a] via-[#0f766e] to-[#0d9488]" : ended ? "bg-gradient-to-br from-[#1e3a5f] to-[#0b4f6c]" : dup ? "bg-gradient-to-br from-brand-dark to-brand" : isOut ? "bg-gradient-to-br from-[#0b4f6c] to-[#0f766e]" : "bg-gradient-to-br from-[#0f5f3a] via-[#15803d] to-[#16a34a]")} role="status">
       {/* Full portrait so the gate staff can check the face against the child. */}
       <div className="kiosk-pop relative aspect-[3/4] w-56 shrink-0 overflow-hidden rounded-[28px] bg-white/15 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.55)] ring-4 ring-white/80 sm:w-72 lg:w-80">
         {data.photo_url ? (
@@ -515,6 +552,8 @@ function Result({ data }: { data: TapResponse }) {
         <p className="mt-1 text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">{data.name}</p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
           {data.class && <span className="rounded-full bg-white/15 px-4 py-1.5 text-xl font-medium ring-1 ring-white/25">{data.class}</span>}
+          {lesson && data.subject && <span className="rounded-full bg-white/15 px-4 py-1.5 text-xl font-medium ring-1 ring-white/25">{data.subject}</span>}
+          {(data.flags ?? []).filter((f) => f !== "auto_closed").map((f) => <span key={f} className="rounded-full bg-warn px-4 py-1.5 text-xl font-semibold text-amber-950">{FLAG_LABEL[f]}</span>)}
           {data.id_no && <span className="rounded-full bg-white/10 px-4 py-1.5 text-xl tabular-nums text-white/90 ring-1 ring-white/20">{data.id_no}</span>}
           {data.late && <span className="rounded-full bg-warn px-4 py-1.5 text-xl font-semibold text-amber-950">Late arrival</span>}
         </div>
@@ -528,6 +567,102 @@ function Result({ data }: { data: TapResponse }) {
       <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
         <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
       </div>
+    </div>
+  );
+}
+
+function TeacherMenu({ data, error, onActivity, onCancel, onStart, onSignOut }: {
+  data: TapResponse; error?: string; onActivity: () => void; onCancel: () => void; onStart: (c: LessonChoice) => void; onSignOut: () => void;
+}) {
+  const [step, setStep] = useState<"choose" | "pick">("choose");
+  const [busy, setBusy] = useState(false);
+  const [classId, setClassId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const opts = data.options ?? { assignments: [], classes: [], subjects: [] };
+  const go = (fn: () => void) => { setBusy(true); fn(); };
+  const other = () => {
+    const c = opts.classes.find((x) => x.id === classId);
+    const sub = opts.subjects.find((x) => x.id === subjectId);
+    if (c && sub) go(() => onStart({ class_id: c.id, class_name: c.name, subject_id: sub.id, subject_name: sub.name }));
+  };
+  const big = "flex min-h-24 w-full items-center justify-center gap-4 rounded-3xl px-6 text-3xl font-semibold shadow-[0_20px_40px_-20px_rgb(0_0_0/0.6)] transition-transform active:scale-[0.98] disabled:opacity-60";
+
+  return (
+    <div className="relative flex min-h-dvh flex-col bg-gradient-to-br from-[#03201e] via-[#073b37] to-[#0f766e] px-6 py-8 text-white sm:px-12"
+      role="dialog" aria-modal="true" aria-label="Teacher menu" onPointerDown={onActivity}>
+      <div className="flex items-center gap-5">
+        <div className="relative size-24 shrink-0 overflow-hidden rounded-2xl bg-white/15 ring-4 ring-white/70 sm:size-28">
+          {data.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={data.photo_url} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="flex size-full items-center justify-center text-4xl font-semibold">{initials(data.name ?? "?")}</span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-2xl text-white/80">{data.greeting ? `${data.greeting},` : "Hello,"}</p>
+          <p className="truncate text-4xl font-semibold tracking-tight sm:text-5xl">{data.name}</p>
+          <p className="mt-1 text-lg text-white/70">Signed in · {data.time}</p>
+        </div>
+      </div>
+
+      {error && <p role="alert" className="mt-6 rounded-2xl bg-red-600/90 px-5 py-3 text-xl">{error}</p>}
+
+      {step === "choose" ? (
+        <div className="mt-auto flex flex-col gap-4 pb-10 pt-10">
+          <button type="button" disabled={busy} onClick={() => setStep("pick")} className={cn(big, "bg-white text-brand")}>
+            <Play className="size-9" aria-hidden /> Start lesson
+          </button>
+          <button type="button" disabled={busy} onClick={() => go(onSignOut)} className={cn(big, "bg-white/10 text-white ring-2 ring-white/40")}>
+            <LogOut className="size-9" aria-hidden /> Sign out
+          </button>
+          <button type="button" onClick={onCancel} className="mx-auto mt-2 rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
+        </div>
+      ) : (
+        <div className="mt-8 flex flex-1 flex-col pb-6">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setStep("choose")} aria-label="Back" className="rounded-full bg-white/10 p-3 hover:bg-white/20"><ArrowLeft className="size-6" /></button>
+            <h2 className="text-3xl font-semibold">Which lesson?</h2>
+          </div>
+          {opts.assignments.length > 0 && (
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {opts.assignments.map((a) => (
+                <button key={a.class_id + a.subject_id} type="button" disabled={busy} onClick={() => go(() => onStart(a))}
+                  className="flex min-h-20 items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left text-ink shadow-lg transition-transform active:scale-[0.98] disabled:opacity-60">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-light text-brand"><BookOpen className="size-6" aria-hidden /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-2xl font-semibold">{a.class_name}</span>
+                    <span className="block truncate text-lg text-muted-foreground">{a.subject_name}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="mt-6 rounded-2xl bg-white/10 p-5 ring-1 ring-white/20">
+            <p className="text-xl font-medium">{opts.assignments.length ? "Another class or subject" : "Choose the class and subject"}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-base text-white/75">Class</span>
+                <select value={classId} onChange={(e) => setClassId(e.target.value)} className="mt-1 h-14 w-full rounded-xl bg-white px-4 text-xl text-ink">
+                  <option value="">Choose…</option>
+                  {opts.classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-base text-white/75">Subject</span>
+                <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="mt-1 h-14 w-full rounded-xl bg-white px-4 text-xl text-ink">
+                  <option value="">Choose…</option>
+                  {opts.subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+              </label>
+            </div>
+            {opts.subjects.length === 0 && <p className="mt-3 text-base text-white/75">No subjects yet. The school admin adds them in Lessons → Setup.</p>}
+            <button type="button" disabled={busy || !classId || !subjectId} onClick={other} className={cn(big, "mt-4 min-h-16 bg-white text-2xl text-brand")}>
+              <Play className="size-7" aria-hidden /> Start
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

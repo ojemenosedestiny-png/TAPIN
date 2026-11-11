@@ -80,5 +80,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Skip static files, images, the kiosk and its API (device-token auth, no staff session).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|pwa-icon|apple-icon|icon.svg|kiosk|api/tap|api/kiosk|api/voice|api/flutterwave|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|pwa-icon|apple-icon|icon.svg|kiosk|api/tap|api/lesson|api/kiosk|api/voice|api/flutterwave|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

@@ -9,6 +9,7 @@ import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour } from "@/lib/time";
 import { PHOTO_BUCKET } from "@/lib/photos";
 import { processOutbox, queueTapAlerts } from "@/lib/alerts";
+import { decideStaffTap, directorLessonMessage, directorWantsLesson, lessonFlags, minutesBetween, type DirectorMode, type LessonFlag } from "@/lib/lessons";
 
 const bodySchema = z.object({
   uid: z.string().max(64),
@@ -16,7 +17,9 @@ const bodySchema = z.object({
   client_id: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
 });
 
-export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked";
+export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked" | "menu" | "lesson_started" | "lesson_ended";
+export type LessonChoice = { class_id: string; class_name: string; subject_id: string; subject_name: string };
+export type LessonOptions = { assignments: LessonChoice[]; classes: { id: string; name: string }[]; subjects: { id: string; name: string }[] };
 export type TapResponse = {
   action: TapAction;
   name?: string;
@@ -31,7 +34,16 @@ export type TapResponse = {
   early?: boolean;
   reason?: string;
   replayed?: boolean;
+  /** Teacher menu: the tap to quote back to /api/lesson, and what they can start. */
+  tap_id?: number;
+  options?: LessonOptions;
+  /** Lesson started or ended. */
+  subject?: string;
+  minutes?: number;
+  flags?: LessonFlag[];
 };
+
+const PLAIN_RESULTS: readonly TapAction[] = ["signed_in", "signed_out", "duplicate", "unknown", "blocked"];
 
 const json = (body: TapResponse | { error: string }, status = 200) =>
   NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -65,17 +77,21 @@ export async function POST(req: NextRequest) {
   // Replay of an offline tap we already processed → answer the same way, change nothing.
   if (parsed.data.client_id) {
     const { data: prev } = await db.from("tap_events").select("result, late").eq("device_id", device.id).eq("client_id", parsed.data.client_id).maybeSingle();
-    if (prev) return json({ action: prev.result as TapAction, late: prev.late, time, replayed: true });
+    if (prev) {
+      const action = PLAIN_RESULTS.includes(prev.result as TapAction) ? (prev.result as TapAction) : "duplicate";
+      return json({ action, late: prev.late, time, replayed: true });
+    }
   }
 
   const uid = normaliseUid(parsed.data.uid);
-  const log = async (result: TapAction, extra: { holder_type?: string; holder_id?: string; late?: boolean } = {}) => {
-    const { error } = await db.from("tap_events").insert({
+  const log = async (result: TapAction, extra: { holder_type?: string; holder_id?: string; late?: boolean } = {}): Promise<number | null> => {
+    const { data, error } = await db.from("tap_events").insert({
       school_id: school.id, device_id: device.id, uid: uid ?? parsed.data.uid.slice(0, 64), result,
       tapped_at: tappedAt.toISOString(), client_id: parsed.data.client_id ?? null, ...extra,
-    });
+    }).select("id").single();
     // 23505 = the same offline tap raced in twice; the first one wins.
     if (error && error.code !== "23505") console.error("tap_events insert", error);
+    return (data?.id as number | undefined) ?? null;
   };
 
   const notifyUnknown = (kind: "Unrecognised" | "Blocked") =>
@@ -112,6 +128,35 @@ export async function POST(req: NextRequest) {
     return json({ action: "blocked", time });
   }
 
+  const photoFor = async () => {
+    if (!person.photo) return null;
+    const { data } = await db.storage.from(PHOTO_BUCKET).createSignedUrl(person.photo, 120);
+    return data?.signedUrl ?? null;
+  };
+
+  // Teachers, when the school uses lessons: arrival, then Start lesson / Sign out, then the next tap ends the lesson.
+  if (card.holder_type === "staff") {
+    const { data: rules } = await db.from("lesson_settings").select("enabled, min_minutes, max_minutes, director_phone, director_alerts").eq("school_id", school.id).maybeSingle();
+    if (rules?.enabled) {
+      const lesson = await staffLessonTap(db, device, { staffId: card.holder_id, tappedAt, rules, log });
+      if (lesson) {
+        const director = rules.director_phone;
+        const msg = lesson.directorMessage;
+        if (msg && director) {
+          runAfter("director alert", async () => {
+            const { error } = await db.from("sms_logs").insert({ school_id: school.id, phone: director, message: msg.text, type: "director", dedupe_key: `lesson:${msg.lessonId}` });
+            if (error && error.code !== "23505") console.error("director alert", error);
+            else await processOutbox(db, { limit: 5, schoolId: school.id });
+          });
+        }
+        return json({
+          ...lesson.response, name: person.name, first_name: person.firstName, photo_url: await photoFor(), class: lesson.response.class ?? person.className, time,
+          greeting: greetingForHour(localHour(tappedAt, school.timezone)),
+        });
+      }
+    }
+  }
+
   const decision = await applyTap(db, device, card.holder_type, card.holder_id, tappedAt);
   const action: TapAction = decision.kind === "sign_in" ? "signed_in" : decision.kind === "sign_out" ? "signed_out" : "duplicate";
   const late = decision.kind === "sign_in" && decision.late;
@@ -131,11 +176,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  let photoUrl: string | null = null;
-  if (person.photo) {
-    const { data } = await db.storage.from(PHOTO_BUCKET).createSignedUrl(person.photo, 120);
-    photoUrl = data?.signedUrl ?? null;
-  }
+  const photoUrl = await photoFor();
 
   return json({
     action,
@@ -153,6 +194,87 @@ export async function POST(req: NextRequest) {
 }
 
 type Db = ReturnType<typeof createAdminClient>;
+
+type LessonRulesRow = { min_minutes: number; max_minutes: number; director_phone: string | null; director_alerts: string };
+type LessonTapResult = { response: Omit<TapResponse, "time">; directorMessage?: { lessonId: string; text: string } };
+
+/**
+ * A teacher's tap when lessons are on. Returns null when it is a plain attendance tap
+ * (arrival, or after signing out), which the normal rules handle.
+ */
+async function staffLessonTap(db: Db, device: KioskDevice, opts: {
+  staffId: string; tappedAt: Date; rules: LessonRulesRow;
+  log: (result: TapAction, extra?: { holder_type?: string; holder_id?: string }) => Promise<number | null>;
+}): Promise<LessonTapResult | null> {
+  const { staffId, tappedAt, rules, log } = opts;
+  const school = device.school;
+  const date = localDate(tappedAt, school.timezone);
+  const holder = { holder_type: "staff", holder_id: staffId };
+
+  const [{ data: last }, openRes, { data: today }] = await Promise.all([
+    db.from("tap_events").select("tapped_at").eq("holder_type", "staff").eq("holder_id", staffId)
+      .in("result", ["signed_in", "signed_out", "duplicate", "menu", "lesson_ended"]).order("tapped_at", { ascending: false }).limit(1).maybeSingle(),
+    db.from("lessons").select("id, date, started_at, class_name, subject_name").eq("staff_id", staffId).eq("status", "open").maybeSingle(),
+    db.from("attendance").select("sign_in_at, sign_out_at").eq("school_id", school.id).eq("holder_type", "staff").eq("holder_id", staffId).eq("date", date).maybeSingle(),
+  ]);
+  let open = openRes.data;
+  // Left open on an earlier day and the auto-close job hasn't run yet: close it now.
+  if (open && open.date < date) {
+    await db.rpc("auto_close_lessons", { p_school: school.id });
+    open = null;
+  }
+
+  const decision = decideStaffTap({
+    tappedAt, now: new Date(), lastTapAt: last ? new Date(last.tapped_at) : null,
+    hasOpenLesson: !!open, signedIn: !!today?.sign_in_at, signedOut: !!today?.sign_out_at,
+  });
+
+  if (decision.kind === "attendance") return null;
+  if (decision.kind === "duplicate") {
+    await log("duplicate", holder);
+    return { response: { action: "duplicate", reason: "recent_tap" } };
+  }
+
+  if (decision.kind === "end_lesson" && open) {
+    const endAt = tappedAt < new Date(open.started_at) ? new Date(open.started_at) : tappedAt;
+    const minutes = minutesBetween(new Date(open.started_at), endAt);
+    const flags = lessonFlags(minutes, { minMinutes: rules.min_minutes, maxMinutes: rules.max_minutes });
+    const { data: ended } = await db.from("lessons").update({ ended_at: endAt.toISOString(), status: "closed", flags, end_device_id: device.id })
+      .eq("id", open.id).eq("status", "open").select("id").maybeSingle();
+    if (!ended) {
+      await log("duplicate", holder);
+      return { response: { action: "duplicate", reason: "recent_tap" } };
+    }
+    await log("lesson_ended", holder);
+    const { data: staff } = await db.from("staff").select("name").eq("id", staffId).maybeSingle();
+    const wants = directorWantsLesson(rules.director_alerts as DirectorMode, flags);
+    return {
+      response: { action: "lesson_ended", class: open.class_name, subject: open.subject_name, minutes, flags },
+      directorMessage: wants ? {
+        lessonId: open.id,
+        text: directorLessonMessage({
+          teacher: staff?.name ?? "A teacher", className: open.class_name, subject: open.subject_name, minutes, flags, school: school.name,
+          start: friendlyTime(open.started_at, school.timezone), end: friendlyTime(endAt, school.timezone),
+        }),
+      } : undefined,
+    };
+  }
+
+  // Signed in, nothing open: offer Start lesson / Sign out.
+  const tapId = await log("menu", holder);
+  if (!tapId) return { response: { action: "duplicate", reason: "recent_tap" } };
+  const [{ data: assigned }, { data: classes }, { data: subjects }] = await Promise.all([
+    db.from("teacher_assignments").select("class_id, subject_id, classes(name), subjects(name)").eq("staff_id", staffId),
+    db.from("classes").select("id, name").eq("school_id", school.id).order("name"),
+    db.from("subjects").select("id, name").eq("school_id", school.id).order("name"),
+  ]);
+  const assignments = (assigned ?? []).map((a) => ({
+    class_id: a.class_id as string, subject_id: a.subject_id as string,
+    class_name: (a.classes as unknown as { name: string } | null)?.name ?? "",
+    subject_name: (a.subjects as unknown as { name: string } | null)?.name ?? "",
+  })).filter((a) => a.class_name && a.subject_name).sort((x, y) => x.class_name.localeCompare(y.class_name) || x.subject_name.localeCompare(y.subject_name));
+  return { response: { action: "menu", tap_id: tapId, options: { assignments, classes: classes ?? [], subjects: subjects ?? [] } } };
+}
 
 async function loadHolder(db: Db, type: string, id: string) {
   if (type === "student") {

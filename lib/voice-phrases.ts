@@ -5,6 +5,9 @@ import { greetingForHour, spokenGreeting, type Greeting } from "@/lib/greeting";
 export type Phrase =
   | { kind: "greeting"; greeting: Greeting; name: string }
   | { kind: "goodbye"; name: string }
+  | { kind: "choose"; name: string }
+  | { kind: "lesson_start"; name: string }
+  | { kind: "lesson_end"; name: string }
   | { kind: "unknown" }
   | { kind: "already_in" }
   | { kind: "already_out" };
@@ -29,9 +32,12 @@ export function parsePhrase(body: unknown): Phrase | null {
       const greeting = GREETINGS.find((g) => g === b.greeting);
       return name && greeting ? { kind: "greeting", greeting, name } : null;
     }
-    case "goodbye": {
+    case "goodbye":
+    case "choose":
+    case "lesson_start":
+    case "lesson_end": {
       const name = cleanName(b.name);
-      return name ? { kind: "goodbye", name } : null;
+      return name ? { kind: b.kind, name } : null;
     }
     case "unknown":
     case "already_in":
@@ -49,6 +55,12 @@ export function phraseText(p: Phrase): string {
       return spokenGreeting("signed_in", p.name, p.greeting === "Good morning" ? 8 : p.greeting === "Good afternoon" ? 13 : 18);
     case "goodbye":
       return spokenGreeting("signed_out", p.name, 15);
+    case "choose":
+      return `${p.name}, start a lesson, or sign out.`;
+    case "lesson_start":
+      return `Lesson started. Have a good class, ${p.name}.`;
+    case "lesson_end":
+      return `Lesson ended. Thank you, ${p.name}.`;
     case "unknown":
       return "Card not recognised. Please see the admin office.";
     case "already_in":
