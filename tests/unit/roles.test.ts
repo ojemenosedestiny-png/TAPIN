@@ -32,6 +32,9 @@ describe("role access", () => {
     expect(areaForPath("/lessons/monthly")).toBe("lessons");
     expect(areaForPath("/my-report")).toBe("my-report");
     expect(areaForPath("/r/abc")).toBeNull();
+    expect(canAccess("teacher", "emergency")).toBe(true);
+    expect(canAccess("teacher", "pickup")).toBe(false);
+    expect(canAccess("school_admin", "pickup")).toBe(true);
   });
 
   it("sends each role to its home page", () => {

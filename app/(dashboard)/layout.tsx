@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSchoolPlan } from "@/lib/plans";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PoweredBy } from "@/components/brand/powered-by";
@@ -10,9 +12,10 @@ async function Shell({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.needsMfa) redirect("/auth/mfa");
+  const plan = await getSchoolPlan(createAdminClient(), user.schoolId);
   return (
     <div className="canvas min-h-dvh lg:flex">
-      <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} />
+      <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} plan={plan} />
       <main id="main" className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-12 lg:py-12">
         {children}
         <footer className="mt-16 flex justify-center pb-2">

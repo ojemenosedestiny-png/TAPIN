@@ -84,9 +84,13 @@ export async function updateSchool(_prev: FormState, formData: FormData): Promis
   if (!id.success) return { errors: { _form: "Invalid school." } };
   const parsed = createSchoolSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
-  const { error } = await createAdminClient().from("schools").update(parsed.data).eq("id", id.data);
+  const plan = formData.get("plan");
+  if (plan !== null && plan !== "basic" && plan !== "premium") return { errors: { plan: "Choose Basic or Premium." } };
+  let { error } = await createAdminClient().from("schools").update(plan ? { ...parsed.data, plan } : parsed.data).eq("id", id.data);
+  // Database not updated yet (no plan column): save everything else.
+  if (error && plan && (error.code === "PGRST204" || error.code === "42703")) ({ error } = await createAdminClient().from("schools").update(parsed.data).eq("id", id.data));
   if (error) return { errors: { _form: "Could not save the school." } };
-  await writeAudit({ schoolId: id.data, actorId: actor.id, action: "school.edit", entity: "schools", entityId: id.data, details: { name: parsed.data.name } });
+  await writeAudit({ schoolId: id.data, actorId: actor.id, action: "school.edit", entity: "schools", entityId: id.data, details: { name: parsed.data.name, plan } });
   revalidatePath("/platform");
   revalidatePath("/platform/billing");
   return { ok: `${parsed.data.name} saved.` };

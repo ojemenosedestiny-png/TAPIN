@@ -11,6 +11,8 @@ export type Phrase =
   | { kind: "pickup"; name: string; child: string }
   | { kind: "pickup_wait" }
   | { kind: "not_authorised" }
+  | { kind: "safe"; name: string }
+  | { kind: "emergency" }
   | { kind: "unknown" }
   | { kind: "already_in" }
   | { kind: "already_out" };
@@ -36,6 +38,7 @@ export function parsePhrase(body: unknown): Phrase | null {
       return name && greeting ? { kind: "greeting", greeting, name } : null;
     }
     case "goodbye":
+    case "safe":
     case "choose":
     case "lesson_start":
     case "lesson_end": {
@@ -49,6 +52,7 @@ export function parsePhrase(body: unknown): Phrase | null {
     }
     case "pickup_wait":
     case "not_authorised":
+    case "emergency":
     case "unknown":
     case "already_in":
     case "already_out":
@@ -77,6 +81,10 @@ export function phraseText(p: Phrase): string {
       return "Please wait while staff confirm the pickup.";
     case "not_authorised":
       return "Not authorised. Please see the admin office.";
+    case "safe":
+      return `${p.name}, you are marked safe.`;
+    case "emergency":
+      return "Emergency roll call. Go to the assembly point and tap your card.";
     case "unknown":
       return "Card not recognised. Please see the admin office.";
     case "already_in":

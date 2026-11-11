@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, BookOpen, Check, CloudOff, Delete, KeyRound, LogOut, Maximize, Nfc, Play, Settings, ShieldX, Volume2, WifiOff, XCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, CloudOff, Delete, KeyRound, LogOut, Maximize, Nfc, Play, Settings, ShieldX, Siren, Volume2, WifiOff, XCircle } from "lucide-react";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import { Ripple } from "@/components/brand/ripple";
 import { PoweredBy } from "@/components/brand/powered-by";
@@ -24,6 +24,11 @@ const RESULT_MS = 4000;
 const MENU_MS = 15_000;
 /** Pickup confirmation and code entry wait longer: staff check faces before releasing a child. */
 const PICKUP_MS = 60_000;
+/** How often the kiosk checks for a roll call (faster while one is running). */
+const EMERGENCY_POLL_MS = 10_000;
+const EMERGENCY_POLL_ACTIVE_MS = 4_000;
+
+type EmergencyState = { available: boolean; active: { id: string; kind: "real" | "drill"; started_at: string; counts: { total: number; safe: number; missing: number } } | null };
 const HEARTBEAT_MS = 60_000;
 const FLUSH_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -35,6 +40,7 @@ type Screen =
   | { kind: "menu"; data: TapResponse; error?: string }
   | { kind: "pickup"; data: TapResponse; error?: string }
   | { kind: "code"; error?: string }
+  | { kind: "pin"; error?: string }
   | { kind: "saved_offline" };
 
 const noop = () => () => {};
@@ -130,6 +136,7 @@ function Kiosk({ token }: { token: string }) {
   const [queued, setQueued] = useState(0);
   const [fatal, setFatal] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [emergency, setEmergency] = useState<EmergencyState>({ available: false, active: null });
 
   const queueRef = useRef<QueuedTap[]>([]);
   const busyRef = useRef<Promise<void>>(Promise.resolve());
@@ -142,7 +149,7 @@ function Kiosk({ token }: { token: string }) {
   const show = (s: Screen) => {
     setScreen(s);
     if (resetTimer.current) clearTimeout(resetTimer.current);
-    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" ? PICKUP_MS : RESULT_MS);
+    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" || s.kind === "pin" ? PICKUP_MS : RESULT_MS);
   };
 
   /** A one-day pickup code typed on the kiosk. */
@@ -256,6 +263,13 @@ function Kiosk({ token }: { token: string }) {
       say({ kind: "pickup_wait" }, soundLengthMs("duplicate"));
       return;
     }
+    if (data.action === "safe") {
+      if (data.counts) setEmergency((e) => (e.active ? { ...e, active: { ...e.active, counts: data.counts! } } : e));
+      show({ kind: "result", data });
+      play("signIn");
+      say({ kind: "safe", name }, soundLengthMs("signIn"));
+      return;
+    }
     if (data.action === "picked_up") {
       show({ kind: "result", data });
       play("signOut");
@@ -335,6 +349,41 @@ function Kiosk({ token }: { token: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Emergency roll call: started here (PIN) or from the dashboard; checked every few seconds.
+  const emergencyActive = !!emergency.active;
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await api("/api/emergency", token);
+        if (res.ok && !cancelled) setEmergency(await res.json());
+      } catch {
+        // offline: keep showing the last known state
+      }
+    };
+    void check();
+    const t = setInterval(check, emergencyActive ? EMERGENCY_POLL_ACTIVE_MS : EMERGENCY_POLL_MS);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [token, emergencyActive]);
+
+  const startEmergency = async (pin: string, kind: "real" | "drill") => {
+    try {
+      const res = await api("/api/emergency", token, { method: "POST", body: JSON.stringify({ pin, kind }) });
+      const out = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setEmergency(out as EmergencyState);
+        show({ kind: "idle" });
+        play("error");
+        say({ kind: "emergency" }, soundLengthMs("error"));
+        return;
+      }
+      if (handleAuthFailure(res.status, out.error)) return;
+      show({ kind: "pin", error: out.error ?? "That didn't work." });
+    } catch {
+      show({ kind: "pin", error: "No connection. Start the roll call from the dashboard or by phone." });
+    }
+  };
 
   // USB keyboard-style readers work at all times.
   useEffect(() => {
@@ -424,8 +473,12 @@ function Kiosk({ token }: { token: string }) {
 
   return (
     <main id="main" className="theme-light relative min-h-dvh select-none overflow-hidden">
-      {screen.kind === "idle" && (
-        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} onPickupCode={() => show({ kind: "code" })} />
+      {screen.kind === "idle" && emergency.active && (
+        <Assembly active={emergency.active} scanning={scanning} onStart={startScanning} />
+      )}
+      {screen.kind === "idle" && !emergency.active && (
+        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} onPickupCode={() => show({ kind: "code" })}
+          onEmergency={emergency.available ? () => show({ kind: "pin" }) : undefined} />
       )}
       {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "") + screen.data.action} data={screen.data} />}
       {screen.kind === "menu" && (
@@ -438,6 +491,9 @@ function Kiosk({ token }: { token: string }) {
       {screen.kind === "pickup" && (
         <PickupConfirm key={String(screen.data.tap_id) + (screen.error ?? "")} data={screen.data} error={screen.error}
           onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onConfirm={(ids) => void confirmPickup(screen.data, ids)} />
+      )}
+      {screen.kind === "pin" && (
+        <PinEntry key={screen.error ?? "pin"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(p, k) => void startEmergency(p, k)} />
       )}
       {screen.kind === "code" && (
         <CodeEntry key={screen.error ?? "code"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(c) => void submitCode(c)} />
@@ -501,8 +557,8 @@ function localHour(timeZone = "Africa/Lagos") {
   return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone }).format(new Date()));
 }
 
-function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound, onPickupCode }: {
-  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void; onPickupCode: () => void;
+function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound, onPickupCode, onEmergency }: {
+  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void; onPickupCode: () => void; onEmergency?: () => void;
 }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden bg-[#03201e] px-6 py-10 text-white">
@@ -567,6 +623,11 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
               <KeyRound className="size-5" aria-hidden /> Pickup code
             </button>
           )}
+          {scanning && onEmergency && (
+            <button onClick={onEmergency} className="flex items-center gap-2 rounded-full bg-red-600/80 px-5 py-2.5 text-base font-semibold text-white ring-1 ring-red-300/40 hover:bg-red-600 active:scale-95">
+              <Siren className="size-5" aria-hidden /> Emergency
+            </button>
+          )}
         </div>
         {nfcError && <p role="alert" className="max-w-md rounded-xl bg-red-600/90 px-5 py-3 text-center text-lg">{nfcError}</p>}
         <PoweredBy onDark className="mt-1" />
@@ -584,6 +645,27 @@ function Result({ data }: { data: TapResponse }) {
         <p className="text-3xl font-medium">{data.name}</p>
         <p className="max-w-xl text-2xl text-white/90">Do not release any child. The office and the parents have been told.</p>
         <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
+      </div>
+    );
+  }
+  if (data.action === "safe") {
+    return (
+      <div className="relative flex min-h-dvh flex-col items-center justify-center gap-8 bg-gradient-to-br from-[#0f5f3a] via-[#15803d] to-[#16a34a] px-6 py-10 text-white sm:flex-row sm:gap-14" role="status">
+        <div className="kiosk-pop aspect-[3/4] w-48 shrink-0 overflow-hidden rounded-[28px] bg-white/15 ring-4 ring-white/80 sm:w-64">
+          {data.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={data.photo_url} alt="" className="size-full object-cover" />
+          ) : <span className="flex size-full items-center justify-center text-7xl font-semibold">{initials(data.name ?? "?")}</span>}
+        </div>
+        <div className="kiosk-rise text-center sm:text-left">
+          <p className="flex items-center justify-center gap-3 text-4xl font-semibold sm:justify-start"><Check className="size-10" aria-hidden /> Safe</p>
+          <p className="mt-2 text-5xl font-semibold leading-tight tracking-tight sm:text-6xl">{data.name}</p>
+          {data.class && <p className="mt-3 text-2xl text-white/85">{data.class}</p>}
+          {data.counts && <p className="mt-6 text-3xl tabular-nums">{data.counts.safe} of {data.counts.total} safe</p>}
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
+          <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
+        </div>
       </div>
     );
   }
@@ -854,6 +936,72 @@ function CodeEntry({ error, onActivity, onCancel, onSubmit }: { error?: string; 
         <button type="button" className={key} onClick={() => press("0")}>0</button>
         <button type="button" disabled={code.length !== 6 || busy} onClick={() => { setBusy(true); onSubmit(code); }}
           className={cn(key, "bg-white text-brand disabled:opacity-40")} aria-label="Check code"><Check className="size-9" /></button>
+      </div>
+      <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
+    </div>
+  );
+}
+
+function Assembly({ active, scanning, onStart }: { active: NonNullable<EmergencyState["active"]>; scanning: boolean; onStart: () => void }) {
+  const drill = active.kind === "drill";
+  return (
+    <div className={cn("relative flex min-h-dvh flex-col items-center justify-between px-6 py-10 text-center text-white", drill ? "bg-gradient-to-b from-[#7c2d12] to-[#c2410c]" : "bg-gradient-to-b from-[#7f1d1d] to-[#b91c1c]")} role="alert">
+      <div className="flex flex-col items-center gap-3">
+        <Siren className="size-16 animate-pulse motion-reduce:animate-none" aria-hidden />
+        <p className="text-4xl font-bold uppercase tracking-[0.12em] sm:text-5xl">{drill ? "Emergency drill" : "Emergency roll call"}</p>
+        <p className="text-xl text-white/85">Started {new Intl.DateTimeFormat("en-NG", { hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(active.started_at)).toUpperCase()}</p>
+      </div>
+      <div className="flex flex-col items-center gap-8">
+        <p className="max-w-3xl text-5xl font-semibold leading-tight tracking-tight sm:text-6xl">Tap your card at the assembly point</p>
+        {!scanning && (
+          <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-white px-10 text-2xl font-semibold text-red-700 shadow-xl active:scale-95">
+            <Nfc className="size-8" aria-hidden /> Start scanning
+          </button>
+        )}
+      </div>
+      <div className="grid w-full max-w-2xl grid-cols-2 gap-4">
+        <div className="rounded-3xl bg-white/15 px-6 py-5 ring-1 ring-white/30">
+          <p className="text-xl text-white/85">Safe</p>
+          <p className="text-6xl font-semibold tabular-nums">{active.counts.safe}</p>
+        </div>
+        <div className="rounded-3xl bg-white px-6 py-5 text-red-700">
+          <p className="text-xl">Not yet</p>
+          <p className="text-6xl font-semibold tabular-nums">{active.counts.missing}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PinEntry({ error, onActivity, onCancel, onSubmit }: { error?: string; onActivity: () => void; onCancel: () => void; onSubmit: (pin: string, kind: "real" | "drill") => void }) {
+  const [pin, setPin] = useState("");
+  const [kind, setKind] = useState<"real" | "drill">("real");
+  const [busy, setBusy] = useState(false);
+  const key = "flex h-20 items-center justify-center rounded-2xl bg-white/10 text-4xl font-semibold ring-1 ring-white/20 active:scale-95 active:bg-white/20";
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-b from-[#450a0a] to-[#7f1d1d] px-6 py-8 text-white"
+      role="dialog" aria-modal="true" aria-label="Start emergency roll call" onPointerDown={onActivity}>
+      <Siren className="size-12 text-red-200" aria-hidden />
+      <p className="text-4xl font-semibold">Emergency roll call</p>
+      <div className="flex gap-2" role="radiogroup" aria-label="Real or drill">
+        {(["real", "drill"] as const).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)}
+            className={cn("rounded-full px-6 py-2.5 text-xl font-medium ring-2", kind === k ? "bg-white text-red-800 ring-white" : "ring-white/40")}>{k === "real" ? "Real emergency" : "Drill"}</button>
+        ))}
+      </div>
+      <p className="text-xl text-white/80">Enter the emergency PIN</p>
+      <div className="flex gap-2" aria-live="polite" aria-label={`${pin.length} digits entered`}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} className={cn("flex h-14 w-11 items-center justify-center rounded-xl text-3xl ring-2", pin[i] ? "bg-white text-ink ring-white" : "ring-white/30")}>{pin[i] ? "•" : ""}</span>
+        ))}
+      </div>
+      {error && <p role="alert" className="max-w-md rounded-2xl bg-black/30 px-5 py-3 text-center text-xl">{error}</p>}
+      <div className="grid w-full max-w-xs grid-cols-3 gap-3">
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <button key={d} type="button" className={key} onClick={() => setPin((p) => (p.length < 6 ? p + d : p))}>{d}</button>)}
+        <button type="button" className={key} onClick={() => setPin((p) => p.slice(0, -1))} aria-label="Delete"><Delete className="size-8" /></button>
+        <button type="button" className={key} onClick={() => setPin((p) => (p.length < 6 ? p + "0" : p))}>0</button>
+        <button type="button" disabled={pin.length < 4 || busy} onClick={() => { setBusy(true); onSubmit(pin, kind); }}
+          className={cn(key, "bg-white text-red-700 disabled:opacity-40")} aria-label="Start roll call"><Check className="size-9" /></button>
       </div>
       <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
     </div>

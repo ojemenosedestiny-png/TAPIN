@@ -107,7 +107,7 @@ export function DemoHandledButton({ id, handled }: { id: string; handled: boolea
   );
 }
 
-type SchoolRow = { id: string; name: string; timezone: string; resumption_time: string; absence_cutoff_time: string; closing_time: string; sms_sender_name: string | null };
+type SchoolRow = { id: string; name: string; timezone: string; resumption_time: string; absence_cutoff_time: string; closing_time: string; sms_sender_name: string | null; plan?: string | null };
 
 /** Edit a school's name, hours, timezone or SMS sender name. */
 export function EditSchoolDialog({ school }: { school: SchoolRow }) {
@@ -138,6 +138,19 @@ export function EditSchoolDialog({ school }: { school: SchoolRow }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField id={id("tz")} name="timezone" label="Timezone" defaultValue={school.timezone} error={e.timezone} required />
             <FormField id={id("sms")} name="sms_sender_name" label="SMS sender name (optional)" maxLength={11} defaultValue={school.sms_sender_name ?? ""} error={e.sms_sender_name} />
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium text-ink">Plan</span>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Plan">
+              {(["basic", "premium"] as const).map((p) => (
+                <label key={p} className="cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm has-[:checked]:border-brand has-[:checked]:bg-accent">
+                  <input type="radio" name="plan" value={p} defaultChecked={(school.plan ?? "basic") === p} className="sr-only" />
+                  <span className="block font-medium text-ink">{p === "basic" ? "Basic" : "Premium"}</span>
+                  <span className="block text-xs text-muted-foreground">{p === "basic" ? "Website: Starter" : "Website: Standard · adds Emergency roll call"}</span>
+                </label>
+              ))}
+            </div>
+            {e.plan && <p className="text-sm text-red-700">{e.plan}</p>}
           </div>
           <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save school"}</Button></DialogFooter>
         </form>

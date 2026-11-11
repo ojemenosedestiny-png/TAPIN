@@ -11,6 +11,8 @@ import { logout } from "@/app/(auth)/login/actions";
 import type { Role } from "@/lib/auth/roles";
 import { initials } from "./person-avatar";
 import { navFor } from "./nav";
+import { PremiumBadge } from "./upgrade";
+import { planAllows, type Plan } from "@/lib/plans";
 
 const ROLE_LABEL: Record<Role, string> = {
   super_admin: "Super admin",
@@ -18,7 +20,7 @@ const ROLE_LABEL: Record<Role, string> = {
   teacher: "Teacher",
 };
 
-export function Sidebar({ role, name, schoolName }: { role: Role; name: string; schoolName: string | null }) {
+export function Sidebar({ role, name, schoolName, plan = "basic" }: { role: Role; name: string; schoolName: string | null; plan?: Plan }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const items = navFor(role);
@@ -26,7 +28,7 @@ export function Sidebar({ role, name, schoolName }: { role: Role; name: string; 
   const nav = (
     <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
       <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">Menu</p>
-      {items.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon, feature }) => {
         const matches = (h: string) => pathname === h || pathname.startsWith(`${h}/`);
         const active = matches(href) && !items.some((o) => o.href.length > href.length && matches(o.href));
         return (
@@ -47,6 +49,7 @@ export function Sidebar({ role, name, schoolName }: { role: Role; name: string; 
               <Icon className="size-4" />
             </span>
             {label}
+            {feature && role !== "super_admin" && !planAllows(plan, feature) && <PremiumBadge />}
           </Link>
         );
       })}

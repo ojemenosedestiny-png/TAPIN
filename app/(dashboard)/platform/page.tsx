@@ -15,12 +15,14 @@ export default async function PlatformPage() {
   await requireArea("platform");
   const supabase = await createClient(); // RLS: super admin can read schools, users and devices — not students
 
-  const [{ data: schools }, { data: users }, { data: devices }, { data: demos }] = await Promise.all([
+  const [{ data: schools }, { data: users }, { data: devices }, { data: demos }, { data: plans }] = await Promise.all([
     supabase.from("schools").select("id, name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, created_at").order("name"),
     supabase.from("users").select("school_id, role"),
     supabase.from("devices").select("school_id, last_seen, revoked_at"),
     supabase.from("demo_requests").select("id, name, school, phone, pupils, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
+    supabase.from("schools").select("id, plan"), // separate, so a database without plans still lists schools
   ]);
+  const planOf = new Map(((plans ?? []) as { id: string; plan: string }[]).map((p) => [p.id, p.plan]));
 
   const list = schools ?? [];
   const count = (schoolId: string, role: string) => (users ?? []).filter((u) => u.school_id === schoolId && u.role === role).length;
@@ -53,12 +55,12 @@ export default async function PlatformPage() {
             <tbody>
               {list.map((s) => (
                 <tr key={s.id} className="border-t border-border">
-                  <td className="px-4 py-3 font-medium text-ink">{s.name}</td>
+                  <td className="px-4 py-3 font-medium text-ink">{s.name}{planOf.get(s.id) === "premium" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-900">Premium</span>}</td>
                   <td className="px-4 py-3 text-muted-foreground">{s.resumption_time.slice(0, 5)}–{s.closing_time.slice(0, 5)}</td>
                   <td className="px-4 py-3">{count(s.id, "school_admin")}</td>
                   <td className="px-4 py-3">{count(s.id, "teacher")}</td>
                   <td className="px-4 py-3">{deviceCount(s.id)}</td>
-                  <td className="px-4 py-2 text-right"><div className="flex justify-end gap-1"><EditSchoolDialog school={s} /><DeleteSchoolButton school={s} /></div></td>
+                  <td className="px-4 py-2 text-right"><div className="flex justify-end gap-1"><EditSchoolDialog school={{ ...s, plan: planOf.get(s.id) ?? "basic" }} /><DeleteSchoolButton school={s} /></div></td>
                 </tr>
               ))}
             </tbody>
