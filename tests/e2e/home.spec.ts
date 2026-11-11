@@ -66,6 +66,24 @@ test.describe("public website", () => {
   });
 });
 
+test.describe("security", () => {
+  test("every page is sent with the security headers", async ({ request }) => {
+    for (const path of ["/", "/pricing", "/login", "/kiosk"]) {
+      const res = await request.get(path);
+      const h = res.headers();
+      expect(h["content-security-policy"], path).toContain("frame-ancestors 'none'");
+      expect(h["x-frame-options"], path).toBe("DENY");
+      expect(h["x-content-type-options"], path).toBe("nosniff");
+      expect(h["strict-transport-security"], path).toContain("max-age=");
+      expect(h["x-powered-by"], path).toBeUndefined();
+    }
+  });
+  test("the theme switch is on the public site on a phone too", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Appearance:/ }).or(page.getByRole("radiogroup", { name: "Appearance" }).first()).first().waitFor();
+  });
+});
+
 test.describe("signed in", () => {
   test.use({ storageState: ADMIN_STATE });
   test("staff going to the home page land on their dashboard", async ({ page }) => {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import type { WebPricing } from "@/lib/pricing";
-import { ThemeToggle } from "@/components/theme/theme";
+import { ThemeCycleButton, ThemeToggle } from "@/components/theme/theme";
 
 /** Top bar of the public site, on the deep teal header. */
 export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
@@ -19,6 +19,7 @@ export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span className="site-toggle hidden lg:inline-flex"><ThemeToggle /></span>
+        <ThemeCycleButton className="theme-dot lg:hidden" />
         <Link href="/login" className="login">Log in</Link>
         {active !== "pricing" && <Link href="/pricing" className="btn btn-gold" style={{ padding: "12px 20px", fontSize: 15 }}>Get started</Link>}
       </div>

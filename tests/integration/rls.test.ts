@@ -245,6 +245,20 @@ describe.skipIf(!enabled)("Row Level Security", () => {
     }
   });
 
+  it("attempt counters: only the server can use them; nobody can read or reset them", async () => {
+    const key = `test-${Date.now()}-0123456789abcdef`;
+    expect((await admin.rpc("rate_limit_hit", { p_key: key, p_max: 2, p_window_seconds: 60 })).data).toBe(true);
+    expect((await admin.rpc("rate_limit_hit", { p_key: key, p_max: 2, p_window_seconds: 60 })).data).toBe(true);
+    expect((await admin.rpc("rate_limit_hit", { p_key: key, p_max: 2, p_window_seconds: 60 })).data).toBe(false);
+    for (const c of [asAdminA, asSuper, anonClient]) {
+      const { error } = await c.rpc("rate_limit_hit", { p_key: key, p_max: 1000, p_window_seconds: 1 });
+      expect(error).not.toBeNull();
+      expect((await c.from("rate_limits").select("key").eq("key", key)).data ?? []).toEqual([]);
+      expect((await c.from("rate_limits").delete().eq("key", key).select()).data ?? []).toEqual([]);
+    }
+    await admin.from("rate_limits").delete().eq("key", key);
+  });
+
   it("anonymous visitors see nothing", async () => {
     for (const table of ["schools", "users", ...TENANT_TABLES]) {
       const { data } = await anonClient.from(table).select("*").limit(1);

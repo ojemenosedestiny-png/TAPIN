@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normaliseNgPhone } from "@/lib/phone";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { LAST_ACTIVE_COOKIE, LAST_ACTIVE_OPTIONS } from "@/lib/auth/idle";
 
 export type ParentLoginState = { step: "phone" | "code"; phone?: string; error?: string; info?: string };
@@ -19,7 +19,7 @@ export async function requestCode(_prev: ParentLoginState, formData: FormData): 
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`parent-otp-ip:${ip}`, { max: 10, windowMs: 60 * 60_000 }).ok || !checkRateLimit(`parent-otp:${phone}`, { max: 3, windowMs: 15 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`parent-otp-ip:${ip}`, { max: 10, windowMs: 60 * 60_000 })).ok || !(await checkRateLimitShared(`parent-otp:${phone}`, { max: 3, windowMs: 15 * 60_000 })).ok) {
     return { step: "phone", error: "Too many codes requested. Wait 15 minutes and try again." };
   }
 
@@ -41,7 +41,7 @@ export async function verifyCode(_prev: ParentLoginState, formData: FormData): P
   const token = String(formData.get("code") ?? "").replace(/\s/g, "");
   if (!phone) return { step: "phone", error: "Start again with your number." };
   if (!/^\d{6}$/.test(token)) return { step: "code", phone, error: "Enter the 6-digit code from the text message." };
-  if (!checkRateLimit(`parent-verify:${phone}`, { max: 6, windowMs: 15 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`parent-verify:${phone}`, { max: 6, windowMs: 15 * 60_000 })).ok) {
     return { step: "code", phone, error: "Too many wrong codes. Ask for a new code in 15 minutes." };
   }
   const supabase = await createClient();

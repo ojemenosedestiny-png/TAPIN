@@ -34,6 +34,8 @@ export default defineConfig({
     command: `npm run build && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: true,
+    // The test super admin has no authenticator app. Test server only; never set on the live site.
+    env: { TAPIN_ALLOW_SUPER_ADMIN_WITHOUT_2FA: "1" },
     timeout: 600_000,
   },
 });

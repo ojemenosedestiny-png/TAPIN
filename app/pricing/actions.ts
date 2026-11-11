@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { normaliseNgPhone } from "@/lib/phone";
 import { emailSchema, fieldErrors } from "@/lib/validation";
 import { naira, quoteFor, type PlanId } from "@/lib/pricing";
@@ -44,7 +44,7 @@ async function ip() {
 export async function placeOrder(_prev: PayState, formData: FormData): Promise<PayState> {
   const parsed = orderSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
-  if (!checkRateLimit(`order:${await ip()}`, { max: 6, windowMs: 60 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`order:${await ip()}`, { max: 6, windowMs: 60 * 60_000 })).ok) {
     return { errors: { _form: "We've received several orders from here already. We'll be in touch soon." } };
   }
   const o = parsed.data;
@@ -105,7 +105,7 @@ export type FoundChild = { first: string; className: string | null; schoolName: 
 export async function findChild(_prev: PayState, formData: FormData): Promise<PayState> {
   const parsed = childSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
-  if (!checkRateLimit(`child:${await ip()}`, { max: 8, windowMs: 15 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`child:${await ip()}`, { max: 8, windowMs: 15 * 60_000 })).ok) {
     return { errors: { _form: "Too many tries. Please wait 15 minutes, or ask the school office for the codes." } };
   }
   const child = await lookupChild(parsed.data);
@@ -117,7 +117,7 @@ export async function findChild(_prev: PayState, formData: FormData): Promise<Pa
 export async function payChildFee(_prev: PayState, formData: FormData): Promise<PayState> {
   const parsed = childSchema.extend({ method }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
-  if (!checkRateLimit(`childpay:${await ip()}`, { max: 6, windowMs: 15 * 60_000 }).ok) return { errors: { _form: "Too many tries. Please wait a few minutes." } };
+  if (!(await checkRateLimitShared(`childpay:${await ip()}`, { max: 6, windowMs: 15 * 60_000 })).ok) return { errors: { _form: "Too many tries. Please wait a few minutes." } };
   const child = await lookupChild(parsed.data);
   if (!child) return { errors: { _form: "We couldn't find a match. Check the codes and your phone number." } };
   if (child.fee === null) return { errors: { _form: `${child.schoolName} hasn't set up online payment for parents. Please pay at the school office.` } };

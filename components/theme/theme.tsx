@@ -85,3 +85,18 @@ export function ThemeToggle({ className }: { className?: string }) {
     </div>
   );
 }
+
+const NEXT: Record<ThemeChoice, ThemeChoice> = { light: "dark", dark: "system", system: "light" };
+const NAME: Record<ThemeChoice, string> = { light: "Light", dark: "Dark", system: "Auto" };
+
+/** One round button that cycles Light → Dark → Auto. For tight spaces like a phone's header. */
+export function ThemeCycleButton({ className }: { className?: string }) {
+  const choice = useThemeChoice();
+  const Icon = choice === "light" ? Sun : choice === "dark" ? Moon : Monitor;
+  return (
+    <button type="button" onClick={() => setChoice(NEXT[choice])} className={className}
+      aria-label={`Appearance: ${NAME[choice]}. Switch to ${NAME[NEXT[choice]]}`} title={`Appearance: ${NAME[choice]}`}>
+      <Icon className="size-[18px]" aria-hidden />
+    </button>
+  );
+}

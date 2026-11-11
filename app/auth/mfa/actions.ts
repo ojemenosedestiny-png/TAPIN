@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { homePath, isRole } from "@/lib/auth/roles";
 import { writeAudit } from "@/lib/audit";
 
@@ -20,7 +20,7 @@ export async function verifyMfaCode(_prev: MfaState, formData: FormData): Promis
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`mfa:${auth.user.id}:${ip}`, { max: 6, windowMs: 15 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`mfa:${auth.user.id}:${ip}`, { max: 6, windowMs: 15 * 60_000 })).ok || !(await checkRateLimitShared(`mfa-account:${auth.user.id}`, { max: 12, windowMs: 60 * 60_000 })).ok) {
     return { error: "Too many wrong codes. Wait 15 minutes, then try again." };
   }
 

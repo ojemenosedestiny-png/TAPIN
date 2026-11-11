@@ -5,7 +5,7 @@ import { cookies, headers } from "next/headers";
 import { LAST_ACTIVE_COOKIE, LAST_ACTIVE_OPTIONS } from "@/lib/auth/idle";
 import { createClient } from "@/lib/supabase/server";
 import { fieldErrors, loginSchema } from "@/lib/validation";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { homePath, isRole } from "@/lib/auth/roles";
 
 export type LoginState = { errors?: Record<string, string>; email?: string };
@@ -17,7 +17,10 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const limit = checkRateLimit(`login:${ip}:${parsed.data.email}`, { max: 5, windowMs: 15 * 60 * 1000 });
+  // Per address + account, and per account from anywhere (guessing spread over many addresses).
+  const perIp = await checkRateLimitShared(`login:${ip}:${parsed.data.email}`, { max: 5, windowMs: 15 * 60 * 1000 });
+  const perAccount = perIp.ok ? await checkRateLimitShared(`login-account:${parsed.data.email}`, { max: 15, windowMs: 60 * 60 * 1000 }) : perIp;
+  const limit = perIp.ok ? perAccount : perIp;
   if (!limit.ok) {
     return {
       errors: { _form: `Too many attempts. Try again in ${Math.ceil(limit.retryAfterMs / 60000)} minutes.` },

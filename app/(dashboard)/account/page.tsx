@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Account" };
 
 const ROLE = { super_admin: "Super admin", school_admin: "School admin", teacher: "Teacher" } as const;
 
-export default async function AccountPage() {
-  const user = await requireArea("account");
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ setup?: string }> }) {
+  const [user, sp] = await Promise.all([requireArea("account"), searchParams]);
   const supabase = await createClient();
   const { data: factors } = await supabase.auth.mfa.listFactors();
   const enabled = (factors?.totp ?? []).some((f) => f.status === "verified");
@@ -21,6 +21,11 @@ export default async function AccountPage() {
         <p className="mt-1 text-sm text-muted-foreground">{user.name} · {user.email} · {ROLE[user.role]}{user.schoolName ? ` · ${user.schoolName}` : ""}</p>
       </div>
       <div className="max-w-3xl space-y-6">
+        {user.needsMfaSetup && (
+          <p role="alert" className="motion-rise rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            <strong>Turn on two-factor login to continue.</strong> {sp.setup === "2fa" ? "The super admin account can see every school, so it needs a code from an authenticator app as well as a password." : ""}
+          </p>
+        )}
         <section className="motion-rise surface rounded-xl p-6" style={{ "--d": "80ms" } as React.CSSProperties} aria-labelledby="mfa">
           <h2 id="mfa" className="mb-3 text-lg font-semibold text-ink">Two-factor login</h2>
           <TwoFactor enabled={enabled} />

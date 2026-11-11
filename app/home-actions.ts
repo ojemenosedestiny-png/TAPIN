@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { demoRequestSchema } from "@/lib/demo";
 import { fieldErrors } from "@/lib/validation";
 import type { ActionState } from "@/components/forms/field";
@@ -17,7 +17,7 @@ export async function requestDemo(_prev: ActionState, formData: FormData): Promi
   }
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`demo:${ip}`, { max: 5, windowMs: 60 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`demo:${ip}`, { max: 5, windowMs: 60 * 60_000 })).ok) {
     return { errors: { _form: "We've already received a few requests from here. We'll be in touch soon." } };
   }
   const { name, school, phone, pupils } = parsed.data;

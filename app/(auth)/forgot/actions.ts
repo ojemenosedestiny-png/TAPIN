@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { emailSchema, fieldErrors } from "@/lib/validation";
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ export async function requestReset(_prev: ForgotState, formData: FormData): Prom
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(`forgot:${ip}`, { max: 5, windowMs: 60 * 60_000 }).ok) {
+  if (!(await checkRateLimitShared(`forgot:${ip}`, { max: 5, windowMs: 60 * 60_000 })).ok || !(await checkRateLimitShared(`forgot-account:${parsed.data.email}`, { max: 3, windowMs: 60 * 60_000 })).ok) {
     return { errors: { _form: "Too many requests. Try again in an hour." } };
   }
 
