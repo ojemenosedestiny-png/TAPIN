@@ -55,8 +55,8 @@ export function speak(text: string, { delayMs = 0 }: { delayMs?: number } = {}) 
       const u = new SpeechSynthesisUtterance(text);
       u.voice = pickVoice(synth.getVoices());
       if (u.voice) u.lang = u.voice.lang;
-      u.rate = 0.92;
-      u.pitch = 1;
+      u.rate = 0.8; // calm and unhurried, like the school voice
+      u.pitch = 0.98;
       u.volume = 1;
       synth.speak(u);
     } catch {

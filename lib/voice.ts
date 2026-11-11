@@ -22,9 +22,16 @@ export function voiceConfig(env: Record<string, string | undefined> = process.en
   };
 }
 
-/** Storage path: one file per voice, model and wording. Changing the voice simply makes new files. */
+/**
+ * How the school voice speaks: calm and unhurried (85% of its natural pace), steady and clear.
+ * Part of every clip's file name, so changing it makes fresh clips instead of reusing ones made the old way.
+ */
+export const VOICE_SETTINGS = { stability: 0.7, similarity_boost: 0.8, style: 0, use_speaker_boost: true, speed: 0.85 } as const;
+const STYLE_TAG = Object.values(VOICE_SETTINGS).join(",");
+
+/** Storage path: one file per voice, model, speaking style and wording. Changing any of them makes new files. */
 export function voicePath(cfg: Pick<VoiceConfig, "voiceId" | "model">, text: string): string {
-  const hash = createHash("sha256").update(`${cfg.model}\n${text}`).digest("hex").slice(0, 40);
+  const hash = createHash("sha256").update(`${cfg.model}\n${STYLE_TAG}\n${text}`).digest("hex").slice(0, 40);
   return `${cfg.voiceId}/${hash}.mp3`;
 }
 
@@ -49,8 +56,7 @@ export async function getSpeech(storage: Storage, cfg: VoiceConfig, text: string
       body: JSON.stringify({
         text,
         model_id: cfg.model,
-        // Calm and steady for a school gate: high stability, natural tone, no exaggerated style.
-        voice_settings: { stability: 0.6, similarity_boost: 0.8, style: 0, use_speaker_boost: true },
+        voice_settings: VOICE_SETTINGS,
       }),
       signal: AbortSignal.timeout(10_000),
     });

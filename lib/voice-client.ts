@@ -7,7 +7,8 @@ import { speak } from "@/lib/greeting";
 import { audioContext } from "@/lib/sound";
 import type { Phrase } from "@/lib/voice-phrases";
 
-const CACHE = "tapin-voice-v1";
+const CACHE = "tapin-voice-v2"; // v2: slower, calmer voice. Clips saved by v1 are cleared below.
+if (typeof caches !== "undefined") void caches.delete("tapin-voice-v1").catch(() => {});
 let current: AudioBufferSourceNode | null = null;
 let voiceMissing = false; // the server said no voice is set up: stop asking for this page load
 

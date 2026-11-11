@@ -65,6 +65,11 @@ describe("making a clip once", () => {
     expect(url).toBe("https://api.elevenlabs.io/v1/text-to-speech/voice123?output_format=mp3_44100_128");
     expect((init.headers as Record<string, string>)["xi-api-key"]).toBe("test-key");
     expect(JSON.parse(init.body as string)).toMatchObject({ text: "Good morning, Ada, welcome to school", model_id: "eleven_multilingual_v2" });
+    // Calm, unhurried delivery: slower than normal, within ElevenLabs' 0.7–1.2 range, and steady.
+    const settings = JSON.parse(init.body as string).voice_settings;
+    expect(settings.speed).toBeGreaterThanOrEqual(0.7);
+    expect(settings.speed).toBeLessThan(1);
+    expect(settings.stability).toBeGreaterThanOrEqual(0.6);
     expect(s.upload).toHaveBeenCalledWith(voicePath(cfg, "Good morning, Ada, welcome to school"), expect.any(ArrayBuffer), { contentType: "audio/mpeg", upsert: true });
   });
 
