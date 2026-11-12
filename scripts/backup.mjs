@@ -53,7 +53,7 @@ async function fetchBackup(day) {
 function verify(manifest, files) {
   let ok = true;
   for (const name of TABLES) {
-    if (!files[name]) { console.log(`--  ${name.padEnd(18)} not in this backup (made before the table existed)`); continue; }
+    if (!files[name]) { console.log(`--  ${name.padEnd(18)} not in this older backup`); continue; }
     const rows = parse(files[name]).length;
     const expected = manifest.tables[name];
     const good = rows === expected;
