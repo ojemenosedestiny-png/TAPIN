@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isCronRequest } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processOutbox, type ProcessResult } from "@/lib/alerts";
+import { processPortalDeliveries } from "@/lib/portal-link";
 
 export const maxDuration = 60;
 
@@ -17,5 +18,7 @@ export async function GET(req: NextRequest) {
     total.notConfigured = r.notConfigured;
     if (r.notConfigured || r.sent + r.failed + r.retrying + r.skipped + r.held === 0) break;
   }
-  return NextResponse.json(total);
+  // Taps waiting for a school's own portal (retries after a network failure or portal downtime).
+  const portal = await processPortalDeliveries(db, { limit: 100 }).catch((e) => ({ error: (e as Error).message }));
+  return NextResponse.json({ ...total, portal });
 }

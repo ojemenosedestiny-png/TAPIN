@@ -9,6 +9,7 @@ import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour } from "@/lib/time";
 import { PHOTO_BUCKET } from "@/lib/photos";
 import { processOutbox, queueTapAlerts } from "@/lib/alerts";
+import { processPortalDeliveries, queuePortalTap } from "@/lib/portal-link";
 import { pickupCardTap, type Picker } from "@/lib/pickup-server";
 import { activeEmergency, emergencyCounts, markSafe } from "@/lib/emergency-server";
 import type { RollCounts } from "@/lib/emergency";
@@ -190,7 +191,15 @@ export async function POST(req: NextRequest) {
   const late = decision.kind === "sign_in" && decision.late;
   const early = decision.kind === "sign_out" && decision.early;
   const releaseReason = "releaseReason" in decision ? decision.releaseReason : undefined;
-  await log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late });
+  const tapEventId = await log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late });
+
+  // The school's own portal (if linked) marks the child in its class register too.
+  if (card.holder_type === "student" && action === "signed_in" && tapEventId !== null && uid) {
+    runAfter("school portal", async () => {
+      const queued = await queuePortalTap(db, { schoolId: school.id, studentId: card.holder_id, tapEventId, cardUid: uid, admissionNo: person.idNo || null, tappedAt });
+      if (queued) await processPortalDeliveries(db, { limit: 5, schoolId: school.id });
+    });
+  }
 
   // Guardian SMS: saved to sms_logs first, then sent — after the kiosk already has its answer.
   if (card.holder_type === "student" && (action === "signed_in" || action === "signed_out")) {

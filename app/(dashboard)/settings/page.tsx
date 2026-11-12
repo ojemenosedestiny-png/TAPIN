@@ -11,6 +11,7 @@ import { TeamForm } from "./team-form";
 import { TeamMemberActions } from "./team-member";
 import { HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
 import { LogoUpload } from "./logo";
+import { PortalSection } from "./portal-section";
 import { signPhotos } from "@/lib/photos";
 import { monthLabel, naira } from "@/lib/billing";
 import Link from "next/link";
@@ -66,6 +67,8 @@ export default async function SettingsPage() {
             </ul>
           )}
         </section>
+
+        <PortalSection tz={school.timezone} />
 
         <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="privacy">
           <h2 id="privacy" className="text-lg font-semibold text-ink">Privacy and data</h2>
