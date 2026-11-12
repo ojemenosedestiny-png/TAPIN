@@ -16,6 +16,7 @@ import { play, soundLengthMs, unlockAudio } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import type { LessonChoice, TapResponse } from "@/app/api/tap/route";
 import { FLAG_LABEL, formatMinutes } from "@/lib/lessons";
+import { createQrReader } from "@/lib/qr-reader";
 import { clockSnapshot, readToken, subscribeClock, subscribeToken, writeToken } from "./kiosk-store";
 
 /** How long a tap's result stays on screen before the kiosk is ready for the next child. */
@@ -1031,13 +1032,11 @@ function PinEntry({ error, onActivity, onCancel, onSubmit }: { error?: string; o
   );
 }
 
-type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
-
-/** Camera + the browser's own QR reader (Chrome on Android). Nothing is recorded or sent except the code read. */
+/** Camera + a QR reader (the browser's own, or jsQR). Nothing is recorded or sent except the code read. */
 function QrScan({ error, onCancel, onCode, onCodeEntry }: { error?: string; onCancel: () => void; onCode: (text: string) => void; onCodeEntry: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [problem, setProblem] = useState<string | null>(() =>
-    typeof window !== "undefined" && !("BarcodeDetector" in window) ? "This kiosk can't read QR codes. Use the pickup code instead." : null);
+    typeof navigator !== "undefined" && !navigator.mediaDevices?.getUserMedia ? "This kiosk has no camera access. Use the pickup code instead." : null);
   useEffect(() => {
     if (problem) return;
     let stream: MediaStream | null = null;
@@ -1045,20 +1044,25 @@ function QrScan({ error, onCancel, onCode, onCodeEntry }: { error?: string; onCa
     let done = false;
     (async () => {
       try {
+        const reader = await createQrReader();
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
         if (!video.current || done) return;
         video.current.srcObject = stream;
         await video.current.play();
-        const Ctor = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
-        const detector = new Ctor({ formats: ["qr_code"] });
+        let busy = false;
         timer = setInterval(async () => {
-          if (done || !video.current) return;
-          const found = await detector.detect(video.current).catch(() => []);
-          const text = found[0]?.rawValue;
-          if (text) { done = true; onCode(text); }
-        }, 300);
-      } catch {
-        setProblem("The camera is blocked. Allow the camera for this site, or use the pickup code.");
+          if (done || busy || !video.current) return;
+          busy = true;
+          const text = await reader.read(video.current).catch(() => null);
+          busy = false;
+          if (text && !done) { done = true; onCode(text); }
+        }, reader.kind === "native" ? 300 : 250);
+      } catch (e) {
+        const denied = e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "SecurityError");
+        const noCamera = e instanceof DOMException && (e.name === "NotFoundError" || e.name === "OverconstrainedError");
+        setProblem(denied ? "The camera is blocked. Allow the camera for this site, or use the pickup code."
+          : noCamera ? "No camera found on this kiosk. Use the pickup code instead."
+          : "This kiosk can't read QR codes. Use the pickup code instead.");
       }
     })();
     return () => { done = true; if (timer) clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); };
