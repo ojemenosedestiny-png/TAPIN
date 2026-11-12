@@ -70,7 +70,10 @@ export async function saveRetention(_prev: ActionState, formData: FormData): Pro
 /** Saves the school logo's storage path (uploaded by the browser into the school's own folder). */
 export async function setSchoolLogo(path: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireSchoolArea("settings");
-  if (typeof path !== "string" || !new RegExp(`^${user.schoolId}/logo-\d+\.png$`).test(path)) return { ok: false, error: "Invalid logo location." };
+  // Only a PNG in this school's own folder, e.g. "<school id>/logo-1731412345678.png".
+  if (typeof path !== "string" || !path.startsWith(`${user.schoolId}/`) || !/^logo-\d{10,16}\.png$/.test(path.slice(user.schoolId.length + 1))) {
+    return { ok: false, error: "Invalid logo location." };
+  }
   const supabase = await createClient();
   const { data: before } = await supabase.from("schools").select("logo_url").eq("id", user.schoolId).single();
   const { error } = await supabase.from("schools").update({ logo_url: path }).eq("id", user.schoolId);
