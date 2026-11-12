@@ -25,7 +25,10 @@ export async function savePortalLink(_prev: ActionState, formData: FormData): Pr
   const { error } = existing
     ? await db.from("portal_links").update(row).eq("school_id", user.schoolId)
     : await db.from("portal_links").insert({ school_id: user.schoolId, ...row, api_key: key, key_tail: keyTail(key) });
-  if (error) return { errors: { _form: "Could not save. Please try again." } };
+  if (error) {
+    console.error("portal link save", error.code, error.message);
+    return { errors: { _form: "Could not save. Please try again." } };
+  }
   await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "portal.update", entity: "portal_links", entityId: user.schoolId, details: { url, matchBy, enabled, newKey: !!key } });
   revalidatePath("/settings");
   return { ok: enabled ? "Saved. New sign-ins now go to the school portal." : "Saved. Sending to the portal is paused." };
