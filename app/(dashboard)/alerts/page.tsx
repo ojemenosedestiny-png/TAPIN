@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { AlertSettingsForm } from "./alert-settings-form";
 import { MarkAllReadButton, RetryButton, SendNowButton } from "./action-buttons";
 import { TestPanel } from "./test-panel";
+import { WhatsAppAssistantSection } from "./whatsapp-assistant";
 
 export const metadata: Metadata = { title: "Alerts" };
 
@@ -140,6 +141,8 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       </section>
 
       {/* Settings */}
+      <WhatsAppAssistantSection tz={tz} />
+
       <section className="mb-10" aria-labelledby="settings">
         <h2 id="settings" className="mb-3 text-lg font-semibold text-ink">Alert settings</h2>
         <AlertSettingsForm settings={settings as AlertSettings} schoolName={school.name} />
