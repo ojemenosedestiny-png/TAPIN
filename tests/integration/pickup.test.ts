@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateDeviceToken, hashDeviceToken } from "@/lib/devices";
 import { resetRateLimits } from "@/lib/rate-limit";
-import { hashPickupCode } from "@/lib/pickup";
+import { hashPickupCode, hashQrToken } from "@/lib/pickup";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,7 +16,7 @@ const enabled = process.env.RUN_RLS_TESTS === "1" && !!url && !!service;
 
 let db: SupabaseClient;
 type Handler = (req: NextRequest) => Promise<Response>;
-let TAP: Handler, PICKUP: Handler, CODE: Handler;
+let TAP: Handler, PICKUP: Handler, CODE: Handler, QR: Handler;
 const ids: Record<string, string> = {};
 const token = generateDeviceToken();
 const UID = `0D${Date.now().toString(16).toUpperCase().slice(-8)}`.padEnd(10, "0");
@@ -34,6 +34,7 @@ describe.skipIf(!enabled)("safe pickup", () => {
     ({ POST: TAP } = await import("@/app/api/tap/route"));
     ({ POST: PICKUP } = await import("@/app/api/pickup/route"));
     ({ POST: CODE } = await import("@/app/api/pickup/code/route"));
+    ({ POST: QR } = await import("@/app/api/pickup/qr/route"));
     resetRateLimits();
     db = createClient(url!, service!, { auth: { persistSession: false } });
     const ins = async (t: string, row: Record<string, unknown>) => {
@@ -102,6 +103,17 @@ describe.skipIf(!enabled)("safe pickup", () => {
     expect((await call(PICKUP, "/api/pickup", { tap_id: offer.body.tap_id, student_ids: [ids.ada] })).status).toBe(400);
     expect((await call(PICKUP, "/api/pickup", { tap_id: offer.body.tap_id, student_ids: [ids.tolu] })).body.action).toBe("picked_up");
     expect((await call(CODE, "/api/pickup/code", { code: "482915" })).status).toBe(404);
+  });
+
+  it("a QR pass works like the card, and a stopped person's pass is refused", async () => {
+    const token = "Qr_" + "x".repeat(32);
+    await db.from("pickup_people").update({ status: "active", qr_token_hash: hashQrToken(token) }).eq("id", ids.person);
+    const ok = await call(QR, "/api/pickup/qr", { text: `TAPIN-P:${token}` });
+    expect(ok.body).toMatchObject({ action: "pickup", picker: { name: "Ngozi Obi" } });
+    expect((await call(QR, "/api/pickup/qr", { text: "TAPIN-P:" + "y".repeat(35) })).body.action).toBe("not_authorised");
+    expect((await call(QR, "/api/pickup/qr", { text: "hello" })).status).toBe(400);
+    await db.from("pickup_people").update({ status: "revoked" }).eq("id", ids.person);
+    expect((await call(QR, "/api/pickup/qr", { text: `TAPIN-P:${token}` })).body.action).toBe("not_authorised");
   });
 
   it("a pickup card can't also be linked as a student card", async () => {

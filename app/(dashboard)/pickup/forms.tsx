@@ -1,14 +1,15 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CreditCard, KeyRound, Nfc, Pencil, Plus, Search, UserPlus } from "lucide-react";
+import { CreditCard, KeyRound, Nfc, Pencil, Plus, QrCode as QrIcon, Search, UserPlus } from "lucide-react";
+import { QrCode } from "@/components/pickup/qr-code";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field, FormError, useActionFeedback, type ActionState } from "@/components/forms/field";
 import { Label } from "@/components/ui/label";
 import { NFC_ERROR_MESSAGES, nfcSupported, startNfcScan } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
-import { createPickupCode, linkPickupCard, savePickupPerson } from "./actions";
+import { createPickupCode, issuePickupQr, linkPickupCard, savePickupPerson } from "./actions";
 
 export type StudentOpt = { id: string; name: string; class: string | null };
 
@@ -146,7 +147,7 @@ export function CodeDialog({ students }: { students: StudentOpt[] }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(createPickupCode, {});
   useActionFeedback(state);
   const e = state.errors ?? {};
-  const made = state.data as { code: string; person: string; date: string } | undefined;
+  const made = state.data as { code: string; qr: string; person: string; date: string } | undefined;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button variant="outline"><KeyRound className="size-4" aria-hidden /> One-day code</Button></DialogTrigger>
@@ -155,7 +156,8 @@ export function CodeDialog({ students }: { students: StudentOpt[] }) {
           <div className="space-y-4 text-center">
             <DialogHeader><DialogTitle>Pickup code for {made.person}</DialogTitle><DialogDescription>Valid on {made.date} only, once. It won&apos;t be shown again.</DialogDescription></DialogHeader>
             <p className="font-heading text-5xl font-semibold tracking-[0.2em] text-ink tabular-nums">{made.code}</p>
-            <p className="text-sm text-muted-foreground">At the kiosk: Pickup code → enter the 6 digits → staff check and release.</p>
+            <div className="flex justify-center"><QrCode value={made.qr} size={180} label={`QR code for ${made.person}'s pickup code`} /></div>
+            <p className="text-sm text-muted-foreground">At the kiosk: type the 6 digits under Pickup code, or show this QR under Scan QR. Staff check and release.</p>
             <DialogFooter><Button type="button" onClick={() => setOpen(false)}>Done</Button></DialogFooter>
           </div>
         ) : (
@@ -181,6 +183,39 @@ export function CodeDialog({ students }: { students: StudentOpt[] }) {
             </div>
             <ChildPicker students={students} error={e.student_ids} />
             <DialogFooter><Button type="submit" disabled={pending}><Plus className="size-4" aria-hidden /> {pending ? "Creating…" : "Create code"}</Button></DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Makes a QR pickup pass and shows it once. */
+export function QrPassDialog({ id, name, hasPass }: { id: string; name: string; hasPass: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<ActionState, FormData>(issuePickupQr, {});
+  useActionFeedback(state);
+  const made = state.data as { qr: string; name: string } | undefined;
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button variant="outline" size="sm"><QrIcon className="size-4" aria-hidden /> {hasPass ? "New QR pass" : "QR pass"}</Button></DialogTrigger>
+      <DialogContent>
+        {made ? (
+          <div className="space-y-4 text-center">
+            <DialogHeader><DialogTitle>QR pickup pass: {made.name}</DialogTitle><DialogDescription>Print it, or screenshot it and send it to them. It won&apos;t be shown again.</DialogDescription></DialogHeader>
+            <div className="flex justify-center"><QrCode value={made.qr} size={260} label={`Pickup pass for ${made.name}`} /></div>
+            <p className="text-sm text-muted-foreground">At the kiosk: Scan QR → hold it to the camera → staff check their face and release.</p>
+            <DialogFooter><Button type="button" variant="outline" onClick={() => window.print()}>Print</Button><Button type="button" onClick={() => setOpen(false)}>Done</Button></DialogFooter>
+          </div>
+        ) : (
+          <form action={action} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>QR pickup pass for {name}</DialogTitle>
+              <DialogDescription>Works like their pickup card: staff still see their photo and confirm. {hasPass ? "Their old QR pass stops working." : ""}</DialogDescription>
+            </DialogHeader>
+            <input type="hidden" name="id" value={id} />
+            <FormError state={state} />
+            <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Making…" : "Make QR pass"}</Button></DialogFooter>
           </form>
         )}
       </DialogContent>

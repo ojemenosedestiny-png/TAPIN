@@ -5,7 +5,7 @@
  *   -> staff confirm -> each child is signed out and their parents get an SMS.
  *   Revoked person or blocked card -> red "Not authorised"; admin and parents are told.
  */
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 
 /** Staff have this long after the tap to confirm on the kiosk. */
 export const PICKUP_CONFIRM_MS = 3 * 60_000;
@@ -28,6 +28,32 @@ export function newPickupCode(): string {
 /** Codes are stored hashed, salted with the school id. */
 export function hashPickupCode(schoolId: string, code: string): string {
   return createHash("sha256").update(`${schoolId}:${code}`).digest("hex");
+}
+
+/** What a pickup QR code holds: a person's pass, or a one-day code. */
+export const QR_PASS_PREFIX = "TAPIN-P:";
+export const QR_CODE_PREFIX = "TAPIN-C:";
+
+export function newQrToken(): string {
+  return randomBytes(24).toString("base64url");
+}
+
+export function hashQrToken(token: string): string {
+  return createHash("sha256").update(`qr:${token}`).digest("hex");
+}
+
+export function parsePickupQr(text: unknown): { kind: "pass"; token: string } | { kind: "code"; code: string } | null {
+  if (typeof text !== "string") return null;
+  const t = text.trim();
+  if (t.startsWith(QR_PASS_PREFIX)) {
+    const token = t.slice(QR_PASS_PREFIX.length);
+    return /^[A-Za-z0-9_-]{30,64}$/.test(token) ? { kind: "pass", token } : null;
+  }
+  if (t.startsWith(QR_CODE_PREFIX)) {
+    const code = normalisePickupCode(t.slice(QR_CODE_PREFIX.length));
+    return code ? { kind: "code", code } : null;
+  }
+  return null;
 }
 
 export function childState(att: { sign_in_at: string | null; sign_out_at: string | null } | undefined): PickupChildState {

@@ -54,15 +54,34 @@ async function messageParents(db: Db, schoolId: string, rows: { studentId: strin
   else await processOutbox(db, { limit: 20, schoolId });
 }
 
-/** A pickup card was tapped. Null when the card isn't a pickup card. */
-export async function pickupCardTap(db: Db, device: KioskDevice, uid: string, tappedAt: Date,
-  log: (result: "pickup" | "blocked", extra?: { holder_id?: string }) => Promise<number | null>): Promise<PickupOffer | { action: "not_authorised"; name: string } | { action: "duplicate" } | null> {
-  const school = device.school;
-  const { data: person } = await db.from("pickup_people").select("id, name, relationship, photo_url, status, card_blocked")
-    .eq("school_id", school.id).eq("card_uid", uid).maybeSingle();
-  if (!person) return null;
+type PickupLog = (result: "pickup" | "blocked", extra?: { holder_id?: string }) => Promise<number | null>;
+type OfferResult = PickupOffer | { action: "not_authorised"; name: string } | { action: "duplicate" };
+const PERSON_COLS = "id, name, relationship, photo_url, status, card_blocked";
 
-  if (person.status !== "active" || person.card_blocked) {
+/** A pickup card was tapped. Null when the card isn't a pickup card. */
+export async function pickupCardTap(db: Db, device: KioskDevice, uid: string, tappedAt: Date, log: PickupLog): Promise<OfferResult | null> {
+  const { data: person } = await db.from("pickup_people").select(PERSON_COLS).eq("school_id", device.school.id).eq("card_uid", uid).maybeSingle();
+  if (!person) return null;
+  return offerFor(db, device, person, tappedAt, log, true);
+}
+
+/** A QR pass was scanned at the kiosk. Null when it isn't a pass for this school. */
+export async function pickupQrScan(db: Db, device: KioskDevice, tokenHash: string): Promise<OfferResult | null> {
+  const { data: person } = await db.from("pickup_people").select(PERSON_COLS).eq("school_id", device.school.id).eq("qr_token_hash", tokenHash).maybeSingle();
+  if (!person) return null;
+  const log: PickupLog = async (result, extra) => {
+    const { data } = await db.from("tap_events").insert({
+      school_id: device.school.id, device_id: device.id, uid: "QR", result, holder_id: extra?.holder_id ?? null, tapped_at: new Date().toISOString(),
+    }).select("id").single();
+    return (data?.id as number | undefined) ?? null;
+  };
+  return offerFor(db, device, person, new Date(), log, false);
+}
+
+async function offerFor(db: Db, device: KioskDevice,
+  person: { id: string; name: string; relationship: string | null; photo_url: string | null; status: string; card_blocked: boolean },
+  tappedAt: Date, log: PickupLog, isCard: boolean): Promise<OfferResult> {
+  if (person.status !== "active" || (isCard && person.card_blocked)) {
     await log("blocked", { holder_id: person.id });
     await refusePickup(db, device, { personId: person.id, name: person.name });
     return { action: "not_authorised", name: person.name };

@@ -8,7 +8,7 @@ import { writeAudit } from "@/lib/audit";
 import { fieldErrors, idSchema } from "@/lib/validation";
 import { normaliseNgPhone } from "@/lib/phone";
 import { normaliseUid } from "@/lib/nfc";
-import { hashPickupCode, newPickupCode } from "@/lib/pickup";
+import { QR_CODE_PREFIX, QR_PASS_PREFIX, hashPickupCode, hashQrToken, newPickupCode, newQrToken } from "@/lib/pickup";
 import { localDate } from "@/lib/time";
 import { processOutbox } from "@/lib/alerts";
 import { PHOTO_BUCKET, pathInSchool } from "@/lib/photos";
@@ -172,9 +172,24 @@ export async function createPickupCode(_prev: ActionState, fd: FormData): Promis
     }
     await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "pickup.code", entity: "pickup_codes", entityId: data.id, details: { person: v.person_name, date: validDate, children: kids.length } });
     revalidatePath("/pickup");
-    return { ok: phone ? "Code created and texted." : "Code created.", data: { code, person: v.person_name, date: validDate } };
+    return { ok: phone ? "Code created and texted." : "Code created.", data: { code, qr: `${QR_CODE_PREFIX}${code}`, person: v.person_name, date: validDate } };
   }
   return { errors: { _form: "Could not create a code. Please try again." } };
+}
+
+/** A QR pickup pass for a person (on paper or their phone). A new pass cancels the old one. */
+export async function issuePickupQr(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("pickup");
+  const parsed = idForm.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { errors: { _form: "Invalid person." } };
+  const token = newQrToken();
+  const db = createAdminClient();
+  const { data } = await db.from("pickup_people").update({ qr_token_hash: hashQrToken(token), qr_issued_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.id).eq("school_id", user.schoolId).select("name").maybeSingle();
+  if (!data) return { errors: { _form: "That person wasn't found." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "pickup.qr", entity: "pickup_people", entityId: parsed.data.id });
+  revalidatePath("/pickup");
+  return { ok: "QR pass ready. Print it or send it to them now: it won't be shown again.", data: { qr: `${QR_PASS_PREFIX}${token}`, name: data.name } };
 }
 
 export async function cancelPickupCode(_prev: ActionState, fd: FormData): Promise<ActionState> {

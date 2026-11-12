@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, BookOpen, Check, CloudOff, Delete, KeyRound, LogOut, Maximize, Nfc, Play, Settings, ShieldX, Siren, Volume2, WifiOff, XCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, CloudOff, Delete, KeyRound, LogOut, Maximize, Nfc, Play, Settings, QrCode, ShieldX, Siren, Volume2, WifiOff, XCircle } from "lucide-react";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import { Ripple } from "@/components/brand/ripple";
 import { PoweredBy } from "@/components/brand/powered-by";
@@ -41,6 +41,7 @@ type Screen =
   | { kind: "pickup"; data: TapResponse; error?: string }
   | { kind: "code"; error?: string }
   | { kind: "pin"; error?: string }
+  | { kind: "qr"; error?: string }
   | { kind: "saved_offline" };
 
 const noop = () => () => {};
@@ -149,7 +150,7 @@ function Kiosk({ token }: { token: string }) {
   const show = (s: Screen) => {
     setScreen(s);
     if (resetTimer.current) clearTimeout(resetTimer.current);
-    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" || s.kind === "pin" ? PICKUP_MS : RESULT_MS);
+    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" || s.kind === "pin" || s.kind === "qr" ? PICKUP_MS : RESULT_MS);
   };
 
   /** A one-day pickup code typed on the kiosk. */
@@ -163,6 +164,20 @@ function Kiosk({ token }: { token: string }) {
       show({ kind: "code", error: out.error ?? "That code didn't work." });
     } catch {
       show({ kind: "code", error: "No connection. Pickup needs the kiosk to be online." });
+    }
+  };
+
+  /** A pickup QR code seen by the camera (a person's pass, or a one-day code). */
+  const submitQr = async (text: string) => {
+    try {
+      const res = await api("/api/pickup/qr", token, { method: "POST", body: JSON.stringify({ text }) });
+      const out = await res.json().catch(() => ({}));
+      if (res.ok) return presentResult(out as TapResponse);
+      if (handleAuthFailure(res.status, out.error)) return;
+      play("error");
+      show({ kind: "qr", error: out.error ?? "That QR code didn't work." });
+    } catch {
+      show({ kind: "qr", error: "No connection. Pickup needs the kiosk to be online." });
     }
   };
 
@@ -477,7 +492,7 @@ function Kiosk({ token }: { token: string }) {
         <Assembly active={emergency.active} scanning={scanning} onStart={startScanning} />
       )}
       {screen.kind === "idle" && !emergency.active && (
-        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} onPickupCode={() => show({ kind: "code" })}
+        <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} onPickupCode={() => show({ kind: "code" })} onScanQr={() => show({ kind: "qr" })}
           onEmergency={emergency.available ? () => show({ kind: "pin" }) : undefined} />
       )}
       {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "") + screen.data.action} data={screen.data} />}
@@ -494,6 +509,9 @@ function Kiosk({ token }: { token: string }) {
       )}
       {screen.kind === "pin" && (
         <PinEntry key={screen.error ?? "pin"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(p, k) => void startEmergency(p, k)} />
+      )}
+      {screen.kind === "qr" && (
+        <QrScan key={screen.error ?? "qr"} error={screen.error} onCancel={() => show({ kind: "idle" })} onCode={(t) => void submitQr(t)} onCodeEntry={() => show({ kind: "code" })} />
       )}
       {screen.kind === "code" && (
         <CodeEntry key={screen.error ?? "code"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(c) => void submitCode(c)} />
@@ -557,8 +575,8 @@ function localHour(timeZone = "Africa/Lagos") {
   return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone }).format(new Date()));
 }
 
-function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound, onPickupCode, onEmergency }: {
-  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void; onPickupCode: () => void; onEmergency?: () => void;
+function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound, onPickupCode, onScanQr, onEmergency }: {
+  school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void; onPickupCode: () => void; onScanQr: () => void; onEmergency?: () => void;
 }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden bg-[#03201e] px-6 py-10 text-white">
@@ -621,6 +639,11 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
           {scanning && (
             <button onClick={onPickupCode} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
               <KeyRound className="size-5" aria-hidden /> Pickup code
+            </button>
+          )}
+          {scanning && (
+            <button onClick={onScanQr} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
+              <QrCode className="size-5" aria-hidden /> Scan QR
             </button>
           )}
           {scanning && onEmergency && (
@@ -1004,6 +1027,61 @@ function PinEntry({ error, onActivity, onCancel, onSubmit }: { error?: string; o
           className={cn(key, "bg-white text-red-700 disabled:opacity-40")} aria-label="Start roll call"><Check className="size-9" /></button>
       </div>
       <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
+    </div>
+  );
+}
+
+type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
+
+/** Camera + the browser's own QR reader (Chrome on Android). Nothing is recorded or sent except the code read. */
+function QrScan({ error, onCancel, onCode, onCodeEntry }: { error?: string; onCancel: () => void; onCode: (text: string) => void; onCodeEntry: () => void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [problem, setProblem] = useState<string | null>(() =>
+    typeof window !== "undefined" && !("BarcodeDetector" in window) ? "This kiosk can't read QR codes. Use the pickup code instead." : null);
+  useEffect(() => {
+    if (problem) return;
+    let stream: MediaStream | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let done = false;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        if (!video.current || done) return;
+        video.current.srcObject = stream;
+        await video.current.play();
+        const Ctor = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
+        const detector = new Ctor({ formats: ["qr_code"] });
+        timer = setInterval(async () => {
+          if (done || !video.current) return;
+          const found = await detector.detect(video.current).catch(() => []);
+          const text = found[0]?.rawValue;
+          if (text) { done = true; onCode(text); }
+        }, 300);
+      } catch {
+        setProblem("The camera is blocked. Allow the camera for this site, or use the pickup code.");
+      }
+    })();
+    return () => { done = true; if (timer) clearInterval(timer); stream?.getTracks().forEach((t) => t.stop()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problem]);
+
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-br from-[#03201e] via-[#073b37] to-[#0f766e] px-6 py-8 text-white" role="dialog" aria-modal="true" aria-label="Scan pickup QR code">
+      <p className="text-4xl font-semibold">Scan pickup QR</p>
+      <p className="max-w-md text-center text-xl text-white/75">Hold the QR code up to the camera.</p>
+      {problem ? (
+        <p role="alert" className="max-w-md rounded-2xl bg-red-600/90 px-5 py-3 text-center text-xl">{problem}</p>
+      ) : (
+        <div className="relative aspect-square w-[min(80vw,28rem)] overflow-hidden rounded-3xl bg-black ring-4 ring-white/70">
+          <video ref={video} playsInline muted className="size-full -scale-x-100 object-cover" />
+          <span aria-hidden className="absolute inset-[18%] rounded-2xl border-4 border-teal-300/90" />
+        </div>
+      )}
+      {error && <p role="alert" className="max-w-md rounded-2xl bg-red-600/90 px-5 py-3 text-center text-xl">{error}</p>}
+      <div className="flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={onCodeEntry} className="flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-xl ring-1 ring-white/30"><KeyRound className="size-5" aria-hidden /> Type a code</button>
+        <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { childState, hashPickupCode, joinNames, newPickupCode, normalisePickupCode, notAuthorisedMessage, pickupMessage } from "@/lib/pickup";
+import { childState, hashPickupCode, hashQrToken, joinNames, newPickupCode, newQrToken, normalisePickupCode, notAuthorisedMessage, parsePickupQr, pickupMessage } from "@/lib/pickup";
 
 describe("pickup codes", () => {
   it("accepts six digits, with spaces or dashes", () => {
@@ -14,6 +14,19 @@ describe("pickup codes", () => {
     for (let i = 0; i < 50; i++) expect(newPickupCode()).toMatch(/^\d{6}$/);
     expect(hashPickupCode("a", "123456")).not.toBe(hashPickupCode("b", "123456"));
     expect(hashPickupCode("a", "123456")).toBe(hashPickupCode("a", "123456"));
+  });
+});
+
+describe("pickup QR codes", () => {
+  it("reads passes and one-day codes, and nothing else", () => {
+    const token = newQrToken();
+    expect(parsePickupQr(`TAPIN-P:${token}`)).toEqual({ kind: "pass", token });
+    expect(parsePickupQr("TAPIN-C:482915")).toEqual({ kind: "code", code: "482915" });
+    expect(parsePickupQr("TAPIN-C:4829")).toBeNull();
+    expect(parsePickupQr("TAPIN-P:short")).toBeNull();
+    expect(parsePickupQr("https://example.com")).toBeNull();
+    expect(parsePickupQr(42)).toBeNull();
+    expect(hashQrToken(token)).not.toContain(token);
   });
 });
 

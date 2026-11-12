@@ -7,12 +7,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAudit } from "@/lib/audit";
 import { idSchema } from "@/lib/validation";
 import { normaliseNgPhone } from "@/lib/phone";
-import { hashPickupCode, newPickupCode } from "@/lib/pickup";
+import { QR_CODE_PREFIX, QR_PASS_PREFIX, hashPickupCode, hashQrToken, newPickupCode, newQrToken } from "@/lib/pickup";
 import { localDate } from "@/lib/time";
 import { processOutbox } from "@/lib/alerts";
 import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 
-export type ParentPickupState = { ok?: string; error?: string; code?: { code: string; person: string; date: string } };
+export type ParentPickupState = { ok?: string; error?: string; code?: { code: string; qr: string; person: string; date: string }; pass?: { qr: string; name: string } };
 
 type Mine = { guardianIds: string[]; students: { id: string; school_id: string; guardian_id: string }[]; userId: string };
 
@@ -85,6 +85,23 @@ export async function parentApprovePickup(personId: string): Promise<ParentPicku
   return { ok: `${data.name} approved.` };
 }
 
+/** A QR pickup pass for someone allowed to collect this parent's children. A new pass cancels the old one. */
+export async function parentIssueQr(personId: string): Promise<ParentPickupState> {
+  const me = await myChildren();
+  if (!me || !idSchema.safeParse(personId).success) return { error: "Please sign in again." };
+  if (!(await checkRateLimitShared(`parent-qr:${me.userId}`, { max: 10, windowMs: 24 * 60 * 60_000 })).ok) return { error: "You've made the most passes allowed today." };
+  const db = createAdminClient();
+  const { data: links } = await db.from("pickup_people_students").select("student_id").eq("person_id", personId);
+  if (!me.students.some((s) => (links ?? []).some((l) => l.student_id === s.id))) return { error: "This person isn't linked to your children." };
+  const token = newQrToken();
+  const { data } = await db.from("pickup_people").update({ qr_token_hash: hashQrToken(token), qr_issued_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", personId).eq("status", "active").select("name, school_id").maybeSingle();
+  if (!data) return { error: "Only people who are allowed can get a pass." };
+  await writeAudit({ schoolId: data.school_id, actorId: null, action: "pickup.qr", entity: "pickup_people", entityId: personId, details: { by: "parent" } });
+  revalidatePath("/parent");
+  return { ok: "Pass ready.", pass: { qr: `${QR_PASS_PREFIX}${token}`, name: data.name } };
+}
+
 /** Stop someone collecting this parent's children. Other families' links to the same person are untouched. */
 export async function parentRemovePickup(personId: string): Promise<ParentPickupState> {
   const me = await myChildren();
@@ -144,7 +161,7 @@ export async function parentCreatePickupCode(_prev: ParentPickupState, fd: FormD
     }
     await writeAudit({ schoolId, actorId: null, action: "pickup.parent_code", entity: "pickup_codes", entityId: data.id, details: { person: v.person_name, date: validDate } });
     revalidatePath("/parent");
-    return { ok: phone ? "Code created and texted to them." : "Code created.", code: { code, person: v.person_name, date: validDate } };
+    return { ok: phone ? "Code created and texted to them." : "Code created.", code: { code, qr: `${QR_CODE_PREFIX}${code}`, person: v.person_name, date: validDate } };
   }
   return { error: "Could not create a code. Please try again." };
 }

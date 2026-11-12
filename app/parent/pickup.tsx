@@ -2,12 +2,13 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { KeyRound, UserPlus, X } from "lucide-react";
+import { KeyRound, QrCode as QrIcon, UserPlus, X } from "lucide-react";
+import { QrCode } from "@/components/pickup/qr-code";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { parentAddPickupPerson, parentApprovePickup, parentCreatePickupCode, parentRemovePickup, type ParentPickupState } from "./pickup-actions";
+import { parentAddPickupPerson, parentApprovePickup, parentCreatePickupCode, parentIssueQr, parentRemovePickup, type ParentPickupState } from "./pickup-actions";
 
 export type ParentPickupPerson = { id: string; name: string; relationship: string | null; status: string; card: boolean; children: string[] };
 type Kid = { id: string; name: string };
@@ -30,6 +31,7 @@ function KidChoice({ kids }: { kids: Kid[] }) {
 export function ParentPickup({ people, kids }: { people: ParentPickupPerson[]; kids: Kid[] }) {
   const [mode, setMode] = useState<"none" | "add" | "code">("none");
   const [busy, start] = useTransition();
+  const [pass, setPass] = useState<{ qr: string; name: string } | null>(null);
   const [addState, addAction, adding] = useActionState<ParentPickupState, FormData>(async (p, fd) => {
     const r = await parentAddPickupPerson(p, fd);
     if (r.ok) { toast.success(r.ok); setMode("none"); }
@@ -57,12 +59,27 @@ export function ParentPickup({ people, kids }: { people: ParentPickupPerson[]; k
               {p.status === "pending" ? "Needs your OK" : p.status === "revoked" ? "Not allowed" : "Allowed"}
             </span>
             {p.status === "pending" && <Button size="sm" disabled={busy} onClick={() => run(() => parentApprovePickup(p.id))}>Approve</Button>}
+            {p.status === "active" && (
+              <Button size="sm" variant="outline" disabled={busy} aria-label={`QR pass for ${p.name}`}
+                onClick={() => start(async () => { const r = await parentIssueQr(p.id); if (r.pass) setPass(r.pass); else if (r.error) toast.error(r.error); })}>
+                <QrIcon className="size-4" aria-hidden />
+              </Button>
+            )}
             <Button size="sm" variant="ghost" className="text-red-700" disabled={busy} aria-label={`Remove ${p.name}`}
               onClick={() => { if (confirm(`Stop ${p.name} collecting your children?`)) run(() => parentRemovePickup(p.id)); }}><X className="size-4" aria-hidden /></Button>
           </li>
         ))}
         {people.length === 0 && <li className="py-3 text-sm text-muted-foreground">Nobody added yet.</li>}
       </ul>
+
+      {pass && (
+        <div className="mt-4 rounded-xl bg-muted/50 p-4 text-center" role="status">
+          <p className="text-sm font-medium text-ink">QR pickup pass for {pass.name}</p>
+          <div className="mt-3 flex justify-center"><QrCode value={pass.qr} size={220} label={`Pickup pass for ${pass.name}`} /></div>
+          <p className="mt-2 text-xs text-muted-foreground">Screenshot it and send it to {pass.name}. At the school kiosk they choose Scan QR. Making a new pass cancels this one.</p>
+          <Button size="sm" variant="ghost" className="mt-2" onClick={() => setPass(null)}>Done</Button>
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Button variant={mode === "add" ? "default" : "outline"} size="sm" onClick={() => setMode(mode === "add" ? "none" : "add")}><UserPlus className="size-4" aria-hidden /> Add a person</Button>
@@ -87,6 +104,7 @@ export function ParentPickup({ people, kids }: { people: ParentPickupPerson[]; k
           <div className="mt-4 rounded-xl bg-muted/50 p-4 text-center">
             <p className="text-sm text-muted-foreground">Code for {codeState.code.person}, valid {codeState.code.date} only, once:</p>
             <p className="mt-2 font-heading text-4xl font-semibold tracking-[0.2em] tabular-nums text-ink">{codeState.code.code}</p>
+            <div className="mt-3 flex justify-center"><QrCode value={codeState.code.qr} size={180} label="QR code for the pickup code" /></div>
             <p className="mt-2 text-xs text-muted-foreground">{codeState.ok} They enter it at the school kiosk under &ldquo;Pickup code&rdquo;.</p>
           </div>
         ) : (

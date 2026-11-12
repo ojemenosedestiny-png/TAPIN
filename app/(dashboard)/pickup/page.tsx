@@ -13,14 +13,14 @@ import { ConfirmDelete } from "@/components/forms/confirm-delete";
 import { Button } from "@/components/ui/button";
 import { selectClass } from "@/components/forms/field";
 import { cn } from "@/lib/utils";
-import { CardDialog, CodeDialog, PersonDialog, StatusDot, type StudentOpt } from "./forms";
+import { CardDialog, CodeDialog, PersonDialog, QrPassDialog, StatusDot, type StudentOpt } from "./forms";
 import { cancelPickupCode, deletePickupPerson, setPickupCardBlocked, setPickupStatus } from "./actions";
 
 export const metadata: Metadata = { title: "Safe pickup" };
 
 type Person = {
   id: string; name: string; relationship: string | null; phone: string | null; photo_url: string | null; status: string;
-  added_by: string; card_uid: string | null; card_blocked: boolean; pickup_people_students: { student_id: string }[];
+  added_by: string; card_uid: string | null; card_blocked: boolean; qr_issued_at: string | null; pickup_people_students: { student_id: string }[];
 };
 type Event = { id: string; kind: string; student_id: string | null; picker_name: string; at: string };
 
@@ -36,7 +36,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Promi
   const dayEnd = new Date(new Date(dayStart).getTime() + 86_400_000).toISOString();
 
   const [{ data: people }, { data: students }, { data: events }, { data: codes }] = await Promise.all([
-    supabase.from("pickup_people").select("id, name, relationship, phone, photo_url, status, added_by, card_uid, card_blocked, pickup_people_students(student_id)").order("name"),
+    supabase.from("pickup_people").select("id, name, relationship, phone, photo_url, status, added_by, card_uid, card_blocked, qr_issued_at, pickup_people_students(student_id)").order("name"),
     supabase.from("students").select("id, first_name, last_name, classes(name)").eq("status", "active").order("first_name").limit(5000),
     supabase.from("pickup_events").select("id, kind, student_id, picker_name, at").gte("at", dayStart).lt("at", dayEnd).order("at", { ascending: false }).limit(500),
     supabase.from("pickup_codes").select("id, person_name, valid_date, used_at, pickup_code_students(student_id)").gte("valid_date", today).order("valid_date"),
@@ -129,7 +129,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Promi
                       <p className="truncate text-sm text-muted-foreground">{[p.relationship, p.phone ? formatNgPhone(p.phone) : null].filter(Boolean).join(" · ") || "—"}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <StatusDot status={p.status} blocked={p.card_blocked} />
-                        <span className="text-xs text-muted-foreground">{p.card_uid ? `Card …${p.card_uid.slice(-4)}` : "No card"}{p.added_by === "parent" ? " · added by parent" : ""}</span>
+                        <span className="text-xs text-muted-foreground">{p.card_uid ? `Card …${p.card_uid.slice(-4)}` : "No card"}{p.qr_issued_at ? " · QR pass" : ""}{p.added_by === "parent" ? " · added by parent" : ""}</span>
                       </div>
                     </div>
                     <PersonDialog students={opts} person={{ id: p.id, name: p.name, relationship: p.relationship, phone: p.phone ? formatNgPhone(p.phone) : "", student_ids: p.pickup_people_students.map((l) => l.student_id) }} />
@@ -138,6 +138,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Promi
                   <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
                     <PhotoEditor schoolId={user.schoolId} holderType="pickup" holderId={p.id} name={p.name} photoUrl={p.photo_url ? photos.get(p.photo_url) ?? null : null} />
                     <CardDialog id={p.id} name={p.name} hasCard={!!p.card_uid} />
+                    <QrPassDialog id={p.id} name={p.name} hasPass={!!p.qr_issued_at} />
                     {p.card_uid && (
                       <ConfirmAction action={setPickupCardBlocked} fields={{ id: p.id, blocked: p.card_blocked ? "0" : "1" }} destructive={!p.card_blocked}
                         title={p.card_blocked ? `Unblock ${p.name}'s card?` : `Block ${p.name}'s card?`}
