@@ -14,8 +14,15 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 
+// Same order as BACKUP_TABLES in lib/backup.ts (a unit test keeps them in step).
 const TABLES = ["schools", "users", "classes", "students", "guardians", "student_guardians", "staff", "cards", "devices",
-  "alert_settings", "school_calendar", "attendance", "excusals", "tap_events", "sms_logs", "notifications", "audit_logs"];
+  "alert_settings", "school_calendar", "attendance", "excusals", "tap_events", "sms_logs", "notifications", "audit_logs",
+  "platform_settings", "demo_requests", "orders", "invoices", "parent_payments", "early_releases", "subjects", "lesson_settings",
+  "teacher_assignments", "lessons", "pickup_people", "pickup_people_students", "pickup_codes", "pickup_code_students", "pickup_events",
+  "emergency_settings", "emergencies", "emergency_people", "whatsapp_messages"];
+// Columns the database calculates itself, and tables whose row may already exist in the target.
+const SKIP_COLUMNS = { lessons: ["duration_minutes"] };
+const UPSERT = { alert_settings: "school_id", lesson_settings: "school_id", emergency_settings: "school_id", platform_settings: "id" };
 // Identity columns that must be inserted with their original values.
 const IDENTITY = new Set(["tap_events", "notifications", "audit_logs"]);
 
@@ -34,6 +41,8 @@ async function fetchBackup(day) {
   if (error) throw new Error(`No backup for ${day}: ${error.message}`);
   const manifest = JSON.parse(await m.text());
   for (const name of [...TABLES, "auth_users"]) {
+    // Older backups were made before some tables existed: only fetch what the manifest lists.
+    if (name !== "auth_users" && !(name in manifest.tables)) continue;
     const { data, error: e } = await bucket.download(`${day}/${name}.ndjson.gz`);
     if (e) throw new Error(`Missing ${name}: ${e.message}`);
     files[name] = Buffer.from(await data.arrayBuffer());
@@ -44,6 +53,7 @@ async function fetchBackup(day) {
 function verify(manifest, files) {
   let ok = true;
   for (const name of TABLES) {
+    if (!files[name]) { console.log(`--  ${name.padEnd(18)} not in this backup (made before the table existed)`); continue; }
     const rows = parse(files[name]).length;
     const expected = manifest.tables[name];
     const good = rows === expected;
@@ -82,17 +92,32 @@ if (cmd === "list") {
     const { error } = await db.auth.admin.createUser({ id: u.id, email: u.email, email_confirm: true, password: randomBytes(24).toString("base64url") + "aA1" });
     if (error && !/already/i.test(error.message)) { console.error(`login ${u.email}: ${error.message}`); process.exit(1); }
   }
+  // A login can point at a staff profile (users.staff_id), but logins are restored before staff:
+  // insert them without it, then set it once staff exist.
+  const staffLinks = [];
   for (const name of TABLES) {
-    // New schools get default alert settings from a trigger; the backup's own settings replace them.
-    const rows = read(name);
+    if (!existsSync(join(arg1, `${name}.ndjson.gz`))) { console.log(`skipped  ${name.padEnd(18)} (not in this backup)`); continue; }
+    let rows = read(name);
+    const skip = [...(SKIP_COLUMNS[name] ?? []), ...(name === "users" ? ["staff_id"] : [])];
+    if (name === "users") for (const r of rows) if (r.staff_id) staffLinks.push({ id: r.id, staff_id: r.staff_id });
+    if (skip.length) rows = rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !skip.includes(k))));
     for (let i = 0; i < rows.length; i += 500) {
       const chunk = rows.slice(i, i + 500);
-      const q = name === "alert_settings" ? db.from(name).upsert(chunk, { onConflict: "school_id" }) : db.from(name).insert(chunk);
+      // New schools get default settings from triggers; the backup's own settings replace them.
+      const q = UPSERT[name] ? db.from(name).upsert(chunk, { onConflict: UPSERT[name] }) : db.from(name).insert(chunk);
       const { error } = IDENTITY.has(name) ? await db.rpc("restore_identity_rows", { p_table: name, p_rows: chunk }) : await q;
       if (error) { console.error(`${name}: ${error.message}`); process.exit(1); }
     }
     console.log(`restored ${name.padEnd(18)} ${rows.length}`);
+    if (name === "staff" && staffLinks.length) {
+      for (const l of staffLinks) {
+        const { error } = await db.from("users").update({ staff_id: l.staff_id }).eq("id", l.id);
+        if (error) { console.error(`users.staff_id: ${error.message}`); process.exit(1); }
+      }
+      console.log(`relinked ${"logins to staff".padEnd(18)} ${staffLinks.length}`);
+    }
   }
+  console.log("The school portal key is not in backups: paste it again in Settings → School portal.");
   console.log("Done. Everyone must now use \"Forgot password?\" to set a password. Photos are not part of the backup.");
 } else {
   console.log("Usage: list | check <day> | download <day> <folder> | restore <folder>");

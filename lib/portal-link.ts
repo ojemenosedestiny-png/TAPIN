@@ -105,7 +105,8 @@ export async function queuePortalTap(db: Db, t: { schoolId: string; studentId: s
   if (error || !link?.enabled) return false; // before the migration, or not set up: nothing to do
   const payload = buildPortalPayload({ matchBy: link.match_by as MatchBy, cardUid: t.cardUid, admissionNo: t.admissionNo, tapEventId: t.tapEventId, tappedAt: t.tappedAt });
   if (!payload) return false;
-  const { error: insErr } = await db.from("portal_deliveries").insert({ school_id: t.schoolId, tap_event_id: t.tapEventId, student_id: t.studentId, payload });
+  // next_at from this server's clock (not the database's), so the sender below, which uses the same clock, finds it due at once.
+  const { error: insErr } = await db.from("portal_deliveries").insert({ school_id: t.schoolId, tap_event_id: t.tapEventId, student_id: t.studentId, payload, next_at: new Date(Date.now() - 1000).toISOString() });
   if (insErr && insErr.code !== "23505") console.error("portal_deliveries insert", insErr);
   return !insErr;
 }

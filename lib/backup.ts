@@ -20,7 +20,33 @@ export const BACKUP_TABLES = [
   { name: "sms_logs", order: "id" },
   { name: "notifications", order: "id" },
   { name: "audit_logs", order: "id" },
+  // Added since the first backup. Left out on purpose: rate_limits, report_links and portal_deliveries
+  // (short-lived), and portal_links (it holds the portal's key: re-enter it after a restore).
+  { name: "platform_settings", order: "id" },
+  { name: "demo_requests", order: "id" },
+  { name: "orders", order: "id" },
+  { name: "invoices", order: "id" },
+  { name: "parent_payments", order: "id" },
+  { name: "early_releases", order: "id" },
+  { name: "subjects", order: "id" },
+  { name: "lesson_settings", order: "school_id" },
+  { name: "teacher_assignments", order: "id" },
+  { name: "lessons", order: "id" },
+  { name: "pickup_people", order: "id" },
+  { name: "pickup_people_students", order: "person_id" },
+  { name: "pickup_codes", order: "id" },
+  { name: "pickup_code_students", order: "code_id" },
+  { name: "pickup_events", order: "id" },
+  { name: "emergency_settings", order: "school_id" },
+  { name: "emergencies", order: "id" },
+  { name: "emergency_people", order: "id" },
+  { name: "whatsapp_messages", order: "id" },
 ] as const;
+
+/** Columns the database calculates itself: left out when restoring. */
+export const RESTORE_SKIP_COLUMNS: Record<string, string[]> = { lessons: ["duration_minutes"] };
+/** Single-row-per-key tables that may already exist in the target (made by triggers or migrations): upserted. */
+export const RESTORE_UPSERT: Record<string, string> = { alert_settings: "school_id", lesson_settings: "school_id", emergency_settings: "school_id", platform_settings: "id" };
 
 export const BACKUP_BUCKET = "backups";
 export const KEEP_BACKUPS = 14;

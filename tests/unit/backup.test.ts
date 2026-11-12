@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BACKUP_TABLES, backupsToPrune, toNdjson } from "@/lib/backup";
+import { readFileSync, readdirSync } from "node:fs";
+import { BACKUP_TABLES, RESTORE_SKIP_COLUMNS, RESTORE_UPSERT, backupsToPrune, toNdjson } from "@/lib/backup";
 
 describe("backups", () => {
   it("keeps the newest 14 days and prunes the rest, ignoring stray files", () => {
@@ -27,5 +28,26 @@ describe("backups", () => {
     before("devices", "attendance");
     before("students", "excusals");
     before("guardians", "sms_logs");
+  });
+
+  it("the restore script restores the same tables, in the same order, as the nightly backup saves", () => {
+    const script = readFileSync("scripts/backup.mjs", "utf8");
+    const between = (start: string, end: string) => {
+      const from = script.indexOf(start) + start.length;
+      return script.slice(from, script.indexOf(end, from) + 1);
+    };
+    const tables = JSON.parse(between("const TABLES = ", "]"));
+    const asJson = (s: string) => JSON.parse(s.replace(/([a-z_]+):/g, '"$1":'));
+    expect(tables).toEqual(BACKUP_TABLES.map((t) => t.name));
+    expect(asJson(between("const SKIP_COLUMNS = ", "}"))).toEqual(RESTORE_SKIP_COLUMNS);
+    expect(asJson(between("const UPSERT = ", "}"))).toEqual(RESTORE_UPSERT);
+  });
+
+  it("backs up every table, except the short-lived ones and the one holding the portal key", () => {
+    const dir = "supabase/migrations";
+    const sql = readdirSync(dir).sort().map((f) => readFileSync(`${dir}/${f}`, "utf8")).join("\n");
+    const created = [...new Set([...sql.matchAll(/create table (?:if not exists )?public\.([a-z_]+)/gi)].map((m) => m[1]!))];
+    const leftOut = new Set(["rate_limits", "report_links", "portal_deliveries", "portal_links"]);
+    expect(created.filter((t) => !leftOut.has(t) && !BACKUP_TABLES.some((b) => b.name === t))).toEqual([]);
   });
 });
