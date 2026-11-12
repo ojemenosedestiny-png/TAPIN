@@ -122,6 +122,7 @@ export function TestPanel({ templates, schoolName, channels }: { templates: Reco
             <p className={cn("mt-2 text-xs", state.data.sent ? "text-green-800" : "text-muted-foreground")}>
               {state.data.sent
                 ? state.data.via === "whatsapp" ? "Sent by WhatsApp, using your approved template." : "Delivered to the SMS provider."
+                : state.errors?._form ? "Not sent: see the reason above."
                 : state.data.via === "whatsapp" ? "Not sent: no WhatsApp template for this alert yet." : "Not sent: SMS isn't connected yet (waiting for the sender ID)."}
             </p>
           )}
