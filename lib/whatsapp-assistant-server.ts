@@ -4,7 +4,7 @@ import { friendlyTime, localDate } from "@/lib/time";
 import { naira } from "@/lib/pricing";
 import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 import { getSchoolPlan, planAllows } from "@/lib/plans";
-import { sendWhatsAppText, termiiApi } from "@/lib/termii";
+import { messagingApi, sendWhatsAppText } from "@/lib/termii";
 import { DIDNT_UNDERSTAND, NOT_REGISTERED, menuText, parseCommand, type Command } from "@/lib/whatsapp-assistant";
 
 type Db = SupabaseClient;
@@ -144,8 +144,8 @@ export async function handleInbound(db: Db, msg: { phone: string; text: string; 
   if (dup?.code === "23505") return; // already answered this message
   if (!r.reply) return;
 
-  const api = termiiApi();
-  const sent = api ? await sendWhatsAppText(api, phone, r.reply) : { ok: false as const, error: "Termii is not set up", retryable: false };
+  const api = messagingApi();
+  const sent = api ? await sendWhatsAppText(api, phone, r.reply) : { ok: false as const, error: "WhatsApp is not set up", retryable: false };
   await db.from("whatsapp_messages").insert({
     school_id: r.schoolId, guardian_id: r.guardianId, phone, direction: "out", body: r.reply, command: r.command,
     status: sent.ok ? "ok" : "failed", error: sent.ok ? null : sent.error, provider_id: sent.ok ? sent.messageId : null,

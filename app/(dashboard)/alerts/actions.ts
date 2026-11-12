@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAudit } from "@/lib/audit";
 import { ALERT_TYPES, processOutbox, SAMPLE_VARS, testAlertMessage, whatsappData, type AlertSettings } from "@/lib/alerts";
-import { sendSms, sendWhatsAppTemplate, termiiApi, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
+import { messagingApi, sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
 import { formatNgPhone, normaliseNgPhone } from "@/lib/phone";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { alertSettingsSchema, fieldErrors, idSchema } from "@/lib/validation";
@@ -92,7 +92,7 @@ export async function sendTestAlert(_prev: TestAlertState, formData: FormData): 
   const message = testAlertMessage((settings as AlertSettings)[`${type}_template` as keyof AlertSettings] as string, school.name);
 
   const cfg = termiiConfig(school.sms_sender_name);
-  const api = termiiApi();
+  const api = messagingApi();
   const template = whatsappTemplateFor(type);
   const asked = formData.get("via");
   const via: "sms" | "whatsapp" = asked === "whatsapp" || asked === "sms" ? asked : cfg ? "sms" : "whatsapp";

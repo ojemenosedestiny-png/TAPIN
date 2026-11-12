@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runAfter } from "@/lib/background";
 import { parseInbound } from "@/lib/whatsapp-assistant";
 import { handleInbound } from "@/lib/whatsapp-assistant-server";
+import { validMetaSignature } from "@/lib/meta-whatsapp";
 
 /** The webhook address carries a secret: /api/whatsapp/inbound?key=<WHATSAPP_INBOUND_SECRET>. */
 function keyOk(req: NextRequest, given: string | null): boolean {
@@ -31,6 +32,11 @@ export async function POST(req: NextRequest) {
   if (!keyOk(req, req.nextUrl.searchParams.get("key"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const raw = await req.text();
   if (raw.length > 64_000) return NextResponse.json({ error: "Too large" }, { status: 413 });
+  const signature = req.headers.get("x-hub-signature-256");
+  // Meta signs every webhook with the app secret; a signed request must match it.
+  if (signature && !validMetaSignature(raw, signature)) {
+    return NextResponse.json({ error: "Bad signature" }, { status: 401 });
+  }
   let body: unknown;
   try {
     body = JSON.parse(raw);

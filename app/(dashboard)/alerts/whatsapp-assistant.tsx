@@ -11,7 +11,7 @@ export async function WhatsAppAssistantSection({ tz }: { tz: string }) {
   const supabase = await createClient(); // RLS: this school's conversations only
   const { data } = await supabase.from("whatsapp_messages").select("id, phone, direction, body, command, status, error, created_at").order("created_at", { ascending: false }).limit(20);
   const msgs = (data ?? []) as Msg[];
-  const ready = !!process.env.WHATSAPP_INBOUND_SECRET && !!(process.env.TERMII_WHATSAPP_FROM || process.env.TERMII_SENDER_ID);
+  const ready = !!process.env.WHATSAPP_INBOUND_SECRET && !!(process.env.WHATSAPP_ACCESS_TOKEN || process.env.TERMII_WHATSAPP_FROM || process.env.TERMII_SENDER_ID);
   return (
     <section className="mb-10" aria-labelledby="wa-assistant">
       <h2 id="wa-assistant" className="mb-3 flex items-center gap-2 text-lg font-semibold text-ink"><Bot className="size-5 text-brand" aria-hidden /> WhatsApp assistant</h2>

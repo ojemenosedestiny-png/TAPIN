@@ -8,6 +8,16 @@
 export type TermiiApi = { apiKey: string; baseUrl: string };
 export type TermiiConfig = TermiiApi & { senderId: string; channel: "dnd" | "generic" };
 
+import { metaReady, metaTemplateFor, sendMetaTemplate, sendMetaText } from "@/lib/meta-whatsapp";
+
+/**
+ * What the WhatsApp senders need: Termii's API, or (when only Meta is set up) a placeholder,
+ * because Meta's own keys are read from the environment.
+ */
+export function messagingApi(): TermiiApi | null {
+  return termiiApi() ?? (metaReady() ? { apiKey: "", baseUrl: "" } : null);
+}
+
 export function termiiApi(): TermiiApi | null {
   const apiKey = process.env.TERMII_API_KEY?.trim();
   if (!apiKey) return null;
@@ -25,7 +35,7 @@ export function termiiConfig(senderOverride?: string | null): TermiiConfig | nul
 
 /** WhatsApp works without an SMS sender ID: it needs the API key and a WhatsApp device connected in Termii. */
 export function whatsappReady(): boolean {
-  return !!termiiApi() && !!process.env.TERMII_WHATSAPP_DEVICE_ID?.trim();
+  return metaReady() || (!!termiiApi() && !!process.env.TERMII_WHATSAPP_DEVICE_ID?.trim());
 }
 
 export type SendResult = { ok: true; messageId: string | null } | { ok: false; error: string; retryable: boolean };
@@ -78,6 +88,7 @@ export async function getBalance(cfg: TermiiApi): Promise<{ balance: number; cur
  * TERMII_WHATSAPP_FROM is the WhatsApp sender registered on Termii; falls back to TERMII_SENDER_ID.
  */
 export async function sendWhatsAppText(cfg: TermiiApi, to: string, message: string, fetchImpl: typeof fetch = fetch): Promise<SendResult> {
+  if (metaReady()) return sendMetaText(to, message, fetchImpl);
   const from = process.env.TERMII_WHATSAPP_FROM?.trim() || process.env.TERMII_SENDER_ID?.trim();
   if (!from) return { ok: false, error: "No WhatsApp sender set (TERMII_WHATSAPP_FROM)", retryable: false };
   let res: Response;
@@ -100,6 +111,11 @@ export async function sendWhatsAppText(cfg: TermiiApi, to: string, message: stri
 // Template placeholders: {{1}} child's name, {{2}} school, {{3}} time (or date), {{4}} reason.
 // ---------------------------------------------------------------------------
 export function whatsappTemplateFor(type: string): { deviceId: string; templateId: string } | null {
+  // Meta (when set up): WHATSAPP_TEMPLATE_<TYPE>. The template travels as "meta" + its name.
+  if (metaReady()) {
+    const t = metaTemplateFor(type);
+    return t ? { deviceId: "meta", templateId: t.params === undefined ? t.name : `${t.name}:${t.params}` } : null;
+  }
   const deviceId = process.env.TERMII_WHATSAPP_DEVICE_ID?.trim();
   const templateId = process.env[`TERMII_WA_TEMPLATE_${type.toUpperCase()}`]?.trim();
   return deviceId && templateId ? { deviceId, templateId } : null;
@@ -112,6 +128,10 @@ export async function sendWhatsAppTemplate(
   data: Record<string, string>,
   fetchImpl: typeof fetch = fetch,
 ): Promise<SendResult> {
+  if (template.deviceId === "meta") {
+    const [name, n] = template.templateId.split(":");
+    return sendMetaTemplate(to, { name: name!, params: n ? Number(n) : undefined }, data, fetchImpl);
+  }
   let res: Response;
   try {
     res = await fetchImpl(`${cfg.baseUrl}/api/send/template`, {

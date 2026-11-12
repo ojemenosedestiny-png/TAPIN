@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyStandardWebhook } from "@/lib/standard-webhooks";
-import { sendSms, sendWhatsAppTemplate, termiiApi, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
+import { messagingApi, sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor } from "@/lib/termii";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const fail = (status: number, message: string) => NextResponse.json({ error: { http_code: status, message } }, { status });
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const otp = payload.sms?.otp;
   if (!phone || !otp || !/^\d{4,10}$/.test(otp)) return fail(400, "Missing phone or code.");
 
-  const api = termiiApi();
+  const api = messagingApi();
   const cfg = termiiConfig();
   if (!api) return fail(500, "Messaging isn't set up yet.");
 

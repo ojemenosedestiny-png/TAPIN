@@ -5,7 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour, localTime } from "@/lib/time";
-import { sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor, termiiApi, whatsappReady } from "@/lib/termii";
+import { messagingApi, sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor, whatsappReady } from "@/lib/termii";
 
 export * from "@/lib/alert-rules";
 import { alertForTap, chooseChannel, whatsappData, inQuietHours, quietEndsAt, renderTemplate, MAX_ATTEMPTS, MESSAGE_TTL_MS, RETRY_DELAY_MS, type AlertSettings } from "@/lib/alert-rules";
@@ -76,7 +76,7 @@ export async function processOutbox(db: Db, { limit = 50, send = sendSms, sendWa
   limit?: number; send?: typeof sendSms; sendWa?: typeof sendWhatsAppTemplate; templateFor?: typeof whatsappTemplateFor; now?: () => Date; schoolId?: string | null;
 } = {}): Promise<ProcessResult> {
   const result: ProcessResult = { sent: 0, failed: 0, retrying: 0, skipped: 0, held: 0, notConfigured: false };
-  const api = termiiApi();
+  const api = messagingApi();
   if (!api || (!termiiConfig() && !whatsappReady())) {
     result.notConfigured = true;
     return result; // leave everything queued; expiry drops stale messages once SMS or WhatsApp is set up
