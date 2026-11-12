@@ -29,12 +29,21 @@ export async function GET(req: NextRequest) {
  * Answers 200 straight away; the reply is worked out and sent just after.
  */
 export async function POST(req: NextRequest) {
-  if (!keyOk(req, req.nextUrl.searchParams.get("key"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!keyOk(req, req.nextUrl.searchParams.get("key"))) {
+    // Say why (never the secret itself), so a wrong webhook address shows up in the logs.
+    const reason = !process.env.WHATSAPP_INBOUND_SECRET?.trim() ? "WHATSAPP_INBOUND_SECRET is not set"
+      : process.env.WHATSAPP_INBOUND_SECRET.trim().length < 16 ? "WHATSAPP_INBOUND_SECRET is shorter than 16 characters"
+      : !req.nextUrl.searchParams.get("key") ? "the webhook address has no ?key="
+      : "the ?key= in the webhook address does not match WHATSAPP_INBOUND_SECRET";
+    console.warn(`[whatsapp inbound] rejected: ${reason}`);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const raw = await req.text();
   if (raw.length > 64_000) return NextResponse.json({ error: "Too large" }, { status: 413 });
   const signature = req.headers.get("x-hub-signature-256");
   // Meta signs every webhook with the app secret; a signed request must match it.
   if (signature && !validMetaSignature(raw, signature)) {
+    console.warn(`[whatsapp inbound] rejected: ${process.env.WHATSAPP_APP_SECRET?.trim() ? "signature does not match WHATSAPP_APP_SECRET (copy the App secret again)" : "WHATSAPP_APP_SECRET is not set"}`);
     return NextResponse.json({ error: "Bad signature" }, { status: 401 });
   }
   let body: unknown;
@@ -44,6 +53,7 @@ export async function POST(req: NextRequest) {
     body = Object.fromEntries(new URLSearchParams(raw)); // some providers post form data
   }
   const messages = parseInbound(body).slice(0, 10);
+  console.info(`[whatsapp inbound] accepted: ${messages.length} message(s)`);
   if (messages.length) {
     const db = createAdminClient();
     runAfter("whatsapp assistant", async () => {
