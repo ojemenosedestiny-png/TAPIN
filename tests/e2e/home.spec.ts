@@ -9,7 +9,7 @@ test.describe("public website", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: /Every child, accounted for/ })).toBeVisible();
     await expect(page.getByRole("img", { name: /kiosk greeting Chioma Okafor/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "One tap does the whole register." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One tap does the whole morning register." })).toBeVisible();
     await page.getByRole("link", { name: "Log in", exact: true }).click();
     await expect(page).toHaveURL(/\/login/);
   });
