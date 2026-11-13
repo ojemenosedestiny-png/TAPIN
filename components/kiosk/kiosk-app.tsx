@@ -496,7 +496,7 @@ function Kiosk({ token }: { token: string }) {
         <Idle school={school} deviceName={deviceName} scanning={scanning} supported={supported} nfcError={nfcError} onStart={startScanning} onTestSound={testSound} onPickupCode={() => show({ kind: "code" })} onScanQr={() => show({ kind: "qr" })}
           onEmergency={emergency.available ? () => show({ kind: "pin" }) : undefined} />
       )}
-      {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "") + screen.data.action} data={screen.data} />}
+      {screen.kind === "result" && <Result key={screen.data.time + (screen.data.name ?? "") + screen.data.action} data={screen.data} place={deviceName || school?.name || "TapIn"} />}
       {screen.kind === "menu" && (
         <TeacherMenu key={String(screen.data.tap_id) + (screen.error ?? "")} data={screen.data} error={screen.error}
           onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })}
@@ -560,14 +560,14 @@ function Kiosk({ token }: { token: string }) {
 
 function Clock({ timeZone }: { timeZone: string }) {
   const sec = useSyncExternalStore(subscribeClock, clockSnapshot, () => 0);
-  if (!sec) return <div className="h-32" />;
+  if (!sec) return <div className="h-28" />;
   const d = new Date(sec * 1000);
   const time = new Intl.DateTimeFormat("en-NG", { hour: "numeric", minute: "2-digit", hour12: true, timeZone }).format(d);
   const date = new Intl.DateTimeFormat("en-NG", { weekday: "long", day: "numeric", month: "long", timeZone }).format(d);
   return (
     <div className="text-center">
-      <p className="text-7xl font-semibold tabular-nums tracking-tight sm:text-8xl">{time.toUpperCase()}</p>
-      <p className="mt-2 text-2xl text-white/85">{date}</p>
+      <p className="font-heading text-7xl font-extrabold tabular-nums tracking-tight text-slate-900 sm:text-8xl">{time.toUpperCase()}</p>
+      <p className="mt-1 text-2xl text-slate-500">{date}</p>
     </div>
   );
 }
@@ -576,91 +576,167 @@ function localHour(timeZone = "Africa/Lagos") {
   return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone }).format(new Date()));
 }
 
+/** The light kiosk: one white card on a soft mint ground, like the kiosk on the TapIn website. */
+function KioskStage({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) {
+  return (
+    <div className="relative flex min-h-dvh flex-col items-center justify-center gap-6 overflow-hidden bg-[#edf3f1] px-4 py-8 text-slate-900">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(1000px_700px_at_85%_-15%,rgb(45_212_191/0.22),transparent_60%),radial-gradient(800px_600px_at_0%_110%,rgb(245_158_11/0.10),transparent_60%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.35] [background-image:radial-gradient(rgb(15_118_110/0.18)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
+      {children}
+      {footer}
+    </div>
+  );
+}
+
+function KioskCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("relative w-[min(94vw,46rem)] overflow-hidden rounded-[36px] bg-white px-7 pb-8 pt-6 shadow-[0_50px_100px_-40px_rgb(12_74_68/0.45),0_18px_40px_-24px_rgb(12_74_68/0.25)] ring-1 ring-slate-900/[0.06] sm:px-10", className)}>
+      {children}
+    </div>
+  );
+}
+
+function CardTop({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-lg font-semibold text-slate-500">
+      <span className="truncate">{left}</span>
+      <span className="shrink-0 tabular-nums">{right}</span>
+    </div>
+  );
+}
+
+function TapHint({ text }: { text: string }) {
+  return (
+    <p className="flex items-center justify-center gap-2.5 text-xl font-semibold text-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className="size-7" aria-hidden><path d="M8.5 9a4 4 0 0 1 0 6" /><path d="M12 6.5a8 8 0 0 1 0 11" /><path d="M15.5 4a12 12 0 0 1 0 16" /></svg>
+      {text}
+    </p>
+  );
+}
+
 function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTestSound, onPickupCode, onScanQr, onEmergency }: {
   school: SchoolInfo | null; deviceName: string; scanning: boolean; supported: boolean; nfcError: string | null; onStart: () => void; onTestSound: () => void; onPickupCode: () => void; onScanQr: () => void; onEmergency?: () => void;
 }) {
+  const action = "flex items-center gap-2 rounded-full bg-white px-5 py-3 text-base font-semibold text-slate-700 shadow-sm ring-1 ring-slate-900/10 transition hover:bg-slate-50 active:scale-95";
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden bg-[#03201e] px-6 py-10 text-white">
-      {/* Light: teal from the top, a warm glow from below. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_600px_at_80%_-10%,rgb(45_212_191/0.32),transparent_60%),radial-gradient(700px_500px_at_10%_110%,rgb(245_158_11/0.16),transparent_60%),radial-gradient(600px_600px_at_50%_60%,rgb(15_118_110/0.35),transparent_70%)]" />
+    <KioskStage footer={<PoweredBy className="relative" />}>
+      <KioskCard className="kiosk-pop">
+        <CardTop
+          left={
+            <span className="flex items-center gap-3">
+              {school?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={school.logo_url} alt="" className="size-11 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-900/10" />
+              ) : (
+                <Logo className="size-11" animated />
+              )}
+              <span className="truncate text-xl font-bold text-slate-900">{school?.name ?? "TapIn"}</span>
+            </span>
+          }
+          right={deviceName}
+        />
 
-      <header className="relative flex flex-col items-center gap-3 text-center">
-        {school?.logo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={school.logo_url} alt="" className="size-20 rounded-2xl bg-white object-contain p-2 shadow-lg" />
-        ) : (
-          <Logo variant="inverse" className="size-20 shadow-lg" animated />
-        )}
-        <p className="text-2xl font-semibold tracking-tight">{school?.name ?? "TapIn"}</p>
-        {deviceName && <p className="text-sm text-white/60">{deviceName}</p>}
-      </header>
+        <div className="mt-6"><Clock timeZone={school?.timezone ?? "Africa/Lagos"} /></div>
 
-      <div className="relative"><Clock timeZone={school?.timezone ?? "Africa/Lagos"} /></div>
-
-      <div className="relative flex flex-col items-center gap-6">
-        {scanning ? (
-          <>
-            {/* The scan target: a card floating in its own NFC field. */}
-            <div className="relative flex size-[min(82vw,33vh,26rem)] items-center justify-center">
-              <Ripple rings={5} durationMs={4200} still={3} className="text-teal-200" ringClassName="[border-width:2px]" />
-              <span aria-hidden className="kiosk-breathe absolute size-[55%] rounded-full bg-teal-300/35 blur-3xl" />
-              <div className="kiosk-float relative">
-                <div className="relative h-36 w-56 overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-white to-teal-50 shadow-[0_30px_60px_-15px_rgb(0_0_0/0.65),0_0_0_1px_rgb(255_255_255/0.6)]">
-                  <span aria-hidden className="absolute left-5 top-5 h-7 w-9 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 ring-1 ring-amber-600/30" />
-                  <Nfc className="absolute right-5 top-5 size-7 text-brand" aria-hidden />
-                  <span aria-hidden className="absolute bottom-10 left-5 h-2 w-28 rounded-full bg-slate-200" />
-                  <span aria-hidden className="absolute bottom-5 left-5 h-2 w-16 rounded-full bg-slate-200" />
-                  <TapInWord className="absolute bottom-5 right-5 text-sm" />
-                  <span aria-hidden className="kiosk-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+        <div className="mt-6 flex flex-col items-center gap-5">
+          {scanning ? (
+            <>
+              {/* The scan target: a card floating in its own NFC field. */}
+              <div className="relative flex size-[min(70vw,28vh,20rem)] items-center justify-center">
+                <Ripple rings={4} durationMs={4200} still={3} className="text-brand/60" ringClassName="[border-width:2px]" />
+                <span aria-hidden className="kiosk-breathe absolute size-[55%] rounded-full bg-teal-300/40 blur-3xl" />
+                <div className="kiosk-float relative">
+                  <div className="relative h-32 w-52 overflow-hidden rounded-[20px] bg-gradient-to-br from-white via-white to-teal-50 shadow-[0_26px_50px_-18px_rgb(12_74_68/0.55),0_0_0_1px_rgb(15_118_110/0.12)]">
+                    <span aria-hidden className="absolute left-5 top-5 h-6 w-8 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 ring-1 ring-amber-600/30" />
+                    <Nfc className="absolute right-5 top-5 size-6 text-brand" aria-hidden />
+                    <span aria-hidden className="absolute bottom-9 left-5 h-2 w-24 rounded-full bg-slate-200" />
+                    <span aria-hidden className="absolute bottom-5 left-5 h-2 w-14 rounded-full bg-slate-200" />
+                    <TapInWord className="absolute bottom-4 right-5 text-sm" />
+                    <span aria-hidden className="kiosk-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+                  </div>
                 </div>
               </div>
-            </div>
-            <p className="text-4xl font-semibold tracking-tight sm:text-5xl">Tap your ID card</p>
-            <p className="flex items-center gap-2 text-base text-white/70" aria-hidden>
-              <span className="flex gap-1">
-                {[0, 1, 2].map((i) => <span key={i} className="kiosk-signal size-1.5 rounded-full bg-teal-300" style={{ "--d": `${i * 200}ms` } as React.CSSProperties} />)}
-              </span>
-              {supported ? "Listening for cards" : "USB card reader mode"}
-            </p>
-          </>
-        ) : (
-          <>
-            <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-white px-10 text-2xl font-semibold text-brand shadow-[0_20px_50px_-15px_rgb(0_0_0/0.6)] transition-transform active:scale-95">
-              <Nfc className="size-8" aria-hidden /> Start scanning
-            </button>
-            <p className="max-w-md text-center text-white/75">
-              {supported ? "Tap once each morning. The kiosk then keeps listening for cards." : "This browser can't use NFC. Plug in a USB card reader, or use Chrome on an Android phone."}
-            </p>
-          </>
-        )}
-        <div className="flex flex-wrap justify-center gap-2">
-          <button onClick={onTestSound} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
-            <Volume2 className="size-5" aria-hidden /> Test sound
-          </button>
-          {scanning && (
-            <button onClick={onPickupCode} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
-              <KeyRound className="size-5" aria-hidden /> Pickup code
-            </button>
-          )}
-          {scanning && (
-            <button onClick={onScanQr} className="flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium text-white ring-1 ring-white/20 backdrop-blur-sm hover:bg-white/15 active:scale-95">
-              <QrCode className="size-5" aria-hidden /> Scan QR
-            </button>
-          )}
-          {scanning && onEmergency && (
-            <button onClick={onEmergency} className="flex items-center gap-2 rounded-full bg-red-600/80 px-5 py-2.5 text-base font-semibold text-white ring-1 ring-red-300/40 hover:bg-red-600 active:scale-95">
-              <Siren className="size-5" aria-hidden /> Emergency
-            </button>
+              <p className="font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">Tap your ID card</p>
+              <p className="flex items-center gap-2 text-base font-medium text-slate-500" aria-hidden>
+                <span className="flex gap-1">
+                  {[0, 1, 2].map((i) => <span key={i} className="kiosk-signal size-1.5 rounded-full bg-brand" style={{ "--d": `${i * 200}ms` } as React.CSSProperties} />)}
+                </span>
+                {supported ? "Listening for cards" : "USB card reader mode"}
+              </p>
+            </>
+          ) : (
+            <>
+              <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-brand px-10 text-2xl font-semibold text-white shadow-[0_20px_40px_-16px_rgb(15_118_110/0.8)] transition-transform active:scale-95">
+                <Nfc className="size-8" aria-hidden /> Start scanning
+              </button>
+              <p className="max-w-md text-center text-lg text-slate-500">
+                {supported ? "Tap once each morning. The kiosk then keeps listening for cards." : "This browser can't use NFC. Plug in a USB card reader, or use Chrome on an Android phone."}
+              </p>
+            </>
           )}
         </div>
-        {nfcError && <p role="alert" className="max-w-md rounded-xl bg-red-600/90 px-5 py-3 text-center text-lg">{nfcError}</p>}
-        <PoweredBy onDark className="mt-1" />
+        {nfcError && <p role="alert" className="mx-auto mt-5 max-w-md rounded-xl bg-red-50 px-5 py-3 text-center text-lg font-medium text-red-800 ring-1 ring-red-200">{nfcError}</p>}
+      </KioskCard>
+
+      <div className="relative flex flex-wrap justify-center gap-2.5">
+        <button onClick={onTestSound} className={action}><Volume2 className="size-5" aria-hidden /> Test sound</button>
+        {scanning && <button onClick={onPickupCode} className={action}><KeyRound className="size-5" aria-hidden /> Pickup code</button>}
+        {scanning && <button onClick={onScanQr} className={action}><QrCode className="size-5" aria-hidden /> Scan QR</button>}
+        {scanning && onEmergency && (
+          <button onClick={onEmergency} className="flex items-center gap-2 rounded-full bg-red-600 px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-red-700 active:scale-95">
+            <Siren className="size-5" aria-hidden /> Emergency
+          </button>
+        )}
+      </div>
+    </KioskStage>
+  );
+}
+
+type Tone = { ring: string; wave: string; pill: string; bar: string };
+const TONES: Record<"in" | "late" | "out" | "dup" | "lesson" | "ended", Tone> = {
+  in: { ring: "border-green-600", wave: "text-green-600", pill: "bg-green-100 text-green-800", bar: "bg-green-600" },
+  late: { ring: "border-amber-500", wave: "text-amber-500", pill: "bg-amber-100 text-amber-900", bar: "bg-amber-500" },
+  out: { ring: "border-sky-600", wave: "text-sky-600", pill: "bg-sky-100 text-sky-900", bar: "bg-sky-600" },
+  dup: { ring: "border-slate-300", wave: "text-slate-400", pill: "bg-slate-100 text-slate-700", bar: "bg-slate-400" },
+  lesson: { ring: "border-teal-600", wave: "text-teal-600", pill: "bg-teal-100 text-teal-900", bar: "bg-teal-600" },
+  ended: { ring: "border-indigo-600", wave: "text-indigo-600", pill: "bg-indigo-100 text-indigo-900", bar: "bg-indigo-600" },
+};
+
+/** The person's photo in a coloured ring, big enough for the gate staff to check the face. */
+function Portrait({ name, photoUrl, tone, waves = true }: { name: string; photoUrl?: string | null; tone: Tone; waves?: boolean }) {
+  return (
+    <div className={cn("kiosk-pop relative mx-auto size-[min(56vw,30vh,17rem)]", tone.wave)}>
+      {waves && <Ripple rings={3} durationMs={2600} still={0} className="-inset-6" />}
+      <div className={cn("relative size-full overflow-hidden rounded-full border-[7px] bg-[#e6f6f1] shadow-[0_20px_40px_-20px_rgb(12_74_68/0.5)]", tone.ring)}>
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoUrl} alt="" className="size-full object-cover" />
+        ) : (
+          <span className="flex size-full items-center justify-center font-heading text-[min(16vw,9vh,6rem)] font-extrabold text-brand">{initials(name)}</span>
+        )}
       </div>
     </div>
   );
 }
 
-function Result({ data }: { data: TapResponse }) {
+function StatusPill({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  return <p className={cn("inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-2xl font-bold tabular-nums", tone.pill)}>{children}</p>;
+}
+
+function Chip({ children, warn }: { children: React.ReactNode; warn?: boolean }) {
+  return <span className={cn("rounded-full px-4 py-1.5 text-lg font-semibold tabular-nums", warn ? "bg-amber-400 text-amber-950" : "bg-slate-100 text-slate-600")}>{children}</span>;
+}
+
+/** Drains while the result is up, so the next child knows when to tap. */
+function Drain({ className }: { className?: string }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 h-1.5 bg-slate-100" aria-hidden>
+      <div className={cn("kiosk-drain h-full", className ?? "bg-brand")} style={{ animationDuration: `${RESULT_MS}ms` }} />
+    </div>
+  );
+}
+
+function Result({ data, place }: { data: TapResponse; place: string }) {
   if (data.action === "not_authorised") {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
@@ -669,41 +745,6 @@ function Result({ data }: { data: TapResponse }) {
         <p className="text-3xl font-medium">{data.name}</p>
         <p className="max-w-xl text-2xl text-white/90">Do not release any child. The office and the parents have been told.</p>
         <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
-      </div>
-    );
-  }
-  if (data.action === "safe") {
-    return (
-      <div className="relative flex min-h-dvh flex-col items-center justify-center gap-8 bg-gradient-to-br from-[#0f5f3a] via-[#15803d] to-[#16a34a] px-6 py-10 text-white sm:flex-row sm:gap-14" role="status">
-        <div className="kiosk-pop aspect-[3/4] w-48 shrink-0 overflow-hidden rounded-[28px] bg-white/15 ring-4 ring-white/80 sm:w-64">
-          {data.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photo_url} alt="" className="size-full object-cover" />
-          ) : <span className="flex size-full items-center justify-center text-7xl font-semibold">{initials(data.name ?? "?")}</span>}
-        </div>
-        <div className="kiosk-rise text-center sm:text-left">
-          <p className="flex items-center justify-center gap-3 text-4xl font-semibold sm:justify-start"><Check className="size-10" aria-hidden /> Safe</p>
-          <p className="mt-2 text-5xl font-semibold leading-tight tracking-tight sm:text-6xl">{data.name}</p>
-          {data.class && <p className="mt-3 text-2xl text-white/85">{data.class}</p>}
-          {data.counts && <p className="mt-6 text-3xl tabular-nums">{data.counts.safe} of {data.counts.total} safe</p>}
-        </div>
-        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
-          <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
-        </div>
-      </div>
-    );
-  }
-  if (data.action === "picked_up") {
-    return (
-      <div className="relative flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-br from-[#0b4f6c] to-[#0f766e] px-6 text-center text-white" role="status">
-        <span className="kiosk-pop flex size-28 items-center justify-center rounded-full bg-white/15 ring-4 ring-white/70"><Check className="size-16" aria-hidden /></span>
-        <p className="kiosk-rise text-5xl font-semibold tracking-tight sm:text-6xl">Picked up</p>
-        <p className="text-3xl text-white/90">{(data.children ?? []).map((c) => c.first_name).join(", ")} <span className="text-white/60">with</span> {data.name}</p>
-        <p className="text-2xl tabular-nums text-white/80">{data.time} · parents notified</p>
-        <PoweredBy onDark className="absolute bottom-6 left-1/2 -translate-x-1/2" />
-        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
-          <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
-        </div>
       </div>
     );
   }
@@ -718,50 +759,93 @@ function Result({ data }: { data: TapResponse }) {
     );
   }
 
+  const name = data.name ?? "";
+  const first = data.first_name ?? name.split(" ")[0] ?? "";
+
+  if (data.action === "safe") {
+    return (
+      <KioskStage>
+        <KioskCard>
+          <CardTop left={place} right={data.time} />
+          <div className="mt-6 flex flex-col items-center gap-5 text-center" role="status">
+            <Portrait name={name} photoUrl={data.photo_url} tone={TONES.in} />
+            <div className="kiosk-rise">
+              <p className="font-heading text-5xl font-extrabold tracking-tight sm:text-6xl">{name}</p>
+              {data.class && <p className="mt-1 text-2xl text-slate-500">{data.class}</p>}
+            </div>
+            <StatusPill tone={TONES.in}><Check className="size-7" aria-hidden /> Safe</StatusPill>
+            {data.counts && <p className="text-3xl font-semibold tabular-nums text-slate-700">{data.counts.safe} of {data.counts.total} safe</p>}
+          </div>
+          <Drain className={TONES.in.bar} />
+        </KioskCard>
+      </KioskStage>
+    );
+  }
+
+  if (data.action === "picked_up") {
+    const kids = (data.children ?? []).map((c) => c.first_name).join(", ");
+    return (
+      <KioskStage>
+        <KioskCard>
+          <CardTop left={place} right={data.time} />
+          <div className="mt-6 flex flex-col items-center gap-5 text-center" role="status">
+            <Portrait name={name} photoUrl={data.photo_url} tone={TONES.out} />
+            <div className="kiosk-rise">
+              <p className="font-heading text-5xl font-extrabold tracking-tight sm:text-6xl">{kids}</p>
+              <p className="mt-1 text-2xl text-slate-500">with {name}</p>
+            </div>
+            <StatusPill tone={TONES.out}><Check className="size-7" aria-hidden /> Picked up</StatusPill>
+            <p className="text-xl text-slate-500">Parents notified</p>
+          </div>
+          <Drain className={TONES.out.bar} />
+        </KioskCard>
+      </KioskStage>
+    );
+  }
+
   const isOut = data.action === "signed_out";
   const dup = data.action === "duplicate";
   const started = data.action === "lesson_started";
   const ended = data.action === "lesson_ended";
   const lesson = started || ended;
+  const tone = started ? TONES.lesson : ended ? TONES.ended : dup ? TONES.dup : isOut ? TONES.out : data.late ? TONES.late : TONES.in;
   const status = started ? "Lesson started" : ended ? `Lesson ended · ${formatMinutes(data.minutes ?? 0)}` : dup
     ? data.reason === "already_signed_out" ? "Already signed out" : data.reason === "already_signed_in" ? "Already signed in" : "Already tapped"
     : isOut ? (data.early ? "Early release" : "Signed out") : "Signed in";
-  const salutation = lesson || dup ? null : isOut ? "Goodbye," : data.greeting ? `${data.greeting},` : null;
+  const quote = started ? (data.subject ? `${data.subject}${data.class ? ` with ${data.class}` : ""}. Have a good lesson.` : "Have a good lesson.")
+    : ended ? `Thank you, ${first}.`
+    : dup ? null
+    : isOut ? `Goodbye, ${first}. See you tomorrow.`
+    : `${data.greeting ?? "Welcome"}, ${first}. Welcome to school.`;
 
   return (
-    <div className={cn("relative flex min-h-dvh flex-col items-center justify-center gap-8 overflow-hidden px-6 py-10 text-white sm:flex-row sm:gap-14 sm:px-12",
-      started ? "bg-gradient-to-br from-[#134e4a] via-[#0f766e] to-[#0d9488]" : ended ? "bg-gradient-to-br from-[#1e3a5f] to-[#0b4f6c]" : dup ? "bg-gradient-to-br from-brand-dark to-brand" : isOut ? "bg-gradient-to-br from-[#0b4f6c] to-[#0f766e]" : "bg-gradient-to-br from-[#0f5f3a] via-[#15803d] to-[#16a34a]")} role="status">
-      {/* Full portrait so the gate staff can check the face against the child. */}
-      <div className="kiosk-pop relative aspect-[3/4] w-56 shrink-0 overflow-hidden rounded-[28px] bg-white/15 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.55)] ring-4 ring-white/80 sm:w-72 lg:w-80">
-        {data.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={data.photo_url} alt="" className="size-full object-cover" />
-        ) : (
-          <span className="flex size-full items-center justify-center text-8xl font-semibold">{initials(data.name ?? "?")}</span>
-        )}
-      </div>
-
-      <div className="kiosk-rise flex max-w-2xl flex-col items-center text-center sm:items-start sm:text-left">
-        {salutation && <p className="text-3xl text-white/85">{salutation}</p>}
-        <p className="mt-1 text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">{data.name}</p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-          {data.class && <span className="rounded-full bg-white/15 px-4 py-1.5 text-xl font-medium ring-1 ring-white/25">{data.class}</span>}
-          {lesson && data.subject && <span className="rounded-full bg-white/15 px-4 py-1.5 text-xl font-medium ring-1 ring-white/25">{data.subject}</span>}
-          {(data.flags ?? []).filter((f) => f !== "auto_closed").map((f) => <span key={f} className="rounded-full bg-warn px-4 py-1.5 text-xl font-semibold text-amber-950">{FLAG_LABEL[f]}</span>)}
-          {data.id_no && <span className="rounded-full bg-white/10 px-4 py-1.5 text-xl tabular-nums text-white/90 ring-1 ring-white/20">{data.id_no}</span>}
-          {data.late && <span className="rounded-full bg-warn px-4 py-1.5 text-xl font-semibold text-amber-950">Late arrival</span>}
+    <KioskStage>
+      <KioskCard>
+        <CardTop left={place} right={data.time} />
+        <div className="mt-6 flex flex-col items-center gap-5 text-center" role="status">
+          <Portrait name={name} photoUrl={data.photo_url} tone={tone} waves={!dup} />
+          <div className="kiosk-rise">
+            <p className="font-heading text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">{name}</p>
+            {data.class && !started && <p className="mt-1.5 text-2xl text-slate-500">{data.class}</p>}
+          </div>
+          <div className="kiosk-rise flex flex-wrap items-center justify-center gap-2">
+            <StatusPill tone={tone}>{!dup && <Check className="size-7" aria-hidden />}{status}{data.late && !isOut ? " · Late" : ""}</StatusPill>
+          </div>
+          {(data.id_no || lesson || (data.flags ?? []).length > 0) && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {lesson && data.subject && <Chip>{data.subject}</Chip>}
+              {(data.flags ?? []).filter((f) => f !== "auto_closed").map((f) => <Chip key={f} warn>{FLAG_LABEL[f]}</Chip>)}
+              {data.id_no && <Chip>{data.id_no}</Chip>}
+            </div>
+          )}
+          {quote && <p className="kiosk-rise max-w-xl text-2xl font-medium text-slate-600">&ldquo;{quote}&rdquo;</p>}
         </div>
-        <p className="mt-8 flex items-baseline gap-3 text-3xl font-semibold tabular-nums sm:text-4xl">
-          <span>{status}</span><span className="text-white/60">·</span><span>{data.time}</span>
-        </p>
-      </div>
-
-      <PoweredBy onDark className="absolute bottom-6 left-1/2 -translate-x-1/2" />
-      {/* Drains while the result is up, so the next child knows when to tap. */}
-      <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15" aria-hidden>
-        <div className="kiosk-drain h-full bg-white/80" style={{ animationDuration: `${RESULT_MS}ms` }} />
-      </div>
-    </div>
+        <div className="mt-7 border-t border-slate-100 pt-5">
+          <TapHint text={started ? "Tap again to end the lesson" : isOut ? "Tap your card to sign out" : "Tap your card to sign in"} />
+        </div>
+        <Drain className={tone.bar} />
+      </KioskCard>
+    </KioskStage>
   );
 }
 
@@ -1099,3 +1183,4 @@ function SavedOffline() {
     </div>
   );
 }
+
