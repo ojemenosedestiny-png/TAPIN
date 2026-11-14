@@ -141,6 +141,8 @@ describe.skipIf(!enabled)("reports (attendance_days / attendance_summary / today
     const { data, error } = await asAdmin.rpc("today_by_class");
     expect(error).toBeNull();
     const total = (data ?? []).reduce((a: number, r: { total: number }) => a + r.total, 0);
-    expect(total).toBe(3); // three active students, whatever today is (on a weekend or holiday: 0 school days → no rows)
+    // Three active students on a school day; at the weekend there is no school day, so no rows.
+    const weekday = new Date().toLocaleDateString("en-GB", { weekday: "short", timeZone: "Africa/Lagos" });
+    expect(total).toBe(weekday === "Sat" || weekday === "Sun" ? 0 : 3);
   });
 });

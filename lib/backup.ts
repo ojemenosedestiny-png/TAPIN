@@ -28,6 +28,7 @@ export const BACKUP_TABLES = [
   { name: "invoices", order: "id" },
   { name: "parent_payments", order: "id" },
   { name: "early_releases", order: "id" },
+  { name: "early_pickup_requests", order: "id" },
   { name: "subjects", order: "id" },
   { name: "lesson_settings", order: "school_id" },
   { name: "teacher_assignments", order: "id" },
@@ -37,10 +38,16 @@ export const BACKUP_TABLES = [
   { name: "pickup_codes", order: "id" },
   { name: "pickup_code_students", order: "code_id" },
   { name: "pickup_events", order: "id" },
+  { name: "handovers", order: "id" },
   { name: "emergency_settings", order: "school_id" },
   { name: "emergencies", order: "id" },
   { name: "emergency_people", order: "id" },
   { name: "whatsapp_messages", order: "id" },
+  { name: "price_items", order: "id" },
+  { name: "subscription_plans", order: "id" },
+  { name: "subscriptions", order: "school_id" },
+  { name: "quotes", order: "id" },
+  { name: "price_history", order: "id" },
 ] as const;
 
 /** Columns the database calculates itself: left out when restoring. */

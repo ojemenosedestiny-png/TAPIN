@@ -17,14 +17,15 @@ import { randomBytes } from "node:crypto";
 // Same order as BACKUP_TABLES in lib/backup.ts (a unit test keeps them in step).
 const TABLES = ["schools", "users", "classes", "students", "guardians", "student_guardians", "staff", "cards", "devices",
   "alert_settings", "school_calendar", "attendance", "excusals", "tap_events", "sms_logs", "notifications", "audit_logs",
-  "platform_settings", "demo_requests", "orders", "invoices", "parent_payments", "early_releases", "subjects", "lesson_settings",
-  "teacher_assignments", "lessons", "pickup_people", "pickup_people_students", "pickup_codes", "pickup_code_students", "pickup_events",
-  "emergency_settings", "emergencies", "emergency_people", "whatsapp_messages"];
+  "platform_settings", "demo_requests", "orders", "invoices", "parent_payments", "early_releases", "early_pickup_requests", "subjects", "lesson_settings",
+  "teacher_assignments", "lessons", "pickup_people", "pickup_people_students", "pickup_codes", "pickup_code_students", "pickup_events", "handovers",
+  "emergency_settings", "emergencies", "emergency_people", "whatsapp_messages",
+  "price_items", "subscription_plans", "subscriptions", "quotes", "price_history"];
 // Columns the database calculates itself, and tables whose row may already exist in the target.
 const SKIP_COLUMNS = { lessons: ["duration_minutes"] };
 const UPSERT = { alert_settings: "school_id", lesson_settings: "school_id", emergency_settings: "school_id", platform_settings: "id" };
 // Identity columns that must be inserted with their original values.
-const IDENTITY = new Set(["tap_events", "notifications", "audit_logs"]);
+const IDENTITY = new Set(["tap_events", "notifications", "audit_logs", "price_history"]);
 
 const [cmd, arg1, arg2] = process.argv.slice(2);
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -98,6 +99,10 @@ if (cmd === "list") {
   for (const name of TABLES) {
     if (!existsSync(join(arg1, `${name}.ndjson.gz`))) { console.log(`skipped  ${name.padEnd(18)} (not in this backup)`); continue; }
     let rows = read(name);
+    // A new project starts with ₦0 seed rows for items and plans: replace them with the backup's own.
+    if (name === "price_items" || name === "subscription_plans") { const { error } = await db.from(name).delete().not("id", "is", null); if (error) { console.error(`${name}: ${error.message}`); process.exit(1); } }
+    // Restoring prices fires the history triggers; drop those rows, then load the real history.
+    if (name === "price_history") { const { error } = await db.from("price_history").delete().gte("id", 0); if (error) { console.error(`price_history: ${error.message}`); process.exit(1); } }
     const skip = [...(SKIP_COLUMNS[name] ?? []), ...(name === "users" ? ["staff_id"] : [])];
     if (name === "users") for (const r of rows) if (r.staff_id) staffLinks.push({ id: r.id, staff_id: r.staff_id });
     if (skip.length) rows = rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !skip.includes(k))));
