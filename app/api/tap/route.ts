@@ -11,6 +11,8 @@ import { PHOTO_BUCKET } from "@/lib/photos";
 import { processOutbox, queueTapAlerts } from "@/lib/alerts";
 import { processPortalDeliveries, queuePortalTap } from "@/lib/portal-link";
 import { pickupCardTap, type Picker } from "@/lib/pickup-server";
+import { childTapInWindow, openDropOff, openWindow } from "@/lib/handover-server";
+import { handoverMode, type Transport } from "@/lib/handover";
 import { activeEmergency, emergencyCounts, markSafe } from "@/lib/emergency-server";
 import type { RollCounts } from "@/lib/emergency";
 import type { PickupChild } from "@/lib/pickup";
@@ -22,7 +24,8 @@ const bodySchema = z.object({
   client_id: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
 });
 
-export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked" | "menu" | "lesson_started" | "lesson_ended" | "pickup" | "picked_up" | "not_authorised" | "safe";
+export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked" | "menu" | "lesson_started" | "lesson_ended" | "pickup" | "picked_up" | "not_authorised" | "safe"
+  | "handover" | "held" | "dropped_off" | "pickup_refused";
 export type LessonChoice = { class_id: string; class_name: string; subject_id: string; subject_name: string };
 export type LessonOptions = { assignments: LessonChoice[]; classes: { id: string; name: string }[]; subjects: { id: string; name: string }[] };
 export type TapResponse = {
@@ -46,9 +49,19 @@ export type TapResponse = {
   subject?: string;
   minutes?: number;
   flags?: LessonFlag[];
-  /** Safe pickup: who is collecting, and the children they may take. */
+  /** Safe pickup: who is collecting, and the children they may take (matched = that child has tapped). */
   picker?: Picker;
-  children?: PickupChild[];
+  children?: (PickupChild & { matched?: boolean })[];
+  /** Pickup window: quote back to /api/pickup to confirm, and when it closes. */
+  handover_id?: string;
+  expires_at?: string;
+  /** Something for staff about the last tap in a pickup window. */
+  notice?: string;
+  /** Pickup refused: the child who tapped, and the pickup screen to go back to. */
+  child?: string;
+  window?: Omit<TapResponse, "time"> | null;
+  /** Drop-off: the parent has until then to tap their card. */
+  handover?: { kind: "drop_off"; expires_at: string };
   /** Picked up: first names to speak. */
   spoken?: string;
   /** Emergency roll call: how many are safe so far. */
@@ -186,7 +199,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const decision = await applyTap(db, device, card.holder_type, card.holder_id, tappedAt);
+  // Taps sent later by an offline kiosk skip the handover windows: nobody is standing there any more.
+  const fresh = Date.now() - tappedAt.getTime() < 60_000;
+  let mode: ReturnType<typeof handoverMode> = "alone";
+  if (card.holder_type === "student") {
+    if (fresh) {
+      const win = await openWindow(db, device, new Date());
+      if (win) {
+        const childTapId = await log("pickup", { holder_type: "student", holder_id: card.holder_id });
+        const r = await childTapInWindow(db, device, win, { id: card.holder_id, name: person.name, firstName: person.firstName, className: person.className, photo: person.photo }, childTapId, new Date());
+        if (r) return json({ ...r, time } as TapResponse);
+      }
+    }
+    mode = handoverMode({ transport: person.transport, handoverEnabled: !!school.handover_enabled });
+  }
+
+  const decision = await applyTap(db, device, card.holder_type, card.holder_id, tappedAt, mode === "handover" && fresh);
+  if (decision.kind === "held") {
+    await log("held", { holder_type: card.holder_type, holder_id: card.holder_id });
+    return json({ action: "held", name: person.name, first_name: person.firstName, photo_url: await photoFor(), class: person.className, time });
+  }
   const action: TapAction = decision.kind === "sign_in" ? "signed_in" : decision.kind === "sign_out" ? "signed_out" : "duplicate";
   const late = decision.kind === "sign_in" && decision.late;
   const early = decision.kind === "sign_out" && decision.early;
@@ -201,13 +233,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Drop-off: the parent has two minutes to tap their card. Their message waits for that tap (or for the window to close).
+  let handover: TapResponse["handover"];
+  const deferArrival = card.holder_type === "student" && action === "signed_in" && mode === "handover" && fresh;
+  if (deferArrival) handover = { kind: "drop_off", expires_at: await openDropOff(db, device, card.holder_id, tapEventId, new Date()) };
+
   // Guardian SMS: saved to sms_logs first, then sent — after the kiosk already has its answer.
   if (card.holder_type === "student" && (action === "signed_in" || action === "signed_out")) {
     runAfter("tap alerts", async () => {
       const queued = await queueTapAlerts(db, {
         school: { id: school.id, name: school.name, timezone: school.timezone },
         student: { id: card.holder_id, firstName: person.firstName, fullName: person.name, classId: person.classId, className: person.className },
-        action, late, tappedAt, early, reason: releaseReason,
+        action, late, tappedAt, early, reason: releaseReason, bus: mode === "bus", notifyOnly: deferArrival,
       });
       if (queued) await processOutbox(db, { limit: 20, schoolId: school.id });
     });
@@ -227,6 +264,7 @@ export async function POST(req: NextRequest) {
     late,
     early,
     reason: decision.kind === "duplicate" ? decision.reason : undefined,
+    handover,
   });
 }
 
@@ -315,24 +353,24 @@ async function staffLessonTap(db: Db, device: KioskDevice, opts: {
 
 async function loadHolder(db: Db, type: string, id: string) {
   if (type === "student") {
-    const { data } = await db.from("students").select("first_name, last_name, admission_no, photo_url, status, class_id, classes(name)").eq("id", id).maybeSingle();
+    const { data } = await db.from("students").select("first_name, last_name, admission_no, photo_url, status, class_id, transport, classes(name)").eq("id", id).maybeSingle();
     if (!data) return null;
     return {
       name: `${data.first_name} ${data.last_name}`, firstName: data.first_name, photo: data.photo_url as string | null,
       className: (data.classes as unknown as { name: string } | null)?.name ?? null, classId: data.class_id as string | null, idNo: data.admission_no as string | null,
-      active: data.status === "active",
+      active: data.status === "active", transport: (data.transport as Transport | null) ?? "parent",
     };
   }
   const { data } = await db.from("staff").select("name, photo_url, status").eq("id", id).maybeSingle();
   if (!data) return null;
-  return { name: data.name, firstName: data.name.split(" ")[0]!, photo: data.photo_url as string | null, className: "Staff", classId: null, idNo: null, active: data.status === "active" };
+  return { name: data.name, firstName: data.name.split(" ")[0]!, photo: data.photo_url as string | null, className: "Staff", classId: null, idNo: null, active: data.status === "active", transport: null };
 }
 
 /**
  * Decides and records the tap. Writes are conditional, so two kiosks tapping the same
  * card at the same moment can't create two sign-ins or overwrite a sign-out.
  */
-async function applyTap(db: Db, device: KioskDevice, holderType: string, holderId: string, tappedAt: Date) {
+async function applyTap(db: Db, device: KioskDevice, holderType: string, holderId: string, tappedAt: Date, holdSignOut = false) {
   const school = device.school;
   const day = { timeZone: school.timezone, resumptionTime: school.resumption_time, closingTime: school.closing_time };
 
@@ -351,6 +389,8 @@ async function applyTap(db: Db, device: KioskDevice, holderType: string, holderI
   }
 
   const decision = decideTap({ tappedAt, lastTapAt: last ? new Date(last.tapped_at) : null, today, school: day, earlyRelease: !!release });
+  // A parent-pickup child can't sign out alone: their parent's card (or a code) opens the pickup first.
+  if (decision.kind === "sign_out" && holdSignOut) return { kind: "held" as const, date: decision.date };
 
   if (decision.kind === "sign_in") {
     const { error } = await db.from("attendance").insert({

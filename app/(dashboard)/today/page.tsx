@@ -73,9 +73,10 @@ export default async function TodayPage() {
     </div>
   );
 
-  // First run: nothing to show yet, so the full getting-started list.
+  // First run (no students on record yet): nothing to show, so the full getting-started list.
+  // Counted from the students on record, not today's register, which is empty at weekends and on holidays.
   const steps = setup ? setupSteps(setup) : null;
-  if (isAdmin && total === 0 && steps) {
+  if (isAdmin && setup && setup.students === 0 && steps) {
     return (
       <>
         {title}
@@ -149,7 +150,7 @@ export default async function TodayPage() {
     .sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
 
   const kpis: Kpi[] = [
-    { label: "In school", value: inSchool, of: total, lead: true, caption: total ? `${Math.round((inSchool / total) * 100)}% of students, on time or late` : "No students yet" },
+    { label: "In school", value: inSchool, of: total, lead: true, caption: total ? `${Math.round((inSchool / total) * 100)}% of students, on time or late` : setup && setup.students === 0 ? "No students yet" : "Not a school day" },
     { label: "Late", value: late, tone: "warn", caption: `Arrived after ${hhmm(school.resumption_time)}` },
     afterCutoff
       ? { label: "Absent", value: absent, tone: "negative", caption: excused ? `${excused} more excused` : "Not signed in, not excused" }

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FormError, SelectField, useActionFeedback } from "@/components/forms/field";
 import { saveStudent } from "./actions";
 
-type Student = { id: string; admission_no: string; first_name: string; last_name: string; class_id: string | null; status: string };
+type Student = { id: string; admission_no: string; first_name: string; last_name: string; class_id: string | null; status: string; transport?: string | null };
 
 export function StudentDialog({ classes, existing }: { classes: { id: string; name: string }[]; existing?: Student }) {
   const router = useRouter();
@@ -46,6 +46,10 @@ export function StudentDialog({ classes, existing }: { classes: { id: string; na
               {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </SelectField>
           </div>
+          <SelectField name="transport" label="Going home" defaultValue={existing?.transport ?? "parent"} error={e.transport}>
+            <option value="parent">Parent pickup (a parent or approved person collects)</option>
+            <option value="bus">School bus (taps in and out alone)</option>
+          </SelectField>
           {existing && (
             <SelectField name="status" label="Status" defaultValue={existing.status} error={e.status}>
               <option value="active">Active</option>

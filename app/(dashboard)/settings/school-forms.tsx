@@ -4,7 +4,7 @@ import { useActionState, useRef } from "react";
 import { CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, useActionFeedback } from "@/components/forms/field";
-import { addHolidays, saveRetention, saveSchoolDay } from "./school-actions";
+import { addHolidays, saveHandover, saveRetention, saveSchoolDay } from "./school-actions";
 
 type School = { resumption_time: string; absence_cutoff_time: string; closing_time: string; timezone: string; sms_sender_name: string | null };
 
@@ -58,6 +58,31 @@ export function RetentionForm({ months }: { months: number }) {
       <Field name="retention_months" label="Keep leavers' records for (months)" type="number" min={1} max={84} inputMode="numeric"
         defaultValue={months} error={state.errors?.retention_months} className="w-64" />
       <Button type="submit" variant="outline" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+    </form>
+  );
+}
+
+export function HandoverForm({ enabled, minutes }: { enabled: boolean; minutes: number }) {
+  const [state, action, pending] = useActionState(saveHandover, {});
+  useActionFeedback(state);
+  return (
+    <form action={action} className="space-y-4" noValidate>
+      <FormError state={state} />
+      <label className="flex items-start gap-3 rounded-lg bg-muted/60 p-4 text-sm">
+        <input type="checkbox" name="handover_enabled" defaultChecked={enabled} className="mt-0.5 size-4 accent-[var(--brand)]" />
+        <span>
+          <span className="block font-medium text-ink">Parents tap their card at the gate</span>
+          <span className="text-muted-foreground">
+            Drop-off: the child taps, then the parent within 2 minutes. Pickup: the parent taps first, then the child, and staff confirm.
+            Bus children always tap on their own. Give parents a card in Safe pickup → Add a parent.
+          </span>
+        </span>
+      </label>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field name="late_pickup_minutes" label="Late pickup alert (minutes after closing)" type="number" min={0} max={240} inputMode="numeric"
+          defaultValue={minutes} error={state.errors?.late_pickup_minutes} className="w-72" />
+        <Button type="submit" variant="outline" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+      </div>
     </form>
   );
 }

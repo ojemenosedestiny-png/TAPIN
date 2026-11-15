@@ -10,6 +10,9 @@ export type Phrase =
   | { kind: "lesson_end"; name: string }
   | { kind: "pickup"; name: string; child: string }
   | { kind: "pickup_wait" }
+  | { kind: "dropoff"; name: string; child: string }
+  | { kind: "held"; name: string }
+  | { kind: "pickup_refused" }
   | { kind: "not_authorised" }
   | { kind: "safe"; name: string }
   | { kind: "emergency" }
@@ -38,6 +41,7 @@ export function parsePhrase(body: unknown): Phrase | null {
       return name && greeting ? { kind: "greeting", greeting, name } : null;
     }
     case "goodbye":
+    case "held":
     case "safe":
     case "choose":
     case "lesson_start":
@@ -45,12 +49,14 @@ export function parsePhrase(body: unknown): Phrase | null {
       const name = cleanName(b.name);
       return name ? { kind: b.kind, name } : null;
     }
-    case "pickup": {
+    case "pickup":
+    case "dropoff": {
       const name = cleanName(b.name);
       const child = cleanName(b.child);
-      return name && child ? { kind: "pickup", name, child } : null;
+      return name && child ? { kind: b.kind, name, child } : null;
     }
     case "pickup_wait":
+    case "pickup_refused":
     case "not_authorised":
     case "emergency":
     case "unknown":
@@ -78,7 +84,13 @@ export function phraseText(p: Phrase): string {
     case "pickup":
       return `${p.name}, picking up ${p.child}. Thank you.`;
     case "pickup_wait":
-      return "Please wait while staff confirm the pickup.";
+      return "Now tap each child's card.";
+    case "dropoff":
+      return `Thank you, ${p.name}. ${p.child} is checked in.`;
+    case "held":
+      return `${p.name}, please wait for your parent to tap their card.`;
+    case "pickup_refused":
+      return "Stop. This child is not linked to this person. Do not release them.";
     case "not_authorised":
       return "Not authorised. Please see the admin office.";
     case "safe":

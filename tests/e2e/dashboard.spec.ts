@@ -113,6 +113,9 @@ test.describe("today and reports", () => {
     await expect(page.getByRole("heading", { name: "The morning gate" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "At the gate" })).toBeVisible();
 
+    // At the weekend there is no register, so no class rows to open.
+    const weekday = new Date().toLocaleDateString("en-GB", { weekday: "short", timeZone: "Africa/Lagos" });
+    if (weekday === "Sat" || weekday === "Sun") return;
     await page.getByRole("link", { name: new RegExp(`^${f.className}`) }).first().click();
     await expect(page.getByRole("heading", { level: 1, name: f.className })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Today and this week" })).toBeVisible();

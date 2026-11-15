@@ -3,6 +3,7 @@ import { isCronRequest } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processOutbox, type ProcessResult } from "@/lib/alerts";
 import { processPortalDeliveries } from "@/lib/portal-link";
+import { expireHandovers, latePickupSweep } from "@/lib/handover-server";
 
 export const maxDuration = 60;
 
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
     total.notConfigured = r.notConfigured;
     if (r.notConfigured || r.sent + r.failed + r.retrying + r.skipped + r.held === 0) break;
   }
+  // Handover windows whose time is up (drop-off with no parent → flagged, arrival message sent), and late pickups.
+  const handovers = await expireHandovers(db).catch((e) => ({ error: (e as Error).message }));
+  const latePickups = await latePickupSweep(db).catch((e) => ({ error: (e as Error).message }));
   // Taps waiting for a school's own portal (retries after a network failure or portal downtime).
   const portal = await processPortalDeliveries(db, { limit: 100 }).catch((e) => ({ error: (e as Error).message }));
-  return NextResponse.json({ ...total, portal });
+  return NextResponse.json({ ...total, portal, handovers, latePickups });
 }

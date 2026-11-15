@@ -90,6 +90,7 @@ export const studentSchema = z.object({
   last_name: name(),
   class_id: optionalUuid,
   status: z.enum(["active", "inactive", "graduated", "withdrawn"]).default("active"),
+  transport: z.enum(["parent", "bus"]).default("parent"),
 });
 
 export const guardianSchema = z.object({

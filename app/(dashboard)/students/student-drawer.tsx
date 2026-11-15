@@ -58,7 +58,7 @@ export async function StudentDrawer({ studentId, closeHref, user, classes }: {
   const supabase = await createClient();
   const isAdmin = user.role === "school_admin";
 
-  const { data: s } = await supabase.from("students").select("id, admission_no, first_name, last_name, class_id, photo_url, status, created_at, consent_at, consent_note").eq("id", studentId).maybeSingle();
+  const { data: s } = await supabase.from("students").select("id, admission_no, first_name, last_name, class_id, photo_url, status, transport, created_at, consent_at, consent_note").eq("id", studentId).maybeSingle();
   if (!s) notFound();
 
   const { data: school } = await supabase.from("schools").select("timezone, resumption_time").eq("id", user.schoolId).single();

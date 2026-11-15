@@ -81,15 +81,16 @@ describe.skipIf(!enabled)("step 1 data model", () => {
     expect(error?.code).toBe("23505");
   });
 
-  it("keeps one open handover per kiosk and never mixes schools", async () => {
+  it("keeps one open pickup window per kiosk (siblings may wait together at drop-off), and never mixes schools", async () => {
     const window = { started_at: new Date().toISOString(), expires_at: new Date(Date.now() + 120_000).toISOString() };
     ids.h1 = await ins("handovers", { school_id: ids.A, kind: "drop_off", date: today, student_id: ids.ada, device_id: ids.kioskA, ...window });
+    ids.w1 = await ins("handovers", { school_id: ids.A, kind: "pick_up", date: today, person_id: ids.mumCard, device_id: ids.kioskA, ...window });
     const second = await db.from("handovers").insert({ school_id: ids.A, kind: "pick_up", date: today, person_id: ids.mumCard, device_id: ids.kioskA, ...window });
     expect(second.error?.code).toBe("23505");
     const crossed = await db.from("handovers").insert({ school_id: ids.A, kind: "drop_off", date: today, student_id: ids.bola, ...window });
     expect(crossed.error?.message).toMatch(/another school/);
-    // Completing the first frees the kiosk for the next window.
-    await db.from("handovers").update({ status: "matched", person_id: ids.mumCard, completed_at: new Date().toISOString() }).eq("id", ids.h1!);
+    // Closing the window frees the kiosk for the next one.
+    await db.from("handovers").update({ status: "confirmed", completed_at: new Date().toISOString() }).eq("id", ids.w1!);
     const { error } = await db.from("handovers").insert({ school_id: ids.A, kind: "pick_up", date: today, person_id: ids.mumCard, device_id: ids.kioskA, ...window });
     expect(error).toBeNull();
   });
@@ -98,7 +99,7 @@ describe.skipIf(!enabled)("step 1 data model", () => {
     await ins("early_pickup_requests", { school_id: ids.A, student_id: ids.ada, guardian_id: ids.mum, date: today, at_time: "12:00", note: "Dentist" });
     const crossed = await db.from("early_pickup_requests").insert({ school_id: ids.A, student_id: ids.bola, date: today });
     expect(crossed.error?.message).toMatch(/another school/);
-    expect((await adminA.from("handovers").select("id")).data?.length).toBe(2);
+    expect((await adminA.from("handovers").select("id")).data?.length).toBe(3);
     expect((await adminA.from("early_pickup_requests").select("note")).data).toEqual([{ note: "Dentist" }]);
     expect((await teacherA.from("handovers").select("id")).data ?? []).toHaveLength(0);
     expect((await teacherA.from("early_pickup_requests").select("id")).data ?? []).toHaveLength(0);

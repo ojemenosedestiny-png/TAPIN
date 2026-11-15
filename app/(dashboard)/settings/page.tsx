@@ -9,7 +9,7 @@ import { ConfirmAction } from "@/components/forms/confirm-action";
 import { Button } from "@/components/ui/button";
 import { TeamForm } from "./team-form";
 import { TeamMemberActions } from "./team-member";
-import { HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
+import { HandoverForm, HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
 import { LogoUpload } from "./logo";
 import { PortalSection } from "./portal-section";
 import { signPhotos } from "@/lib/photos";
@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   const user = await requireSchoolArea("settings");
   const supabase = await createClient();
   const { data: school } = await supabase
-    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url").eq("id", user.schoolId).single();
+    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url, handover_enabled, late_pickup_minutes").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
   const [{ data: team }, { data: holidays }, { data: invoices }, { data: links }, { data: staffList }] = await Promise.all([
@@ -66,6 +66,12 @@ export default async function SettingsPage() {
               ))}
             </ul>
           )}
+        </section>
+
+        <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="handover">
+          <h2 id="handover" className="text-lg font-semibold text-ink">Parent handover</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">Who brought each child, and who collected them, recorded at the gate. Parents get a message either way.</p>
+          <HandoverForm enabled={!!school.handover_enabled} minutes={school.late_pickup_minutes ?? 30} />
         </section>
 
         <PortalSection tz={school.timezone} />

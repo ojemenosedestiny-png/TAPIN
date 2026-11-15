@@ -31,6 +31,7 @@ export async function saveStudent(_prev: ActionState, formData: FormData): Promi
     last_name: formData.get("last_name"),
     class_id: formData.get("class_id") || undefined,
     status: formData.get("status") || undefined,
+    transport: formData.get("transport") || undefined,
   });
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
 

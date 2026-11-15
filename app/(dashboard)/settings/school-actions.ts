@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { writeAudit } from "@/lib/audit";
@@ -84,4 +85,22 @@ export async function setSchoolLogo(path: string): Promise<{ ok: true } | { ok: 
   await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "school.logo", entity: "schools", entityId: user.schoolId });
   revalidatePath("/settings");
   return { ok: true };
+}
+
+const handoverSchema = z.object({
+  handover_enabled: z.boolean(),
+  late_pickup_minutes: z.coerce.number().int("Whole minutes, please.").min(0, "0 to 240 minutes.").max(240, "0 to 240 minutes."),
+});
+
+/** Parent handover at the gate (drop-off and pickup taps) and the late-pickup alert. */
+export async function saveHandover(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("settings");
+  const parsed = handoverSchema.safeParse({ handover_enabled: formData.get("handover_enabled") === "on", late_pickup_minutes: formData.get("late_pickup_minutes") });
+  if (!parsed.success) return { errors: fieldErrors(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase.from("schools").update(parsed.data).eq("id", user.schoolId);
+  if (error) return { errors: { _form: "Could not save. Please try again." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "school.update", entity: "schools", entityId: user.schoolId, details: parsed.data });
+  revalidatePath("/settings");
+  return { ok: parsed.data.handover_enabled ? "Parent handover is on at the gate." : "Parent handover is off: children tap in and out on their own." };
 }

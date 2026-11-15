@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour, localTime } from "@/lib/time";
+import { busDepartureMessage } from "@/lib/handover";
 import { messagingApi, sendSms, sendWhatsAppTemplate, termiiConfig, whatsappTemplateFor, whatsappReady } from "@/lib/termii";
 
 export * from "@/lib/alert-rules";
@@ -24,6 +25,10 @@ export async function queueTapAlerts(db: Db, opts: {
   tappedAt: Date;
   early?: boolean;
   reason?: string;
+  /** Bus children: "left school on the bus" instead of the departure message. */
+  bus?: boolean;
+  /** Only the dashboard notice (late arrival); the parent's message comes later (drop-off handover). */
+  notifyOnly?: boolean;
 }): Promise<number> {
   const { school, student, tappedAt } = opts;
   const { data: settings } = await db.from("alert_settings").select("*").eq("school_id", school.id).maybeSingle();
@@ -40,14 +45,15 @@ export async function queueTapAlerts(db: Db, opts: {
       dedupe_key: `late:${student.id}:${date}`,
     }).then(({ error }) => error && error.code !== "23505" && console.error("late notification", error));
   }
-  if (!type) return 0;
+  if (!type || opts.notifyOnly) return 0;
+  const bus = !!opts.bus && opts.action === "signed_out" && type === "departure";
 
   const { data: links } = await db.from("student_guardians").select("guardians(id, phone)").eq("student_id", student.id);
   const guardians = (links ?? []).map((l) => l.guardians as unknown as { id: string; phone: string }).filter(Boolean);
   if (!guardians.length) return 0;
 
   const template = (settings as AlertSettings)[`${type}_template`];
-  const message = renderTemplate(template, {
+  const message = bus ? busDepartureMessage({ child: student.fullName, time, school: school.name }) : renderTemplate(template, {
     greeting: greetingForHour(localHour(tappedAt, school.timezone)),
     full_name: student.fullName, first_name: student.firstName, school: school.name, time, reason: opts.reason ?? "",
     date: new Intl.DateTimeFormat("en-NG", { weekday: "long", day: "numeric", month: "long", timeZone: school.timezone }).format(tappedAt),
@@ -55,8 +61,8 @@ export async function queueTapAlerts(db: Db, opts: {
 
   const { data, error } = await db.from("sms_logs").upsert(
     guardians.map((g) => ({
-      school_id: school.id, student_id: student.id, guardian_id: g.id, phone: g.phone, message, type,
-      dedupe_key: `${student.id}:${date}:${type}:${g.id}`,
+      school_id: school.id, student_id: student.id, guardian_id: g.id, phone: g.phone, message, type: bus ? "bus" : type,
+      dedupe_key: `${student.id}:${date}:${bus ? "bus" : type}:${g.id}`,
       vars: { "1": student.fullName, "2": school.name, "3": time, ...(opts.reason ? { "4": opts.reason } : {}) },
     })),
     { onConflict: "dedupe_key", ignoreDuplicates: true },

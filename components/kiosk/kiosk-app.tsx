@@ -183,9 +183,9 @@ function Kiosk({ token }: { token: string }) {
   };
 
   /** Staff confirmed which children are leaving. */
-  const confirmPickup = async (data: TapResponse, studentIds: string[]) => {
+  const confirmPickup = async (data: TapResponse) => {
     try {
-      const res = await api("/api/pickup", token, { method: "POST", body: JSON.stringify({ tap_id: data.tap_id, student_ids: studentIds }) });
+      const res = await api("/api/pickup", token, { method: "POST", body: JSON.stringify({ handover_id: data.handover_id }) });
       const out = await res.json().catch(() => ({}));
       if (res.ok) return presentResult(out as TapResponse);
       if (handleAuthFailure(res.status, out.error)) return;
@@ -277,6 +277,30 @@ function Kiosk({ token }: { token: string }) {
       show({ kind: "pickup", data });
       play("duplicate");
       say({ kind: "pickup_wait" }, soundLengthMs("duplicate"));
+      return;
+    }
+    if (data.action === "dropped_off") {
+      show({ kind: "result", data });
+      play("signIn");
+      say({ kind: "dropoff", name: (data.name ?? "").split(" ")[0] ?? "", child: data.spoken ?? "" }, soundLengthMs("signIn"));
+      return;
+    }
+    if (data.action === "held") {
+      show({ kind: "result", data });
+      play("duplicate");
+      say({ kind: "held", name }, soundLengthMs("duplicate"));
+      return;
+    }
+    if (data.action === "pickup_refused") {
+      show({ kind: "result", data });
+      play("error");
+      say({ kind: "pickup_refused" }, soundLengthMs("error"));
+      // After the warning, back to the same pickup so staff can carry on with the right children.
+      const back = data.window;
+      if (back) {
+        if (resetTimer.current) clearTimeout(resetTimer.current);
+        resetTimer.current = setTimeout(() => show({ kind: "pickup", data: { ...back, time: data.time } as TapResponse }), RESULT_MS + 1500);
+      }
       return;
     }
     if (data.action === "safe") {
@@ -505,8 +529,8 @@ function Kiosk({ token }: { token: string }) {
       )}
       {screen.kind === "saved_offline" && <SavedOffline />}
       {screen.kind === "pickup" && (
-        <PickupConfirm key={String(screen.data.tap_id) + (screen.error ?? "")} data={screen.data} error={screen.error}
-          onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onConfirm={(ids) => void confirmPickup(screen.data, ids)} />
+        <PickupConfirm key={`${screen.data.handover_id}:${(screen.data.children ?? []).filter((c) => c.matched).length}:${screen.error ?? ""}:${screen.data.notice ?? ""}`} data={screen.data} error={screen.error}
+          onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onConfirm={() => void confirmPickup(screen.data)} />
       )}
       {screen.kind === "pin" && (
         <PinEntry key={screen.error ?? "pin"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(p, k) => void startEmergency(p, k)} />
@@ -759,8 +783,61 @@ function Result({ data, place }: { data: TapResponse; place: string }) {
     );
   }
 
+  if (data.action === "pickup_refused") {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+        <ShieldX className="size-28" aria-hidden />
+        <p className="text-6xl font-semibold sm:text-7xl">Do not release</p>
+        <p className="text-4xl font-semibold">{data.child}</p>
+        <p className="max-w-2xl text-2xl text-white/90">{data.name} is not linked to this child. The office has been told.</p>
+        <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
+      </div>
+    );
+  }
+
   const name = data.name ?? "";
   const first = data.first_name ?? name.split(" ")[0] ?? "";
+
+  if (data.action === "dropped_off") {
+    const kids = (data.children ?? []).map((c) => c.first_name);
+    return (
+      <KioskStage>
+        <KioskCard>
+          <CardTop left={place} right={data.time} />
+          <div className="mt-6 flex flex-col items-center gap-5 text-center" role="status">
+            <Portrait name={name} photoUrl={data.picker?.photo_url} tone={TONES.in} />
+            <div className="kiosk-rise">
+              <p className="font-heading text-5xl font-extrabold tracking-tight sm:text-6xl">{kids.join(" and ")}</p>
+              <p className="mt-1.5 text-2xl text-slate-500">Dropped off by {name}</p>
+            </div>
+            <StatusPill tone={TONES.in}><Check className="size-7" aria-hidden /> Checked in</StatusPill>
+            <p className="text-xl text-slate-500">The parents have been told.</p>
+          </div>
+          <Drain className={TONES.in.bar} />
+        </KioskCard>
+      </KioskStage>
+    );
+  }
+
+  if (data.action === "held") {
+    return (
+      <KioskStage>
+        <KioskCard>
+          <CardTop left={place} right={data.time} />
+          <div className="mt-6 flex flex-col items-center gap-5 text-center" role="status">
+            <Portrait name={name} photoUrl={data.photo_url} tone={TONES.late} waves={false} />
+            <div className="kiosk-rise">
+              <p className="font-heading text-5xl font-extrabold tracking-tight sm:text-6xl">{name}</p>
+              {data.class && <p className="mt-1.5 text-2xl text-slate-500">{data.class}</p>}
+            </div>
+            <StatusPill tone={TONES.late}>Wait for your parent</StatusPill>
+            <p className="max-w-xl text-2xl font-medium text-slate-600">&ldquo;{first}, your parent taps their card first, then you tap yours.&rdquo;</p>
+          </div>
+          <Drain className={TONES.late.bar} />
+        </KioskCard>
+      </KioskStage>
+    );
+  }
 
   if (data.action === "safe") {
     return (
@@ -841,7 +918,7 @@ function Result({ data, place }: { data: TapResponse; place: string }) {
           {quote && <p className="kiosk-rise max-w-xl text-2xl font-medium text-slate-600">&ldquo;{quote}&rdquo;</p>}
         </div>
         <div className="mt-7 border-t border-slate-100 pt-5">
-          <TapHint text={started ? "Tap again to end the lesson" : isOut ? "Tap your card to sign out" : "Tap your card to sign in"} />
+          <TapHint text={data.handover ? "Parent: tap your card now" : started ? "Tap again to end the lesson" : isOut ? "Tap your card to sign out" : "Tap your card to sign in"} />
         </div>
         <Drain className={tone.bar} />
       </KioskCard>
@@ -946,78 +1023,67 @@ function TeacherMenu({ data, error, onActivity, onCancel, onStart, onSignOut }: 
 }
 
 function PickupConfirm({ data, error, onActivity, onCancel, onConfirm }: {
-  data: TapResponse; error?: string; onActivity: () => void; onCancel: () => void; onConfirm: (ids: string[]) => void;
+  data: TapResponse; error?: string; onActivity: () => void; onCancel: () => void; onConfirm: () => void;
 }) {
   const children = data.children ?? [];
-  const [chosen, setChosen] = useState<Set<string>>(() => new Set(children.filter((c) => c.state === "in_school").map((c) => c.id)));
   const [busy, setBusy] = useState(false);
   const picker = data.picker;
-  const toggle = (id: string) => setChosen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const none = children.every((c) => c.state !== "in_school");
+  const ready = children.filter((c) => c.matched).length;
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-gradient-to-br from-[#082f49] via-[#0b4f6c] to-[#0f766e] px-6 py-8 text-white sm:px-12"
-      role="dialog" aria-modal="true" aria-label="Confirm pickup" onPointerDown={onActivity}>
-      <p className="text-lg font-medium uppercase tracking-widest text-white/70">Safe pickup · staff check</p>
-      <div className="mt-4 flex flex-col gap-8 lg:flex-row lg:items-start">
-        {/* The person collecting: face first, so staff can check it. */}
-        <div className="flex items-center gap-5 lg:w-80 lg:flex-col lg:items-start">
-          <div className="aspect-[3/4] w-32 shrink-0 overflow-hidden rounded-3xl bg-white/15 ring-4 ring-white/80 sm:w-40 lg:w-64">
-            {picker?.photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={picker.photo_url} alt="" className="size-full object-cover" />
-            ) : (
-              <span className="flex size-full items-center justify-center text-6xl font-semibold">{initials(picker?.name ?? "?")}</span>
-            )}
+    <KioskStage>
+      <KioskCard className="kiosk-pop">
+        <div role="dialog" aria-modal="true" aria-label="Safe pickup" onPointerDown={onActivity}>
+          <CardTop left="Safe pickup" right={data.time} />
+          <div className="mt-5 flex items-center gap-5">
+            <div className="size-28 shrink-0 overflow-hidden rounded-full border-[6px] border-brand bg-[#e6f6f1] sm:size-32">
+              {picker?.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={picker.photo_url} alt="" className="size-full object-cover" />
+              ) : (
+                <span className="flex size-full items-center justify-center font-heading text-4xl font-extrabold text-brand">{initials(picker?.name ?? "?")}</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-heading text-4xl font-extrabold leading-tight tracking-tight">{picker?.name}</p>
+              {picker?.relationship && <p className="mt-1 text-2xl text-slate-500">{picker.relationship}</p>}
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-4xl font-semibold leading-tight tracking-tight">{picker?.name}</p>
-            {picker?.relationship && <p className="mt-1 text-2xl text-white/80">{picker.relationship}</p>}
-            <p className="mt-2 text-lg text-white/70">{data.time}</p>
-          </div>
-        </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-2xl font-semibold">{none ? "No child to collect right now" : "Children going home"}</p>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-            {children.map((c) => {
-              const can = c.state === "in_school";
-              const on = chosen.has(c.id);
-              return (
-                <li key={c.id}>
-                  <button type="button" disabled={!can || busy} onClick={() => toggle(c.id)} aria-pressed={on}
-                    className={cn("flex w-full items-center gap-4 rounded-2xl p-3 text-left ring-2 transition-colors",
-                      !can ? "bg-white/5 opacity-60 ring-white/10" : on ? "bg-white text-ink ring-white" : "bg-white/10 ring-white/30")}>
-                    <span className="size-20 shrink-0 overflow-hidden rounded-xl bg-slate-200">
-                      {c.photo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.photo_url} alt="" className="size-full object-cover" />
-                      ) : <span className="flex size-full items-center justify-center text-2xl font-semibold text-slate-600">{initials(c.name)}</span>}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-2xl font-semibold">{c.name}</span>
-                      <span className={cn("block text-lg", on ? "text-muted-foreground" : "text-white/75")}>
-                        {c.class ?? ""}{c.state === "signed_out" ? " · already gone home" : c.state === "not_in" ? " · not in school today" : ""}
-                      </span>
-                    </span>
-                    {can && <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", on ? "bg-brand text-white" : "ring-2 ring-white/60")}>{on && <Check className="size-6" aria-hidden />}</span>}
-                  </button>
-                </li>
-              );
-            })}
-            {children.length === 0 && <li className="text-xl text-white/80">No children are linked to this person.</li>}
+          <p className="mt-6 font-heading text-3xl font-extrabold tracking-tight text-brand">{ready ? "Check each face, then release" : "Now tap each child's card"}</p>
+          <ul className="mt-4 flex flex-col gap-2.5">
+            {children.map((c) => (
+              <li key={c.id} className={cn("flex items-center gap-4 rounded-2xl p-3 ring-2 transition-colors", c.matched ? "bg-green-50 ring-green-600" : "bg-slate-50 ring-transparent")}>
+                <span className="size-16 shrink-0 overflow-hidden rounded-full bg-slate-200">
+                  {c.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.photo_url} alt="" className="size-full object-cover" />
+                  ) : <span className="flex size-full items-center justify-center text-xl font-semibold text-slate-600">{initials(c.name)}</span>}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-2xl font-semibold">{c.name}</span>
+                  <span className="block text-lg text-slate-500">{c.class ?? ""}</span>
+                </span>
+                <span className={cn("shrink-0 rounded-full px-4 py-1.5 text-lg font-bold",
+                  c.matched ? "bg-green-600 text-white" : c.state === "in_school" ? "bg-slate-200 text-slate-700" : "bg-slate-100 text-slate-500")}>
+                  {c.matched ? "Ready" : c.state === "in_school" ? "Tap card" : c.state === "signed_out" ? "Already gone" : "Not in today"}
+                </span>
+              </li>
+            ))}
+            {children.length === 0 && <li className="text-xl text-slate-500">No children are linked to this person.</li>}
           </ul>
-          {error && <p role="alert" className="mt-4 rounded-2xl bg-red-600/90 px-5 py-3 text-xl">{error}</p>}
+          {data.notice && <p role="status" className="mt-4 rounded-2xl bg-amber-50 px-5 py-3 text-xl font-medium text-amber-900 ring-1 ring-amber-200">{data.notice}</p>}
+          {error && <p role="alert" className="mt-4 rounded-2xl bg-red-50 px-5 py-3 text-xl font-medium text-red-800 ring-1 ring-red-200">{error}</p>}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button type="button" disabled={busy || chosen.size === 0} onClick={() => { setBusy(true); onConfirm([...chosen]); }}
-              className="flex min-h-20 flex-1 items-center justify-center gap-3 rounded-3xl bg-white px-6 text-3xl font-semibold text-brand shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50">
-              <Check className="size-8" aria-hidden /> Release {chosen.size === 1 ? "child" : `${chosen.size} children`}
+            <button type="button" disabled={busy || ready === 0} onClick={() => { setBusy(true); onConfirm(); }}
+              className="flex min-h-20 flex-1 items-center justify-center gap-3 rounded-2xl bg-brand px-6 text-3xl font-semibold text-white transition-transform active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-500">
+              <Check className="size-8" aria-hidden /> {ready ? `Release ${ready === 1 ? "child" : `${ready} children`}` : "Waiting for a child to tap"}
             </button>
-            <button type="button" onClick={onCancel} className="min-h-20 rounded-3xl px-8 text-2xl font-medium text-white ring-2 ring-white/40 hover:bg-white/10">Cancel</button>
+            <button type="button" onClick={onCancel} className="min-h-20 rounded-2xl px-8 text-2xl font-medium text-slate-700 ring-2 ring-slate-200 hover:bg-slate-50">Cancel</button>
           </div>
         </div>
-      </div>
-    </div>
+      </KioskCard>
+    </KioskStage>
   );
 }
 
@@ -1183,4 +1249,5 @@ function SavedOffline() {
     </div>
   );
 }
+
 

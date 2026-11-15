@@ -13,14 +13,14 @@ import { ConfirmDelete } from "@/components/forms/confirm-delete";
 import { Button } from "@/components/ui/button";
 import { selectClass } from "@/components/forms/field";
 import { cn } from "@/lib/utils";
-import { CardDialog, CodeDialog, PersonDialog, QrPassDialog, StatusDot, type StudentOpt } from "./forms";
+import { CardDialog, CodeDialog, ParentDialog, PersonDialog, QrPassDialog, StatusDot, type ParentOpt, type StudentOpt } from "./forms";
 import { cancelPickupCode, deletePickupPerson, setPickupCardBlocked, setPickupStatus } from "./actions";
 
 export const metadata: Metadata = { title: "Safe pickup" };
 
 type Person = {
   id: string; name: string; relationship: string | null; phone: string | null; photo_url: string | null; status: string;
-  added_by: string; card_uid: string | null; card_blocked: boolean; qr_issued_at: string | null; pickup_people_students: { student_id: string }[];
+  added_by: string; card_uid: string | null; card_blocked: boolean; qr_issued_at: string | null; guardian_id: string | null; pickup_people_students: { student_id: string }[];
 };
 type Event = { id: string; kind: string; student_id: string | null; picker_name: string; at: string };
 
@@ -35,11 +35,12 @@ export default async function PickupPage({ searchParams }: { searchParams: Promi
   const dayStart = new Date(`${day}T00:00:00+01:00`).toISOString();
   const dayEnd = new Date(new Date(dayStart).getTime() + 86_400_000).toISOString();
 
-  const [{ data: people }, { data: students }, { data: events }, { data: codes }] = await Promise.all([
-    supabase.from("pickup_people").select("id, name, relationship, phone, photo_url, status, added_by, card_uid, card_blocked, qr_issued_at, pickup_people_students(student_id)").order("name"),
+  const [{ data: people }, { data: students }, { data: events }, { data: codes }, { data: guardians }] = await Promise.all([
+    supabase.from("pickup_people").select("id, name, relationship, phone, photo_url, status, added_by, card_uid, card_blocked, qr_issued_at, guardian_id, pickup_people_students(student_id)").order("name"),
     supabase.from("students").select("id, first_name, last_name, classes(name)").eq("status", "active").order("first_name").limit(5000),
     supabase.from("pickup_events").select("id, kind, student_id, picker_name, at").gte("at", dayStart).lt("at", dayEnd).order("at", { ascending: false }).limit(500),
     supabase.from("pickup_codes").select("id, person_name, valid_date, used_at, pickup_code_students(student_id)").gte("valid_date", today).order("valid_date"),
+    supabase.from("guardians").select("id, name, phone, student_guardians(students(first_name, status))").order("name").limit(5000),
   ]);
   const list = (people ?? []) as unknown as Person[];
   const opts: StudentOpt[] = (students ?? []).map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name}`, class: (s.classes as unknown as { name: string } | null)?.name ?? null }));
@@ -47,12 +48,21 @@ export default async function PickupPage({ searchParams }: { searchParams: Promi
   const photos = await signPhotos(supabase, list.map((p) => p.photo_url));
   const log = (events ?? []) as Event[];
   const pending = list.filter((p) => p.status === "pending");
+  // Parents on record who don't have a place in Safe pickup yet, labelled with their children so the right one is chosen.
+  const placed = new Set(list.map((p) => p.guardian_id).filter(Boolean));
+  const parentOpts: ParentOpt[] = ((guardians ?? []) as unknown as { id: string; name: string; phone: string; student_guardians: { students: { first_name: string; status: string } | null }[] }[])
+    .filter((g) => !placed.has(g.id))
+    .map((g) => {
+      const kids = g.student_guardians.map((l) => l.students).filter((k): k is { first_name: string; status: string } => !!k && k.status === "active").map((k) => k.first_name);
+      return { id: g.id, label: `${g.name} · ${formatNgPhone(g.phone)}${kids.length ? ` · ${kids.join(", ")}` : ""}` };
+    });
 
   return (
     <>
       <PageHeader title="Safe pickup" description="Who may collect each child. Staff see the person's photo next to the children and confirm before anyone leaves.">
         <div className="flex flex-wrap gap-2">
           <CodeDialog students={opts} />
+          <ParentDialog parents={parentOpts} />
           <PersonDialog students={opts} />
         </div>
       </PageHeader>

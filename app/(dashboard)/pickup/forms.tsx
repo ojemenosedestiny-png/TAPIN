@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CreditCard, KeyRound, Nfc, Pencil, Plus, QrCode as QrIcon, Search, UserPlus } from "lucide-react";
+import { CreditCard, KeyRound, Nfc, Pencil, Plus, QrCode as QrIcon, Search, UserPlus, Users } from "lucide-react";
 import { QrCode } from "@/components/pickup/qr-code";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,7 +9,7 @@ import { Field, FormError, useActionFeedback, type ActionState } from "@/compone
 import { Label } from "@/components/ui/label";
 import { NFC_ERROR_MESSAGES, nfcSupported, startNfcScan } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
-import { createPickupCode, issuePickupQr, linkPickupCard, savePickupPerson } from "./actions";
+import { addParentHolder, createPickupCode, issuePickupQr, linkPickupCard, savePickupPerson } from "./actions";
 
 export type StudentOpt = { id: string; name: string; class: string | null };
 
@@ -87,6 +87,43 @@ export function PersonDialog({ students, person }: { students: StudentOpt[]; per
             </label>
           )}
           <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export type ParentOpt = { id: string; label: string };
+
+/** A parent on record gets their own card for the drop-off and pickup handover. */
+export function ParentDialog({ parents }: { parents: ParentOpt[] }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(addParentHolder, {});
+  useActionFeedback(state, () => setOpen(false));
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button variant="outline"><Users className="size-4" aria-hidden /> Add a parent</Button></DialogTrigger>
+      <DialogContent>
+        <form action={action} className="space-y-4" noValidate>
+          <DialogHeader>
+            <DialogTitle>Give a parent their own card</DialogTitle>
+            <DialogDescription>The parent taps it after their child at drop-off, and before their child at pickup. They are linked to all their children.</DialogDescription>
+          </DialogHeader>
+          <FormError state={state} />
+          {parents.length ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="pp-parent">Parent</Label>
+              <select id="pp-parent" name="guardian_id" required defaultValue="" aria-invalid={!!state.errors?.guardian_id}
+                className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">
+                <option value="" disabled>Choose a parent…</option>
+                {parents.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+              </select>
+              {state.errors?.guardian_id && <p className="text-sm text-red-700">{state.errors.guardian_id}</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Every parent on record already has a place here. Add parents on each student&apos;s profile first.</p>
+          )}
+          <DialogFooter><Button type="submit" disabled={pending || !parents.length}>{pending ? "Adding…" : "Add parent"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

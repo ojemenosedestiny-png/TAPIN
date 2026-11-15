@@ -203,3 +203,32 @@ export async function cancelPickupCode(_prev: ActionState, fd: FormData): Promis
   revalidatePath("/pickup");
   return { ok: `Code for ${data.person_name} cancelled.` };
 }
+
+const parentForm = z.object({ guardian_id: idSchema });
+
+/**
+ * Gives a parent on record their own place in Safe pickup, so they can have a card (and photo) for the
+ * drop-off and pickup handover. They are linked to all their children; one entry per parent.
+ */
+export async function addParentHolder(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("pickup");
+  const parsed = parentForm.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { errors: { guardian_id: "Choose a parent." } };
+  const db = createAdminClient();
+  const { data: g } = await db.from("guardians").select("id, name, phone").eq("id", parsed.data.guardian_id).eq("school_id", user.schoolId).maybeSingle();
+  if (!g) return { errors: { guardian_id: "Choose a parent." } };
+  const { data: existing } = await db.from("pickup_people").select("id").eq("guardian_id", g.id).maybeSingle();
+  if (existing) return { ok: `${g.name} is already in Safe pickup. Use Card to give them a card.` };
+
+  const { data: person, error } = await db.from("pickup_people").insert({
+    school_id: user.schoolId, name: g.name, phone: g.phone, relationship: "Parent", guardian_id: g.id, status: "active", added_by: "school",
+  }).select("id").single();
+  if (error || !person) return { errors: { _form: "Could not add this parent. Please try again." } };
+  const { data: kids } = await db.from("student_guardians").select("student_id").eq("guardian_id", g.id);
+  if (kids?.length) {
+    await db.from("pickup_people_students").upsert(kids.map((k) => ({ person_id: person.id, student_id: k.student_id, school_id: user.schoolId })), { onConflict: "person_id,student_id", ignoreDuplicates: true });
+  }
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "pickup.add", entity: "pickup_people", entityId: person.id, details: { name: g.name, parent: true, children: kids?.length ?? 0 } });
+  revalidatePath("/pickup");
+  return { ok: `${g.name} added as a parent. Give them a card with Card, and add their photo.` };
+}
