@@ -20,7 +20,7 @@ export const BACKUP_TABLES = [
   { name: "sms_logs", order: "id" },
   { name: "notifications", order: "id" },
   { name: "audit_logs", order: "id" },
-  // Added since the first backup. Left out on purpose: rate_limits, report_links and portal_deliveries
+  // Added since the first backup. Left out on purpose: rate_limits, report_links, portal_deliveries and whatsapp_pending
   // (short-lived), and portal_links (it holds the portal's key: re-enter it after a restore).
   { name: "platform_settings", order: "id" },
   { name: "demo_requests", order: "id" },

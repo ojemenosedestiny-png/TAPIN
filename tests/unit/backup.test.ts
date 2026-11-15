@@ -47,7 +47,7 @@ describe("backups", () => {
     const dir = "supabase/migrations";
     const sql = readdirSync(dir).sort().map((f) => readFileSync(`${dir}/${f}`, "utf8")).join("\n");
     const created = [...new Set([...sql.matchAll(/create table (?:if not exists )?public\.([a-z_]+)/gi)].map((m) => m[1]!))];
-    const leftOut = new Set(["rate_limits", "report_links", "portal_deliveries", "portal_links"]);
+    const leftOut = new Set(["rate_limits", "report_links", "portal_deliveries", "portal_links", "whatsapp_pending"]);
     expect(created.filter((t) => !leftOut.has(t) && !BACKUP_TABLES.some((b) => b.name === t))).toEqual([]);
   });
 });

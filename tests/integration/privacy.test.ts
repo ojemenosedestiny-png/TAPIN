@@ -151,6 +151,6 @@ describe.skipIf(!enabled)("privacy, two-factor and backups", () => {
       const anonClient = createClient(url!, anon!, { auth: { persistSession: false } });
       const { data: leaked } = await anonClient.storage.from("backups").list("");
       expect(leaked ?? []).toEqual([]);
-    }, 60_000);
+    }, 180_000); // the whole database, 36 tables, from a test machine
   });
 });

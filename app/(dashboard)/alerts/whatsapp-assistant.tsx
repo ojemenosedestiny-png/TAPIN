@@ -17,9 +17,10 @@ export async function WhatsAppAssistantSection({ tz }: { tz: string }) {
       <h2 id="wa-assistant" className="mb-3 flex items-center gap-2 text-lg font-semibold text-ink"><Bot className="size-5 text-brand" aria-hidden /> WhatsApp assistant</h2>
       <div className="surface rounded-xl p-5">
         <p className="text-sm text-muted-foreground">
-          Parents message the school&apos;s TapIn WhatsApp number and get instant answers: <strong className="text-ink">1</strong> today&apos;s attendance,{" "}
-          <strong className="text-ink">2</strong> absences, <strong className="text-ink">3</strong> pickup, <strong className="text-ink">4</strong> fees,{" "}
-          <strong className="text-ink">5</strong> who can collect. Only phone numbers on a child&apos;s record get answers.
+          Parents message the school&apos;s TapIn WhatsApp number in plain words (English or Pidgin) and get instant answers: today&apos;s attendance,
+          absences this term, pickup, fees and who can collect. They can also get a <strong className="text-ink">one-day pickup code</strong>,
+          report a <strong className="text-ink">sick day</strong> (excused, so no absence alert) and ask to <strong className="text-ink">collect early</strong>
+          (you see it in your notices). Only phone numbers on a child&apos;s record get answers.
         </p>
         <p className={cn("mt-3 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium", ready ? "bg-success/15 text-green-800" : "bg-amber-100 text-amber-900")}>
           {ready ? "Switched on" : "Waiting for TapIn to connect the WhatsApp number"}

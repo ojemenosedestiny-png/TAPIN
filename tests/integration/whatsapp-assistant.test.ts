@@ -76,3 +76,102 @@ describe.skipIf(!enabled)("WhatsApp assistant", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe.skipIf(!enabled)("WhatsApp assistant: requests that change something", () => {
+  const ids2: Record<string, string> = {};
+  const MUM = `+234809${String(Math.floor(Math.random() * 1e7)).padStart(7, "0")}`;
+  const today2 = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+  let answer2: typeof import("@/lib/whatsapp-assistant-server").answer;
+  let handleInbound: typeof import("@/lib/whatsapp-assistant-server").handleInbound;
+  let hash: typeof import("@/lib/pickup").hashPickupCode;
+
+  beforeAll(async () => {
+    ({ answer: answer2, handleInbound } = await import("@/lib/whatsapp-assistant-server"));
+    ({ hashPickupCode: hash } = await import("@/lib/pickup"));
+    db ??= createClient(url!, service!, { auth: { persistSession: false } });
+    const ins = async (t: string, row: Record<string, unknown>) => {
+      const { data, error } = await db.from(t).insert(row).select("id").single();
+      if (error) throw new Error(`${t}: ${error.message}`);
+      return data?.id as string;
+    };
+    ids2.school = await ins("schools", { name: `wa-requests-${Date.now()}`, resumption_time: "07:45", closing_time: "14:00", absence_cutoff_time: "09:00" });
+    ids2.ada = await ins("students", { school_id: ids2.school, admission_no: "R-1", first_name: "Ada", last_name: "Eze" });
+    ids2.kola = await ins("students", { school_id: ids2.school, admission_no: "R-2", first_name: "Kola", last_name: "Eze" });
+    ids2.mum = await ins("guardians", { school_id: ids2.school, name: "Ngozi Eze", phone: MUM });
+    await db.from("student_guardians").insert([
+      { school_id: ids2.school, student_id: ids2.ada, guardian_id: ids2.mum },
+      { school_id: ids2.school, student_id: ids2.kola, guardian_id: ids2.mum },
+    ]);
+    // Ada is already in school today; Kola isn't.
+    await db.from("attendance").insert({ school_id: ids2.school, holder_type: "student", holder_id: ids2.ada, date: today2, sign_in_at: new Date(Date.now() - 3600_000).toISOString() });
+  }, 60_000);
+
+  afterAll(async () => {
+    if (db && ids2.school) await db.from("schools").delete().eq("id", ids2.school);
+    await db?.from("whatsapp_pending").delete().eq("phone", MUM);
+    await db?.from("whatsapp_messages").delete().eq("phone", MUM);
+  });
+
+  it("asks which child, then makes a code that works for that child only, today, once", async () => {
+    const q = await answer2(db, MUM, "I need a pickup code");
+    expect(q.reply).toBe("Which child is the pickup code for? Reply with a number:\n1 Ada\n2 Kola\n3 All of them");
+    const r = await answer2(db, MUM, "1");
+    expect(r.command).toBe("code");
+    const code = r.reply!.match(/\*(\d{3}) (\d{3})\*/)!.slice(1).join("");
+    const { data: row } = await db.from("pickup_codes").select("id, valid_date, source, used_at, created_by_guardian_id, pickup_code_students(student_id)").eq("school_id", ids2.school).eq("code_hash", hash(ids2.school, code)).single();
+    expect(row).toMatchObject({ valid_date: today2, source: "whatsapp", used_at: null, created_by_guardian_id: ids2.mum });
+    expect((row!.pickup_code_students as { student_id: string }[]).map((s) => s.student_id)).toEqual([ids2.ada]);
+    // The question is answered: "1" now means today's attendance again.
+    expect((await answer2(db, MUM, "1")).command).toBe("attendance");
+  });
+
+  it("naming the child skips the question; codes are limited to three a day", async () => {
+    expect((await answer2(db, MUM, "send a code for Kola")).reply).toMatch(/Pickup code for Kola today/);
+    expect((await answer2(db, MUM, "pickup code for both")).reply).toMatch(/Pickup code for Ada and Kola today/);
+    expect((await answer2(db, MUM, "another code for Ada")).reply).toMatch(/3 pickup codes today, the most allowed/);
+  });
+
+  it("records a sick day as excused (no absence alert), but not for a child already in school", async () => {
+    const r = await answer2(db, MUM, "Kola no well, he no go come school today");
+    expect(r.reply).toMatch(/^Kola is marked absent today \(sick\)\. The school won't send an absence alert\./);
+    const { data: exc } = await db.from("excusals").select("reason, source, guardian_id").eq("student_id", ids2.kola).eq("date", today2).single();
+    expect(exc).toMatchObject({ source: "whatsapp", guardian_id: ids2.mum });
+    expect(exc!.reason).toMatch(/^Sick \(parent, by WhatsApp\): Kola no well/);
+    expect((await answer2(db, MUM, "Ada is sick today")).reply).toMatch(/Ada already signed in today at .+, so I haven't marked them absent/);
+    expect((await answer2(db, MUM, "Kola is sick today")).reply).toBe("Kola is already marked absent today.");
+  });
+
+  it("sends an early pickup request to the school, asking for the time when it's missing", async () => {
+    const r = await answer2(db, MUM, "I'm collecting Ada at 12:30");
+    expect(r.reply).toMatch(/Ada: I've told the school you'll collect them at 12:30 PM today\./);
+    const { data: req } = await db.from("early_pickup_requests").select("at_time, status, source").eq("student_id", ids2.ada).eq("date", today2).single();
+    expect(req).toEqual({ at_time: "12:30:00", status: "pending", source: "whatsapp" });
+    const { data: notice } = await db.from("notifications").select("message").eq("school_id", ids2.school).eq("kind", "early_pickup");
+    expect(notice?.[0]?.message).toBe("Ngozi Eze will collect Ada Eze early today at 12:30 PM (by WhatsApp).");
+
+    expect((await answer2(db, MUM, "I go pick Ada early")).reply).toBe("What time will you collect Ada? For example: 12:30.");
+    expect((await answer2(db, MUM, "1pm")).reply).toMatch(/collect them at 1:00 PM today/);
+    const { data: moved } = await db.from("early_pickup_requests").select("at_time").eq("student_id", ids2.ada).eq("date", today2).single();
+    expect(moved?.at_time).toBe("13:00:00");
+  });
+
+  it("answers absence history for the term, with the start date", async () => {
+    const r = await answer2(db, MUM, "How many days did Kola miss this term?");
+    expect(r.command).toBe("absences");
+    expect(r.reply).toMatch(/^Kola: .* since /);
+    expect(r.reply).not.toMatch(/Ada:/);
+  });
+
+  it("acts once when WhatsApp delivers the same message twice", async () => {
+    const before = (await db.from("pickup_codes").select("id").eq("school_id", ids2.school)).data!.length;
+    // Start the day's code count again (the limit was reached above): the memory counter and the stored one.
+    resetRateLimits();
+    const { hashLimitKey } = await import("@/lib/rate-limit-shared");
+    await db.from("rate_limits").delete().eq("key", hashLimitKey(`wa-code:${MUM}`));
+    const msg = { phone: MUM.slice(1), text: "pickup code for Kola please", id: `wamid.test-${Date.now()}` };
+    await handleInbound(db, msg);
+    await handleInbound(db, msg);
+    const after = (await db.from("pickup_codes").select("id").eq("school_id", ids2.school)).data!.length;
+    expect(after - before).toBe(1);
+  });
+});
