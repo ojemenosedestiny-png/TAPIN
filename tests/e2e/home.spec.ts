@@ -36,10 +36,9 @@ test.describe("public website", () => {
   test("pricing: a school chooses a plan and orders; without online payment it gets an invoice", async ({ page }, info) => {
     test.skip(info.project.name !== "laptop", "writes one row per run");
     const school = `E2E Order School ${Date.now()}`;
-    await page.goto("/pricing?plan=starter");
+    // Plans come from the super admin's Pricing page; with none switched on, the order is a quote request.
+    await page.goto("/pricing");
     await expect(page.getByRole("heading", { level: 1, name: "Pricing and payments" })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /^Starter/ })).toHaveAttribute("aria-checked", "true");
-    await page.getByRole("radio", { name: /^Standard/ }).click();
     await page.getByRole("radio", { name: /USSD/ }).click();
     const form = page.locator("#school-order");
     await form.getByLabel("School name").fill(school);
@@ -51,7 +50,8 @@ test.describe("public website", () => {
     await expect(page.getByRole("heading", { name: "Order received" })).toBeVisible();
     const db = service();
     const { data } = await db.from("orders").select("plan, students, method, status").eq("school_name", school).single();
-    expect(data).toMatchObject({ plan: "standard", students: 120, method: "ussd" });
+    expect(data).toMatchObject({ students: 120, method: "ussd" });
+    expect(data!.plan.length).toBeGreaterThan(0); // the plan that fits 120 students, or "To be agreed"
     await db.from("orders").delete().eq("school_name", school);
   });
 

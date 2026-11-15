@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { PRICING_TAG } from "@/lib/pricing-data";
 import { z } from "zod";
 import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -37,6 +38,7 @@ export async function saveItem(_prev: ActionState, fd: FormData): Promise<Action
   if (error) return { errors: { _form: "Could not save. Please try again." } };
   await writeAudit({ schoolId: null, actorId: user.id, action: id ? "pricing.item_edit" : "pricing.item_add", entity: "price_items", entityId: id, details: row });
   revalidatePath("/platform/pricing");
+  updateTag(PRICING_TAG); // the public website shows the change straight away
   return { ok: id ? "Saved." : `${v.name} added.` };
 }
 
@@ -72,6 +74,7 @@ export async function savePlan(_prev: ActionState, fd: FormData): Promise<Action
   }
   await writeAudit({ schoolId: null, actorId: user.id, action: id ? "pricing.plan_edit" : "pricing.plan_add", entity: "subscription_plans", entityId: id, details: row });
   revalidatePath("/platform/pricing");
+  updateTag(PRICING_TAG); // the public website shows the change straight away
   return { ok: id ? "Saved. Schools on this plan keep their agreed price." : `${v.name} added.` };
 }
 
@@ -92,6 +95,7 @@ export async function moveRow(_prev: ActionState, fd: FormData): Promise<ActionS
   [list[i], list[j]] = [list[j]!, list[i]!];
   await Promise.all(list.map((r, k) => (r.sort === k + 1 ? null : db.from(table).update({ sort: k + 1 }).eq("id", r.id))));
   revalidatePath("/platform/pricing");
+  updateTag(PRICING_TAG); // the public website shows the change straight away
   return {};
 }
 
@@ -107,5 +111,6 @@ export async function saveAnnualDiscount(_prev: ActionState, fd: FormData): Prom
   if (error) return { errors: { _form: "Could not save." } };
   await writeAudit({ schoolId: null, actorId: user.id, action: "pricing.annual", entity: "platform_settings", entityId: null, details: parsed.data });
   revalidatePath("/platform/pricing");
+  updateTag(PRICING_TAG); // the public website shows the change straight away
   return { ok: parsed.data.annual_free_months ? `Paying yearly: ${parsed.data.annual_free_months} month${parsed.data.annual_free_months === 1 ? "" : "s"} free.` : "No yearly discount." };
 }

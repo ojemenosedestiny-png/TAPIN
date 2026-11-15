@@ -1,43 +1,51 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_PRICING, pricingFrom, pricePerStudent, quoteFor, type Plan } from "@/lib/pricing";
+import { DEFAULT_PRICING, periodPrice, pricingFrom, quoteFor, webPlanFor, type PlanRowIn } from "@/lib/pricing";
 import { initializePayment, newReference, validWebhookHash, verifyPayment } from "@/lib/flutterwave";
 
-const cfg = {
-  ...DEFAULT_PRICING,
-  plans: [
-    { id: "starter", name: "Starter", blurb: "", termPrice: 1000, features: [] },
-    { id: "standard", name: "Standard", blurb: "", termPrice: 1500, features: [] },
-    { id: "campus", name: "Campus", blurb: "", termPrice: null, custom: true, features: [] },
-  ] as Plan[],
-  yearlyDiscountPct: 10,
-  setupFee: 50000,
-};
+const rows: PlanRowIn[] = [
+  { id: "p1", name: "Starter", min_students: 0, max_students: 300, monthly_price: "40000.00", features: ["1 kiosk"], active: true, sort: 1 },
+  { id: "p2", name: "Standard", min_students: 301, max_students: 800, monthly_price: 75000, features: null, active: true, sort: 2 },
+  { id: "p3", name: "Premium", min_students: 801, max_students: null, monthly_price: 0, features: [], active: true, sort: 3 },
+  { id: "p4", name: "Old plan", min_students: 0, max_students: null, monthly_price: 1, features: [], active: false, sort: 0 },
+];
+const items = [
+  { name: "Kiosk", unit: "each", unit_price: "150000", description: null, active: true },
+  { name: "Wristband", unit: "each", unit_price: 0, description: null, active: true },
+  { name: "Old card", unit: "each", unit_price: 900, description: null, active: false },
+];
+const cfg = pricingFrom(rows, items, { annual_free_months: 2, live_within_days: 7, phone: "+234 803 000 0000", email: null, whatsapp: "2348030000000" });
 
-describe("plan prices", () => {
-  it("charges per student per term, plus the one-time setup", () => {
-    expect(quoteFor("standard", "term", 400, cfg)).toEqual({ perStudent: 1500, subtotal: 600000, setup: 50000, total: 650000 });
+describe("website plans", () => {
+  it("shows only active plans, in order, with ranges; ₦0 means price on request", () => {
+    expect(cfg.plans.map((p) => [p.name, p.range, p.monthlyPrice])).toEqual([
+      ["Starter", "0–300 students", 40000], ["Standard", "301–800 students", 75000], ["Premium", "801+ students", null],
+    ]);
+    expect(cfg.plans.map((p) => !!p.popular)).toEqual([false, true, false]);
   });
-  it("a year is three terms, less the yearly saving", () => {
-    expect(pricePerStudent(cfg.plans[0]!, "year", 10)).toBe(2700);
-    expect(quoteFor("starter", "year", 100, cfg)?.total).toBe(270000 + 50000);
+  it("lists only active setup items with a price", () => {
+    expect(cfg.setup).toEqual([{ name: "Kiosk", unit: "each", price: 150000, description: null }]);
+    expect(cfg).toMatchObject({ annualFreeMonths: 2, liveWithinDays: 7, contact: { whatsapp: "2348030000000" } });
   });
-  it("campus and unpriced plans need a quote, and nonsense student counts give nothing", () => {
-    expect(quoteFor("campus", "term", 400, cfg)).toBeNull();
-    expect(quoteFor("standard", "term", 0, cfg)).toBeNull();
-    expect(quoteFor("standard", "term", 12.5, cfg)).toBeNull();
-    expect(quoteFor("standard", "term", 100, { ...cfg, plans: cfg.plans.map((p) => ({ ...p, termPrice: null })) })).toBeNull();
+  it("the plan follows the school's size", () => {
+    expect(webPlanFor(cfg, 120)?.name).toBe("Starter");
+    expect(webPlanFor(cfg, 301)?.name).toBe("Standard");
+    expect(webPlanFor(cfg, 5000)?.name).toBe("Premium");
+  });
+  it("due today is the first month, or a year less the free months", () => {
+    expect(quoteFor("p2", "monthly", 400, cfg)?.due).toBe(75000);
+    expect(quoteFor("p1", "annual", 100, cfg)?.due).toBe(400000);
+    expect(periodPrice(cfg.plans[0]!, "annual", 0)).toBe(480000);
+  });
+  it("needs a quote for unpriced plans, wrong sizes, nonsense counts, or yearly when not offered", () => {
+    expect(quoteFor("p3", "monthly", 900, cfg)).toBeNull();
+    expect(quoteFor("p1", "monthly", 500, cfg)).toBeNull();
+    expect(quoteFor("p1", "monthly", 0, cfg)).toBeNull();
+    expect(quoteFor("p1", "monthly", 12.5, cfg)).toBeNull();
+    expect(quoteFor("p1", "annual", 100, { ...cfg, annualFreeMonths: 0 })).toBeNull();
   });
   it("shows no made-up prices until the super admin sets them", () => {
-    expect(DEFAULT_PRICING.plans.map((p) => p.termPrice)).toEqual([null, null, null]);
-    expect(DEFAULT_PRICING.setupFee).toBeNull();
-  });
-  it("builds the website's prices from the saved settings", () => {
-    const p = pricingFrom({ starter_price: "1200.00", standard_price: 1800, web_setup_fee: "0", yearly_discount_pct: "10", live_within_days: 7, phone: "+234 803 000 0000", email: null, whatsapp: "2348030000000" });
-    expect(p.plans.map((x) => x.termPrice)).toEqual([1200, 1800, null]);
-    expect(p).toMatchObject({ setupFee: 0, yearlyDiscountPct: 10, liveWithinDays: 7, contact: { phone: "+234 803 000 0000", email: null, whatsapp: "2348030000000" } });
-  });
-  it("offers no yearly price unless a yearly saving is set", () => {
-    expect(quoteFor("standard", "year", 10, { ...cfg, yearlyDiscountPct: null })).toBeNull();
+    expect(DEFAULT_PRICING.plans).toEqual([]);
+    expect(DEFAULT_PRICING.setup).toEqual([]);
   });
 });
 

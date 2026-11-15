@@ -202,21 +202,26 @@ export default async function Home() {
       <section className="wrap section" style={{ gap: 48, paddingBottom: 112 }} aria-labelledby="price-h">
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }} data-reveal>
           <p className="eyebrow">Pricing</p>
-          <h2 id="price-h" className="big" style={{ maxWidth: 680 }}>Simple plans. Priced per student, per term.</h2>
+          <h2 id="price-h" className="big" style={{ maxWidth: 680 }}>Simple monthly plans, by school size.</h2>
         </div>
+        {plans.length === 0 && (
+          <div style={{ display: "flex", justifyContent: "center" }} data-reveal>
+            <Link href="/pricing" className="btn btn-gold">Ask for a quote</Link>
+          </div>
+        )}
         <div className="grid3" style={{ alignItems: "stretch" }}>
           {plans.map((p, i) => (
             <div key={p.id} className={`plan${p.popular ? " featured" : ""}`} data-reveal style={d(i)}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <p className="name">{p.name}</p>{p.popular && <p className="popular">Most popular</p>}
               </div>
-              <p className="blurb">{p.blurb}</p>
+              <p className="blurb">For {p.range}</p>
               <p className="price">
-                {p.custom ? "Custom" : p.termPrice === null ? "Price on request" : <>{naira(p.termPrice)}<small> / student / term</small></>}
+                {p.monthlyPrice === null ? "Price on request" : <>{naira(p.monthlyPrice)}<small> / month</small></>}
               </p>
               <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-              <Link href={p.custom ? "/#demo" : `/pricing?plan=${p.id}`} className={`btn ${p.popular ? "btn-gold" : "btn-line"}`} style={{ marginTop: "auto", padding: "14px 20px" }}>
-                {p.custom ? "Talk to us" : `Choose ${p.name}`}
+              <Link href={`/pricing?plan=${p.id}`} className={`btn ${p.popular ? "btn-gold" : "btn-line"}`} style={{ marginTop: "auto", padding: "14px 20px" }}>
+                {`Choose ${p.name}`}
               </Link>
             </div>
           ))}

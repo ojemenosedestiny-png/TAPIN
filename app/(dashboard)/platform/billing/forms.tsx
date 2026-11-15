@@ -120,9 +120,9 @@ export function OrderStatusButtons({ id }: { id: string }) {
   );
 }
 
-type WebPrices = { starter_price: number | null; standard_price: number | null; web_setup_fee: number | null; yearly_discount_pct: number | null; live_within_days: number | null; whatsapp: string | null };
+type WebPrices = { live_within_days: number | null; whatsapp: string | null };
 
-/** What the public website shows on its pricing page. Empty = not shown ("Price on request"). */
+/** Website details. The plans and prices the website shows come from the Pricing page. */
 export function WebsitePricesForm({ prices }: { prices: WebPrices }) {
   const [state, action, pending] = useActionState(saveWebsitePrices, {});
   useActionFeedback(state);
@@ -131,18 +131,12 @@ export function WebsitePricesForm({ prices }: { prices: WebPrices }) {
   return (
     <form action={action} className="space-y-4" noValidate>
       <FormError state={state} />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field name="starter_price" label="Starter (₦ per student, per term)" type="number" min={0} step="0.01" defaultValue={v(prices.starter_price)} placeholder="Price on request" error={e.starter_price} />
-        <Field name="standard_price" label="Standard (₦ per student, per term)" type="number" min={0} step="0.01" defaultValue={v(prices.standard_price)} placeholder="Price on request" error={e.standard_price} />
-        <Field name="web_setup_fee" label="Setup fee (₦, one time)" type="number" min={0} step="0.01" defaultValue={v(prices.web_setup_fee)} placeholder="Not shown" hint="0 shows the setup as free." error={e.web_setup_fee} />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field name="yearly_discount_pct" label="Yearly saving (%)" type="number" min={0} max={99} step="0.5" defaultValue={v(prices.yearly_discount_pct)} placeholder="No yearly option" hint="Paying for 3 terms at once." error={e.yearly_discount_pct} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field name="live_within_days" label="Live within (days)" type="number" min={1} max={365} defaultValue={v(prices.live_within_days)} placeholder="Not shown" hint="Used in the FAQ." error={e.live_within_days} />
         <Field name="whatsapp" label="WhatsApp number" type="tel" defaultValue={prices.whatsapp ? `+${prices.whatsapp}` : ""} placeholder="0803 123 4567" hint="Shows a 'Chat on WhatsApp' button." error={e.whatsapp} />
       </div>
-      <p className="text-xs text-muted-foreground">Campus is always &ldquo;Custom&rdquo;. Your phone and email below also appear in the website footer.</p>
-      <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save website prices"}</Button>
+      <p className="text-xs text-muted-foreground">Plans and prices on the website come from the <a href="/platform/pricing" className="text-brand hover:underline">Pricing</a> page. Your phone and email below also appear in the website footer.</p>
+      <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save website details"}</Button>
     </form>
   );
 }

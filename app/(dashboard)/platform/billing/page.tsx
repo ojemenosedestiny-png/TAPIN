@@ -152,7 +152,7 @@ export default async function BillingPage() {
                 <tr key={o.id} className="border-t border-border align-top">
                   <td className="px-5 py-2.5"><span className="font-medium text-ink">{o.school_name}</span><span className="block text-xs text-muted-foreground">{o.state} · {o.students.toLocaleString()} students · {o.reference}</span></td>
                   <td className="px-3 py-2.5">{o.contact_name}<span className="block text-xs"><a href={`tel:${o.phone}`} className="text-brand hover:underline">{formatNgPhone(o.phone)}</a> · <a href={`mailto:${o.email}`} className="text-brand hover:underline">{o.email}</a></span></td>
-                  <td className="px-3 py-2.5 capitalize">{o.plan} <span className="text-xs text-muted-foreground">per {o.billing} · {o.method}</span></td>
+                  <td className="px-3 py-2.5 capitalize">{o.plan} <span className="text-xs text-muted-foreground">{o.billing === "monthly" ? "monthly" : o.billing === "annual" ? "yearly" : `per ${o.billing}`} · {o.method}</span></td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{o.amount === null ? "Quote" : naira(Number(o.amount))}</td>
                   <td className="px-3 py-2.5"><StatusPill tone={o.status === "paid" ? "green" : o.status === "cancelled" || o.status === "failed" ? "slate" : "amber"}>{o.status === "quote" ? "Wants a quote" : o.status[0]!.toUpperCase() + o.status.slice(1)}</StatusPill></td>
                   <td className="px-5 py-2.5 text-right">{(o.status === "pending" || o.status === "quote") && <OrderStatusButtons id={o.id} />}</td>
@@ -191,15 +191,11 @@ export default async function BillingPage() {
 
       <section className="motion-rise mt-6 max-w-3xl surface rounded-xl p-6" aria-labelledby="web-prices">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="web-prices" className="text-base font-semibold text-ink">Website prices</h2>
+          <h2 id="web-prices" className="text-base font-semibold text-ink">Website details</h2>
           <a href="/pricing" target="_blank" rel="noreferrer" className="text-sm font-medium text-brand hover:underline">Open the pricing page</a>
         </div>
         {settings && (
           <WebsitePricesForm prices={{
-            starter_price: settings.starter_price === null ? null : Number(settings.starter_price),
-            standard_price: settings.standard_price === null ? null : Number(settings.standard_price),
-            web_setup_fee: settings.web_setup_fee === null ? null : Number(settings.web_setup_fee),
-            yearly_discount_pct: settings.yearly_discount_pct === null ? null : Number(settings.yearly_discount_pct),
             live_within_days: settings.live_within_days,
             whatsapp: settings.whatsapp,
           }} />

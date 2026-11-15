@@ -131,14 +131,8 @@ export async function setOrderStatus(_prev: ActionState, formData: FormData): Pr
   return { ok: status === "paid" ? "Order marked paid." : "Order cancelled." };
 }
 
-const optionalMoney = (msg: string) =>
-  z.union([z.literal(""), z.coerce.number().min(0, msg).max(10_000_000, msg)]).optional().transform((v) => (v === "" || v === undefined ? null : v));
 
 const webPricesSchema = z.object({
-  starter_price: optionalMoney("Enter an amount, or leave it empty."),
-  standard_price: optionalMoney("Enter an amount, or leave it empty."),
-  web_setup_fee: optionalMoney("Enter an amount (0 for free), or leave it empty."),
-  yearly_discount_pct: z.union([z.literal(""), z.coerce.number().min(0, "0 to 99.").max(99, "0 to 99.")]).optional().transform((v) => (v === "" || v === undefined ? null : v)),
   live_within_days: z.union([z.literal(""), z.coerce.number().int("Whole days.").min(1, "1 to 365.").max(365, "1 to 365.")]).optional().transform((v) => (v === "" || v === undefined ? null : v)),
   whatsapp: z.string().trim().optional().transform((v, ctx) => {
     if (!v) return null;
@@ -146,17 +140,17 @@ const webPricesSchema = z.object({
     if (!p) { ctx.addIssue({ code: "custom", message: "Enter a Nigerian mobile number, like 0803 123 4567." }); return z.NEVER; }
     return p.replace("+", "");
   }),
-}).refine((v) => !(v.starter_price === 0 || v.standard_price === 0), { message: "A plan price can't be 0. Leave it empty to show \"Price on request\".", path: ["_form"] });
+});
 
-/** The prices shown on the public website. Empty fields are left off the site. */
+/** Website details (the prices themselves are on the Pricing page). Empty fields are left off the site. */
 export async function saveWebsitePrices(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireArea("platform");
   const parsed = webPricesSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
   const { error } = await createAdminClient().from("platform_settings").update(parsed.data).eq("id", true);
-  if (error) return { errors: { _form: "Could not save the website prices." } };
+  if (error) return { errors: { _form: "Could not save the website details." } };
   await writeAudit({ schoolId: null, actorId: user.id, action: "billing.website_prices", entity: "platform_settings", details: parsed.data });
   updateTag(PRICING_TAG); // the website shows the new prices straight away
   revalidatePath("/platform/billing");
-  return { ok: "Website prices saved. The website shows them now." };
+  return { ok: "Website details saved. The website shows them now." };
 }
