@@ -8,6 +8,8 @@ import { formatNgPhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BACKUP_BUCKET, backupIsStale } from "@/lib/backup";
 import { DatabaseBackup } from "lucide-react";
+import { subscriptionStatus } from "@/lib/subscriptions";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Schools" };
 
@@ -15,13 +17,16 @@ export default async function PlatformPage() {
   await requireArea("platform");
   const supabase = await createClient(); // RLS: super admin can read schools, users and devices — not students
 
-  const [{ data: schools }, { data: users }, { data: devices }, { data: demos }, { data: plans }] = await Promise.all([
+  const [{ data: schools }, { data: users }, { data: devices }, { data: demos }, { data: plans }, { data: subs }] = await Promise.all([
     supabase.from("schools").select("id, name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, created_at").order("name"),
     supabase.from("users").select("school_id, role"),
     supabase.from("devices").select("school_id, last_seen, revoked_at"),
     supabase.from("demo_requests").select("id, name, school, phone, pupils, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
     supabase.from("schools").select("id, plan"), // separate, so a database without plans still lists schools
+    supabase.from("subscriptions").select("school_id, renews_on, suspended"),
   ]);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+  const subStatus = new Map(((subs ?? []) as { school_id: string; renews_on: string; suspended: boolean }[]).map((x) => [x.school_id, subscriptionStatus(x.renews_on, x.suspended, today)]));
   const planOf = new Map(((plans ?? []) as { id: string; plan: string }[]).map((p) => [p.id, p.plan]));
 
   const list = schools ?? [];
@@ -54,8 +59,10 @@ export default async function PlatformPage() {
             </thead>
             <tbody>
               {list.map((s) => (
-                <tr key={s.id} className="border-t border-border">
-                  <td className="px-4 py-3 font-medium text-ink">{s.name}{planOf.get(s.id) === "premium" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-900">Premium</span>}</td>
+                <tr key={s.id} className={`border-t border-border ${subStatus.get(s.id) === "overdue" ? "bg-red-50/60" : ""}`}>
+                  <td className="px-4 py-3 font-medium text-ink">{s.name}{planOf.get(s.id) === "premium" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-900">Premium</span>}
+                    {subStatus.get(s.id) === "overdue" && <Link href="/platform/subscriptions" className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-800 hover:underline">Overdue</Link>}
+                    {subStatus.get(s.id) === "due" && <Link href="/platform/subscriptions" className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-900 hover:underline">Renews soon</Link>}</td>
                   <td className="px-4 py-3 text-muted-foreground">{s.resumption_time.slice(0, 5)}–{s.closing_time.slice(0, 5)}</td>
                   <td className="px-4 py-3">{count(s.id, "school_admin")}</td>
                   <td className="px-4 py-3">{count(s.id, "teacher")}</td>

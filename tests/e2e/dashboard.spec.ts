@@ -99,6 +99,18 @@ test.describe("super admin billing", () => {
     await page.getByRole("row").filter({ hasText: f.schoolName }).filter({ hasText: "₦2,500.00" }).filter({ hasText: "Unpaid" }).getByRole("button", { name: "Mark paid" }).click();
     await expect(page.getByText(/marked paid/)).toBeVisible();
     await expect(page.getByRole("row").filter({ hasText: f.schoolName }).filter({ hasText: "Paid" })).toBeVisible();
+
+    // Feature 7 pages (read only: real prices are never changed by a test).
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Pricing", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Pricing" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Monthly plans" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Price history" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Quotes", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Quotes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Saved quotes" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Subscriptions", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Subscriptions" })).toBeVisible();
+    await expect(page.getByRole("row").filter({ hasText: f.schoolName }).getByText("No plan")).toBeVisible();
   });
 });
 

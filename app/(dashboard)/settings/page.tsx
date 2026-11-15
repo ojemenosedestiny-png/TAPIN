@@ -26,13 +26,15 @@ export default async function SettingsPage() {
     .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url, handover_enabled, late_pickup_minutes").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
-  const [{ data: team }, { data: holidays }, { data: invoices }, { data: links }, { data: staffList }] = await Promise.all([
+  const [{ data: team }, { data: holidays }, { data: invoices }, { data: links }, { data: staffList }, { data: mySub }] = await Promise.all([
     supabase.from("users").select("id, name, email, role").eq("school_id", user.schoolId).order("role").order("name"),
     supabase.from("school_calendar").select("date, note").eq("is_holiday", true).gte("date", today).order("date").limit(60),
     supabase.from("invoices").select("id, number, period, total, status").order("period", { ascending: false }).limit(12),
     supabase.from("users").select("id, staff_id").eq("school_id", user.schoolId),
     supabase.from("staff").select("id, name").eq("status", "active").order("name"),
+    supabase.rpc("my_subscription"), // plan name, renewal date and status only: never a price
   ]);
+  const plan = ((mySub ?? []) as { plan_name: string; renews_on: string; status: string }[])[0] ?? null;
   const staffOf = new Map(((links ?? []) as { id: string; staff_id: string | null }[]).map((l) => [l.id, l.staff_id]));
   const logo = school.logo_url ? (await signPhotos(supabase, [school.logo_url])).get(school.logo_url) ?? null : null;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
@@ -89,6 +91,22 @@ export default async function SettingsPage() {
             <Link href="/help/consent-form" className="font-medium text-brand hover:underline">Printable consent form</Link>
           </p>
         </section>
+
+        {plan && (
+          <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="your-plan">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id="your-plan" className="text-lg font-semibold text-ink">Your plan</h2>
+                <p className="mt-1 text-sm text-muted-foreground"><span className="font-medium text-ink">{plan.plan_name}</span> · renews {fmt(plan.renews_on)}</p>
+              </div>
+              {plan.status === "overdue" ? <StatusPill tone="red">Renewal overdue</StatusPill>
+                : plan.status === "due" ? <StatusPill tone="amber">Renews soon</StatusPill>
+                : plan.status === "suspended" ? <StatusPill tone="slate">Suspended</StatusPill>
+                : <StatusPill tone="green">Active</StatusPill>}
+            </div>
+            {(plan.status === "overdue" || plan.status === "suspended") && <p className="mt-3 text-sm text-muted-foreground">Please contact TapIn to renew.</p>}
+          </section>
+        )}
 
         {(invoices ?? []).length > 0 && (
           <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="billing">
