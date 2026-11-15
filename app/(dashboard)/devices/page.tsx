@@ -8,7 +8,8 @@ import { StatusPill, type PillTone } from "@/components/dashboard/status-pill";
 import { ConfirmAction } from "@/components/forms/confirm-action";
 import { Button } from "@/components/ui/button";
 import { RegisterDevice } from "./register-device";
-import { revokeDevice } from "./actions";
+import { revokeDevice, unlockCodeEntry } from "./actions";
+import { codeLockedNow } from "@/lib/handover";
 
 export const metadata: Metadata = { title: "Devices" };
 
@@ -22,7 +23,7 @@ const STATUS: Record<DeviceStatus, [PillTone, string]> = {
 export default async function DevicesPage() {
   await requireSchoolArea("devices");
   const supabase = await createClient();
-  const { data: devices } = await supabase.from("devices").select("id, name, last_seen, revoked_at, created_at").order("revoked_at", { nullsFirst: true }).order("name");
+  const { data: devices } = await supabase.from("devices").select("id, name, last_seen, revoked_at, created_at, code_locked_until").order("revoked_at", { nullsFirst: true }).order("name");
 
   return (
     <>
@@ -52,6 +53,14 @@ export default async function DevicesPage() {
                   </div>
                   <StatusPill tone={tone}>{label}</StatusPill>
                 </div>
+                {!d.revoked_at && d.code_locked_until && codeLockedNow(d.code_locked_until) && (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <span>Pickup code entry locked until {new Date(d.code_locked_until).toLocaleTimeString("en-NG", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" })} after 5 wrong codes.</span>
+                    <ConfirmAction action={unlockCodeEntry} fields={{ id: d.id }} title={`Unlock pickup codes on ${d.name}?`} destructive={false}
+                      description="Only unlock once you've checked who was trying codes. Five more wrong codes lock it again."
+                      confirmLabel="Unlock" trigger={<Button variant="outline" size="sm">Unlock</Button>} />
+                  </div>
+                )}
                 {!d.revoked_at && (
                   <div className="mt-4 flex justify-end">
                     <ConfirmAction action={revokeDevice} fields={{ id: d.id }} title={`Revoke ${d.name}?`}

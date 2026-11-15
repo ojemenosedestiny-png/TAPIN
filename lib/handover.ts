@@ -78,3 +78,8 @@ export function refusedNotice(o: { picker: string; child: string; place: string;
 export function noParentNotice(o: { child: string; className: string | null; time: string }): string {
   return `${o.child}${o.className ? ` (${o.className})` : ""} signed in at ${o.time}, but no parent tapped to hand them over.`;
 }
+
+/** Is pickup code entry locked on a kiosk right now? (For pages: reads the clock here, not while rendering.) */
+export function codeLockedNow(lockedUntil: string | null | undefined): boolean {
+  return codeLocked(lockedUntil, new Date());
+}

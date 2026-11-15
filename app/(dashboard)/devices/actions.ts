@@ -19,3 +19,16 @@ export async function revokeDevice(_prev: ActionState, formData: FormData): Prom
   revalidatePath("/devices");
   return { ok: `${data.name} revoked. Its token no longer works.` };
 }
+
+/** Re-opens pickup code entry on a kiosk that locked itself after five wrong codes. */
+export async function unlockCodeEntry(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("devices");
+  const id = idSchema.safeParse(formData.get("id"));
+  if (!id.success) return { errors: { _form: "Invalid device." } };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("devices").update({ code_locked_until: null, code_failures: 0 }).eq("id", id.data).select("id, name").maybeSingle();
+  if (error || !data) return { errors: { _form: "Could not unlock this kiosk." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "device.unlock_codes", entity: "devices", entityId: data.id, details: { name: data.name } });
+  revalidatePath("/devices");
+  return { ok: `Pickup codes work again on ${data.name}.` };
+}

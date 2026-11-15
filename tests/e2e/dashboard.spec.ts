@@ -248,3 +248,35 @@ test.describe("today and reports", () => {
     expect(file.suggestedFilename()).toMatch(/^tapin-attendance-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 });
+
+test.describe("drop-off, pickup and parent requests", () => {
+  test.use({ storageState: ADMIN_STATE });
+  test("Today shows who dropped a child off, and the office approves an early pickup request", async ({ page }, info) => {
+    test.skip(info.project.name !== "laptop", "writes data once per run");
+    const { createClient } = await import("@supabase/supabase-js");
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    const f = fixture();
+    const [child, other] = f.students;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+    const now = new Date();
+    // A parent handed one child over this morning, and asked by WhatsApp to collect the other early.
+    const { data: parent } = await db.from("pickup_people").insert({ school_id: f.schoolId, name: "Ngozi Handover", relationship: "Parent", status: "active" }).select("id").single();
+    await db.from("attendance").upsert({ school_id: f.schoolId, holder_type: "student", holder_id: child!.id, date: today, sign_in_at: now.toISOString() }, { onConflict: "holder_type,holder_id,date", ignoreDuplicates: true });
+    await db.from("handovers").insert({ school_id: f.schoolId, kind: "drop_off", status: "matched", date: today, student_id: child!.id, person_id: parent!.id, started_at: now.toISOString(), expires_at: new Date(now.getTime() + 120_000).toISOString(), completed_at: now.toISOString() });
+    await db.from("early_pickup_requests").insert({ school_id: f.schoolId, student_id: other!.id, date: today, at_time: "12:30", note: "Dentist appointment", status: "pending" });
+
+    await page.goto("/today");
+    await expect(page.getByRole("heading", { name: "Drop-off and pickup" })).toBeVisible();
+    await expect(page.getByText("by Ngozi Handover")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Needs action/ })).toBeVisible();
+    await expect(page.getByText(`Early pickup: ${other!.name} at 12:30 PM`)).toBeVisible();
+
+    await page.getByRole("button", { name: `Approve early pickup for ${other!.name.split(" ")[0]}` }).click();
+    await expect(page.getByText(/may leave early at 12:30 PM today/)).toBeVisible();
+    await expect.poll(async () => (await db.from("early_releases").select("reason").eq("holder_id", other!.id).eq("date", today).maybeSingle()).data?.reason, { timeout: 15_000 })
+      .toBe("Parent collecting at 12:30 PM (requested by WhatsApp)");
+    const { data: req } = await db.from("early_pickup_requests").select("status").eq("student_id", other!.id).eq("date", today).single();
+    expect(req?.status).toBe("approved");
+    await expect(page.getByText(`Early pickup: ${other!.name} at 12:30 PM`)).toBeHidden();
+  });
+});

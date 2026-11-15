@@ -14,6 +14,7 @@ import { SetupBanner, SetupChecklist } from "@/components/dashboard/setup-checkl
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { PersonAvatar } from "@/components/dashboard/person-avatar";
 import { AttendancePill } from "@/components/dashboard/status-pill";
+import { HandoverBoard, NeedsAction, loadHandoverData } from "./handover";
 import {
   ArrivalsChart, BlockHeading, ClassBars, GateFeed, KpiStrip, LiveDot, type ClassRow, type FeedItem, type Kpi,
 } from "@/components/dashboard/today-blocks";
@@ -28,7 +29,7 @@ export default async function TodayPage() {
   const supabase = await createClient();
 
   const { data: school } = await supabase
-    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time").eq("id", user.schoolId).single();
+    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, handover_enabled").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const tz = school.timezone;
   const now = new Date();
@@ -158,6 +159,7 @@ export default async function TodayPage() {
   ];
   if (isAdmin) kpis.push({ label: "Staff in", value: staffIn.count ?? 0, of: staffTotal.count ?? 0, caption: "Signed in at the gate" });
 
+  const handover = isAdmin ? await loadHandoverData(supabase, { today, tz, closing: school.closing_time }) : null;
   const buckets = bucketArrivals(arrivals.map((a) => localTime(a.sign_in_at, tz)), hhmm(school.resumption_time));
 
   return (
@@ -190,10 +192,13 @@ export default async function TodayPage() {
             </div>
             {classRows.length ? <ClassBars rows={classRows} /> : <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">{isAdmin ? "No classes yet." : "You aren't class teacher of any class yet. Ask your school admin."}</p>}
           </section>
+
+          {handover && <HandoverBoard data={handover} tz={tz} enabled={!!school.handover_enabled} />}
         </div>
 
         {/* Rail */}
         <div className="space-y-6">
+          {handover && <NeedsAction data={handover} tz={tz} />}
           <section aria-labelledby="feed" className="motion-rise" style={{ "--d": "120ms" } as React.CSSProperties}>
             <BlockHeading title="At the gate" right={<LiveDot />} />
             <div className="overflow-hidden surface rounded-xl">
