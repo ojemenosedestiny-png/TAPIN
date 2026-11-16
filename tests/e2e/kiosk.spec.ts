@@ -1,3 +1,5 @@
+import { randomBytes, scryptSync } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { fixture } from "./fixture-data";
 
@@ -118,5 +120,34 @@ test.describe("kiosk", () => {
     await connectKiosk(page);
     const text = await page.locator("body").innerText();
     expect(text).not.toMatch(/\+234|0803|Chioma|David/);
+  });
+});
+
+test.describe("kiosk: staff check-in security", () => {
+  test("a staff card asks for the PIN; a wrong PIN is refused, the right one checks in", async ({ page }, info) => {
+    test.skip(info.project.name !== "laptop", "changes the school's settings once per run");
+    const f = fixture();
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    const uid = `5C${Date.now().toString(16).toUpperCase().slice(-8)}`;
+    const salt = randomBytes(16);
+    const { data: staff } = await db.from("staff").insert({ school_id: f.schoolId, name: "Grace Okon" }).select("id").single();
+    await db.from("cards").insert({ school_id: f.schoolId, uid, holder_type: "staff", holder_id: staff!.id });
+    await db.from("staff_pins").insert({ staff_id: staff!.id, school_id: f.schoolId, pin_hash: `scrypt$${salt.toString("hex")}$${scryptSync("4829", salt, 32).toString("hex")}` });
+    await db.from("schools").update({ staff_pin_required: true }).eq("id", f.schoolId);
+    try {
+      await connectKiosk(page);
+      await usbTap(page, uid);
+      const dialog = () => page.getByRole("dialog", { name: "Staff check-in" });
+      await expect(dialog()).toContainText("Grace");
+      await expect(dialog()).toContainText("Enter your 4-digit PIN");
+      for (const d of "1111") await dialog().getByRole("button", { name: d, exact: true }).click();
+      await dialog().getByRole("button", { name: "Check in" }).click();
+      await expect(dialog()).toContainText("Wrong PIN. 4 tries left.");
+      for (const d of "4829") await dialog().getByRole("button", { name: d, exact: true }).click();
+      await dialog().getByRole("button", { name: "Check in" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Grace Okon" })).toContainText(/Signed in/);
+    } finally {
+      await db.from("schools").update({ staff_pin_required: false }).eq("id", f.schoolId);
+    }
   });
 });

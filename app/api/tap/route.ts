@@ -16,16 +16,22 @@ import { handoverMode, type Transport } from "@/lib/handover";
 import { activeEmergency, emergencyCounts, markSafe } from "@/lib/emergency-server";
 import type { RollCounts } from "@/lib/emergency";
 import type { PickupChild } from "@/lib/pickup";
+import { staffGate, staffTapNotice } from "@/lib/staff-security-server";
+import { MAX_PHOTO_CHARS } from "@/lib/staff-security";
 import { decideStaffTap, directorLessonMessage, directorWantsLesson, lessonFlags, minutesBetween, type DirectorMode, type LessonFlag } from "@/lib/lessons";
 
 const bodySchema = z.object({
   uid: z.string().max(64),
   tapped_at: z.string().max(40).optional(), // ISO time of an offline tap
   client_id: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
+  // Staff check-in security: the person's PIN, and the kiosk's photo ("" = the camera wasn't available).
+  pin: z.string().max(8).optional(),
+  photo: z.string().max(MAX_PHOTO_CHARS).optional(),
 });
 
 export type TapAction = "signed_in" | "signed_out" | "duplicate" | "unknown" | "blocked" | "menu" | "lesson_started" | "lesson_ended" | "pickup" | "picked_up" | "not_authorised" | "safe"
-  | "handover" | "held" | "dropped_off" | "pickup_refused";
+  | "handover" | "held" | "dropped_off" | "pickup_refused"
+  | "staff_check" | "staff_refused";
 export type LessonChoice = { class_id: string; class_name: string; subject_id: string; subject_name: string };
 export type LessonOptions = { assignments: LessonChoice[]; classes: { id: string; name: string }[]; subjects: { id: string; name: string }[] };
 export type TapResponse = {
@@ -66,6 +72,9 @@ export type TapResponse = {
   spoken?: string;
   /** Emergency roll call: how many are safe so far. */
   counts?: RollCounts;
+  /** Staff check: tap again with the PIN and/or a photo. */
+  needs_pin?: boolean;
+  needs_photo?: boolean;
 };
 
 const PLAIN_RESULTS: readonly TapAction[] = ["signed_in", "signed_out", "duplicate", "unknown", "blocked"];
@@ -109,10 +118,13 @@ export async function POST(req: NextRequest) {
   }
 
   const uid = normaliseUid(parsed.data.uid);
+  // Set once a staff tap passes the school's check (PIN, photo): recorded on that person's taps.
+  let staffCheck: { pinChecked: boolean | null; photoPath: string | null } | null = null;
   const log = async (result: TapAction, extra: { holder_type?: string; holder_id?: string; late?: boolean } = {}): Promise<number | null> => {
+    const checked = extra.holder_type === "staff" && staffCheck ? { pin_checked: staffCheck.pinChecked, photo_path: staffCheck.photoPath } : {};
     const { data, error } = await db.from("tap_events").insert({
       school_id: school.id, device_id: device.id, uid: uid ?? parsed.data.uid.slice(0, 64), result,
-      tapped_at: tappedAt.toISOString(), client_id: parsed.data.client_id ?? null, ...extra,
+      tapped_at: tappedAt.toISOString(), client_id: parsed.data.client_id ?? null, ...extra, ...checked,
     }).select("id").single();
     // 23505 = the same offline tap raced in twice; the first one wins.
     if (error && error.code !== "23505") console.error("tap_events insert", error);
@@ -176,6 +188,22 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Staff check-in security (Settings): hours, then the person's PIN and a kiosk photo.
+  if (card.holder_type === "staff") {
+    const gate = await staffGate(db, device, {
+      staffId: card.holder_id, name: person.name, tappedAt, fresh: Date.now() - tappedAt.getTime() < 60_000,
+      pin: parsed.data.pin, photo: parsed.data.photo,
+    });
+    if (!gate.ok && gate.ask) {
+      return json({ action: "staff_check", name: person.name, first_name: person.firstName, photo_url: await photoFor(), class: "Staff", time, needs_pin: gate.needsPin, needs_photo: gate.needsPhoto, notice: gate.error });
+    }
+    if (!gate.ok) {
+      await log("staff_refused", { holder_type: "staff", holder_id: card.holder_id });
+      return json({ action: "staff_refused", name: person.name, first_name: person.firstName, photo_url: await photoFor(), class: "Staff", time, reason: gate.reason });
+    }
+    staffCheck = { pinChecked: gate.pinChecked, photoPath: gate.photoPath };
+  }
+
   // Teachers, when the school uses lessons: arrival, then Start lesson / Sign out, then the next tap ends the lesson.
   if (card.holder_type === "staff") {
     const { data: rules } = await db.from("lesson_settings").select("enabled, min_minutes, max_minutes, director_phone, director_alerts").eq("school_id", school.id).maybeSingle();
@@ -224,6 +252,10 @@ export async function POST(req: NextRequest) {
   const early = decision.kind === "sign_out" && decision.early;
   const releaseReason = "releaseReason" in decision ? decision.releaseReason : undefined;
   const tapEventId = await log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late });
+
+  if (card.holder_type === "staff" && (action === "signed_in" || action === "signed_out")) {
+    runAfter("staff notice", () => staffTapNotice(db, device, { staffId: card.holder_id, name: person.name, action, late, early, tappedAt }));
+  }
 
   // The school's own portal (if linked) marks the child in its class register too.
   if (card.holder_type === "student" && action === "signed_in" && tapEventId !== null && uid) {

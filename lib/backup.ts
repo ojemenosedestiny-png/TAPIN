@@ -10,6 +10,7 @@ export const BACKUP_TABLES = [
   { name: "guardians", order: "id" },
   { name: "student_guardians", order: "student_id" },
   { name: "staff", order: "id" },
+  { name: "staff_pins", order: "staff_id" },
   { name: "cards", order: "id" },
   { name: "devices", order: "id" },
   { name: "alert_settings", order: "school_id" },

@@ -104,3 +104,28 @@ export async function saveHandover(_prev: ActionState, formData: FormData): Prom
   revalidatePath("/settings");
   return { ok: parsed.data.handover_enabled ? "Parent handover is on at the gate." : "Parent handover is off: children tap in and out on their own." };
 }
+
+const hhmmOrEmpty = z.union([z.literal(""), z.string().regex(/^\d{2}:\d{2}$/, "Pick a time.")]).optional().transform((v) => v || null);
+const staffSecuritySchema = z.object({
+  staff_pin_required: z.boolean(),
+  staff_photo: z.boolean(),
+  staff_alerts: z.boolean(),
+  staff_from: hhmmOrEmpty,
+  staff_until: hhmmOrEmpty,
+}).refine((v) => (v.staff_from === null) === (v.staff_until === null), { message: "Set both times, or leave both empty.", path: ["staff_until"] });
+
+/** Staff check-in security: PIN after the card, a kiosk photo, alerts, and the hours staff may check in. */
+export async function saveStaffSecurity(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireSchoolArea("settings");
+  const parsed = staffSecuritySchema.safeParse({
+    staff_pin_required: formData.get("staff_pin_required") === "on", staff_photo: formData.get("staff_photo") === "on", staff_alerts: formData.get("staff_alerts") === "on",
+    staff_from: formData.get("staff_from") ?? "", staff_until: formData.get("staff_until") ?? "",
+  });
+  if (!parsed.success) return { errors: fieldErrors(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase.from("schools").update(parsed.data).eq("id", user.schoolId);
+  if (error) return { errors: { _form: "Could not save. Please try again." } };
+  await writeAudit({ schoolId: user.schoolId, actorId: user.id, action: "school.staff_security", entity: "schools", entityId: user.schoolId, details: parsed.data });
+  revalidatePath("/settings");
+  return { ok: "Staff check-in security saved. Kiosks use it from the next tap." };
+}

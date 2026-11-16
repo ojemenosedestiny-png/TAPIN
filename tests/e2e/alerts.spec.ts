@@ -36,10 +36,10 @@ test.describe("alerts and settings", () => {
     await expect(page.getByRole("heading", { name: "School calendar" })).toBeVisible();
 
     // Invalid: closing before resumption
-    await page.getByLabel("Closing").fill("07:00");
+    await page.getByLabel("Closing", { exact: true }).fill("07:00");
     await page.getByRole("button", { name: "Save school day" }).click();
     await expect(page.getByText("Closing time must be after resumption time.")).toBeVisible();
-    await page.getByLabel("Closing").fill("14:00");
+    await page.getByLabel("Closing", { exact: true }).fill("14:00");
     await page.getByRole("button", { name: "Save school day" }).click();
     await expect(page.getByText("School day saved.")).toBeVisible();
 
@@ -47,8 +47,8 @@ test.describe("alerts and settings", () => {
     const d = new Date();
     d.setUTCDate(d.getUTCDate() + 30);
     while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
-    await page.getByLabel("From").fill(d.toISOString().slice(0, 10));
-    await page.getByLabel("Note").fill("E2E holiday");
+    await page.getByLabel("From", { exact: true }).fill(d.toISOString().slice(0, 10));
+    await page.getByLabel("Note", { exact: true }).fill("E2E holiday");
     await page.getByRole("button", { name: "Add holiday" }).click();
     await expect(page.getByText("1 school day marked as holiday.")).toBeVisible();
     await expect(page.getByText("E2E holiday")).toBeVisible();

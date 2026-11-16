@@ -6,6 +6,7 @@ import { monthLabel, monthOf, shiftMonth } from "@/lib/teacher-report";
 import { createReportLink } from "@/lib/teacher-report-data";
 import { processOutbox } from "@/lib/alerts";
 import { sendRenewalReminders } from "@/lib/renewals";
+import { staffNoCheckoutNotices } from "@/lib/staff-security-server";
 
 export const maxDuration = 60;
 
@@ -41,5 +42,7 @@ export async function GET(req: NextRequest) {
   if (sent) await processOutbox(db, { limit: 50 });
   // Also daily: renewal reminders 7 days ahead (to the school admins, inside TapIn).
   const renewals = await sendRenewalReminders(db, localDate(new Date(), "Africa/Lagos")).catch(() => 0);
-  return NextResponse.json({ sent, renewals });
+  // And: staff who didn't check out yesterday (schools with staff alerts on).
+  const staffNotices = await staffNoCheckoutNotices(db, new Date()).catch(() => 0);
+  return NextResponse.json({ sent, renewals, staffNotices });
 }

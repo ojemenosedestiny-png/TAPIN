@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isCronRequest } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PHOTO_BUCKET } from "@/lib/photos";
+import { purgeOldStaffPhotos } from "@/lib/staff-security-server";
 
 export const maxDuration = 60;
 
@@ -28,5 +29,7 @@ export async function GET(req: NextRequest) {
     if (delErr) return NextResponse.json({ error: "Could not delete records." }, { status: 500 });
     deleted += (n as number) ?? 0;
   }
-  return NextResponse.json({ deleted });
+  // Kiosk photos of staff taps: kept 30 days.
+  const staffPhotos = await purgeOldStaffPhotos(db, new Date()).catch(() => 0);
+  return NextResponse.json({ deleted, staffPhotos });
 }

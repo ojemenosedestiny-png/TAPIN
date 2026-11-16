@@ -9,7 +9,7 @@ import { ConfirmAction } from "@/components/forms/confirm-action";
 import { Button } from "@/components/ui/button";
 import { TeamForm } from "./team-form";
 import { TeamMemberActions } from "./team-member";
-import { HandoverForm, HolidayForm, RetentionForm, SchoolDayForm } from "./school-forms";
+import { HandoverForm, HolidayForm, RetentionForm, SchoolDayForm, StaffSecurityForm } from "./school-forms";
 import { LogoUpload } from "./logo";
 import { PortalSection } from "./portal-section";
 import { signPhotos } from "@/lib/photos";
@@ -23,17 +23,20 @@ export default async function SettingsPage() {
   const user = await requireSchoolArea("settings");
   const supabase = await createClient();
   const { data: school } = await supabase
-    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url, handover_enabled, late_pickup_minutes").eq("id", user.schoolId).single();
+    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, retention_months, logo_url, handover_enabled, late_pickup_minutes, staff_pin_required, staff_photo, staff_alerts, staff_from, staff_until").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
   const today = localDate(new Date(), school.timezone);
-  const [{ data: team }, { data: holidays }, { data: invoices }, { data: links }, { data: staffList }, { data: mySub }] = await Promise.all([
+  const [{ data: team }, { data: holidays }, { data: invoices }, { data: links }, { data: staffList }, { data: mySub }, { data: pins }] = await Promise.all([
     supabase.from("users").select("id, name, email, role").eq("school_id", user.schoolId).order("role").order("name"),
     supabase.from("school_calendar").select("date, note").eq("is_holiday", true).gte("date", today).order("date").limit(60),
     supabase.from("invoices").select("id, number, period, total, status").order("period", { ascending: false }).limit(12),
     supabase.from("users").select("id, staff_id").eq("school_id", user.schoolId),
     supabase.from("staff").select("id, name").eq("status", "active").order("name"),
     supabase.rpc("my_subscription"), // plan name, renewal date and status only: never a price
+    supabase.rpc("staff_pin_status"), // who has a PIN: never the PIN
   ]);
+  const withPin = new Set(((pins ?? []) as { staff_id: string }[]).map((p) => p.staff_id));
+  const staffWithoutPin = (staffList ?? []).filter((s) => !withPin.has(s.id)).length;
   const plan = ((mySub ?? []) as { plan_name: string; renews_on: string; status: string }[])[0] ?? null;
   const staffOf = new Map(((links ?? []) as { id: string; staff_id: string | null }[]).map((l) => [l.id, l.staff_id]));
   const logo = school.logo_url ? (await signPhotos(supabase, [school.logo_url])).get(school.logo_url) ?? null : null;
@@ -74,6 +77,12 @@ export default async function SettingsPage() {
           <h2 id="handover" className="text-lg font-semibold text-ink">Parent handover</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Who brought each child, and who collected them, recorded at the gate. Parents get a message either way.</p>
           <HandoverForm enabled={!!school.handover_enabled} minutes={school.late_pickup_minutes ?? 30} />
+        </section>
+
+        <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="staff-security">
+          <h2 id="staff-security" className="text-lg font-semibold text-ink">Staff check-in security</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">Extra checks when staff tap in and out at the kiosk.</p>
+          <StaffSecurityForm values={school} staffWithoutPin={staffWithoutPin} />
         </section>
 
         <PortalSection tz={school.timezone} />

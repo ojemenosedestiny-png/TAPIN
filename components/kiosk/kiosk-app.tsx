@@ -43,6 +43,7 @@ type Screen =
   | { kind: "code"; error?: string }
   | { kind: "pin"; error?: string }
   | { kind: "qr"; error?: string }
+  | { kind: "staff"; data: TapResponse; uid: string; error?: string }
   | { kind: "saved_offline" };
 
 const noop = () => () => {};
@@ -151,7 +152,7 @@ function Kiosk({ token }: { token: string }) {
   const show = (s: Screen) => {
     setScreen(s);
     if (resetTimer.current) clearTimeout(resetTimer.current);
-    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" || s.kind === "pin" || s.kind === "qr" ? PICKUP_MS : RESULT_MS);
+    if (s.kind !== "idle") resetTimer.current = setTimeout(() => setScreen({ kind: "idle" }), s.kind === "menu" ? MENU_MS : s.kind === "pickup" || s.kind === "code" || s.kind === "pin" || s.kind === "qr" ? PICKUP_MS : s.kind === "staff" ? MENU_MS : RESULT_MS);
   };
 
   /** A one-day pickup code typed on the kiosk. */
@@ -192,6 +193,26 @@ function Kiosk({ token }: { token: string }) {
       show({ kind: "pickup", data, error: out.error ?? "That didn't work. Please try again." });
     } catch {
       show({ kind: "pickup", data, error: "No connection. Pickup needs the kiosk to be online." });
+    }
+  };
+
+  /** A staff member's PIN and/or the kiosk photo, sent with the same card. A new tap: time and id are now. */
+  const submitStaff = async (uid: string, data: TapResponse, pin: string | undefined, photo: string) => {
+    try {
+      const res = await api("/api/tap", token, { method: "POST", body: JSON.stringify({ uid, tapped_at: new Date().toISOString(), client_id: newClientId(), pin, photo }) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (handleAuthFailure(res.status, out.error)) return;
+        return show({ kind: "staff", data, uid, error: out.error ?? "That didn't work. Please try again." });
+      }
+      const r = out as TapResponse;
+      if (r.action === "staff_check") {
+        play("error");
+        return show({ kind: "staff", data: r, uid, error: r.notice ?? "Please try again." });
+      }
+      presentResult(r);
+    } catch {
+      show({ kind: "staff", data, uid, error: "No connection. Staff check-in needs the kiosk to be online." });
     }
   };
 
@@ -256,7 +277,10 @@ function Kiosk({ token }: { token: string }) {
           return;
         }
         setOnline(true);
-        presentResult(body as TapResponse);
+        if ((body as TapResponse).action === "staff_check") {
+          play("duplicate");
+          show({ kind: "staff", data: body as TapResponse, uid });
+        } else presentResult(body as TapResponse);
         void flush();
       } catch {
         // Offline or server trouble: keep the tap and send it later.
@@ -333,6 +357,8 @@ function Kiosk({ token }: { token: string }) {
       const sound = data.action === "lesson_started" ? "signIn" : "signOut";
       play(sound);
       say({ kind: data.action === "lesson_started" ? "lesson_start" : "lesson_end", name }, soundLengthMs(sound));
+    } else if (data.action === "staff_refused") {
+      play("error"); // the reason is on screen; no voice (it would say "card not recognised")
     } else if (data.action === "unknown" || data.action === "blocked") {
       play("error");
       say({ kind: "unknown" }, soundLengthMs("error"));
@@ -540,6 +566,10 @@ function Kiosk({ token }: { token: string }) {
       )}
       {screen.kind === "code" && (
         <CodeEntry key={screen.error ?? "code"} error={screen.error} onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(c) => void submitCode(c)} />
+      )}
+      {screen.kind === "staff" && (
+        <StaffCheck key={`${screen.uid}:${screen.error ?? ""}`} data={screen.data} error={screen.error}
+          onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(pin, photo) => void submitStaff(screen.uid, screen.data, pin, photo)} />
       )}
 
       {/* Status badges */}
@@ -778,6 +808,18 @@ function Result({ data, place }: { data: TapResponse; place: string }) {
         <XCircle className="size-32" aria-hidden />
         <p className="text-5xl font-semibold sm:text-6xl">Card not recognised</p>
         <p className="text-2xl text-white/90">Please see the admin office.</p>
+        <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
+      </div>
+    );
+  }
+
+  if (data.action === "staff_refused") {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+        <ShieldX className="size-28" aria-hidden />
+        <p className="text-5xl font-semibold sm:text-6xl">Not checked in</p>
+        <p className="text-3xl font-medium">{data.name}</p>
+        <p className="max-w-2xl text-2xl text-white/90">{data.reason}</p>
         <PoweredBy onDark className="absolute bottom-5 left-1/2 -translate-x-1/2" />
       </div>
     );
@@ -1111,6 +1153,96 @@ function CodeEntry({ error, onActivity, onCancel, onSubmit }: { error?: string; 
         <button type="button" disabled={code.length !== 6 || busy} onClick={() => { setBusy(true); onSubmit(code); }}
           className={cn(key, "bg-white text-brand disabled:opacity-40")} aria-label="Check code"><Check className="size-9" /></button>
       </div>
+      <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
+    </div>
+  );
+}
+
+/**
+ * Staff check-in security: the person's own 4-digit PIN and/or a quick photo from the front camera.
+ * The photo is taken when the PIN is entered (or after a moment, if there's no PIN), sent once, and kept 30 days.
+ */
+function StaffCheck({ data, error, onActivity, onCancel, onSubmit }: { data: TapResponse; error?: string; onActivity: () => void; onCancel: () => void; onSubmit: (pin: string | undefined, photo: string) => void }) {
+  const needsPin = !!data.needs_pin;
+  const needsPhoto = !!data.needs_photo;
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState<"starting" | "on" | "off">(needsPhoto ? "starting" : "off");
+  const video = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (!needsPhoto) return;
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 320, height: 240 }, audio: false });
+        if (cancelled) return stream.getTracks().forEach((t) => t.stop());
+        if (video.current) { video.current.srcObject = stream; await video.current.play().catch(() => {}); }
+        setCamera("on");
+      } catch {
+        setCamera("off");
+      }
+    })();
+    return () => { cancelled = true; stream?.getTracks().forEach((t) => t.stop()); };
+  }, [needsPhoto]);
+
+  const snap = (): string => {
+    const v = video.current;
+    if (!needsPhoto || !v || !v.videoWidth) return "";
+    const c = document.createElement("canvas");
+    c.width = 320;
+    c.height = Math.round((320 * v.videoHeight) / v.videoWidth);
+    c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.6);
+  };
+  const send = () => { if (busy) return; setBusy(true); onSubmit(needsPin ? pin : undefined, snap()); };
+
+  // Photo only: take it once the camera has had a moment (or straight away if there's no camera).
+  const sendRef = useRef(send);
+  useEffect(() => { sendRef.current = send; });
+  useEffect(() => {
+    if (needsPin || camera === "starting") return;
+    const t = setTimeout(() => sendRef.current(), camera === "on" ? 1200 : 0);
+    return () => clearTimeout(t);
+  }, [needsPin, camera]);
+
+  const key = "flex h-20 items-center justify-center rounded-2xl bg-white/10 text-4xl font-semibold ring-1 ring-white/20 active:scale-95 active:bg-white/20";
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-gradient-to-br from-[#03201e] via-[#073b37] to-[#0f766e] px-6 py-8 text-white"
+      role="dialog" aria-modal="true" aria-label="Staff check-in" onPointerDown={onActivity}>
+      <div className="flex items-center gap-4">
+        {needsPhoto ? (
+          <video ref={video} muted playsInline className={cn("size-24 rounded-full bg-black/30 object-cover ring-4 ring-white/30 -scale-x-100", camera !== "on" && "hidden")} aria-label="Camera" />
+        ) : null}
+        {(!needsPhoto || camera !== "on") && (
+          data.photo_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={data.photo_url} alt="" className="size-24 rounded-full object-cover ring-4 ring-white/30" />
+            : <span className="flex size-24 items-center justify-center rounded-full bg-white/15 text-3xl font-semibold">{initials(data.name ?? "")}</span>
+        )}
+        <div className="text-left">
+          <p className="text-4xl font-semibold">{data.first_name ?? data.name}</p>
+          <p className="text-xl text-white/75">{needsPin ? "Enter your 4-digit PIN" : "Look at the camera"}</p>
+        </div>
+      </div>
+      {needsPhoto && camera === "on" && <p className="text-lg text-white/70">A photo is taken for the staff register.</p>}
+      {needsPin && (
+        <div className="flex gap-3" aria-live="polite" aria-label={`${pin.length} of 4 digits entered`}>
+          {Array.from({ length: 4 }, (_, i) => (
+            <span key={i} className={cn("flex h-16 w-14 items-center justify-center rounded-xl text-4xl ring-2", pin[i] ? "bg-white text-ink ring-white" : "ring-white/30")}>{pin[i] ? "•" : ""}</span>
+          ))}
+        </div>
+      )}
+      {error && <p role="alert" className="max-w-md rounded-2xl bg-red-600/90 px-5 py-3 text-center text-xl">{error}</p>}
+      {needsPin && (
+        <div className="grid w-full max-w-xs grid-cols-3 gap-3">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => <button key={d} type="button" className={key} onClick={() => setPin((p) => (p.length < 4 ? p + d : p))}>{d}</button>)}
+          <button type="button" className={key} onClick={() => setPin((p) => p.slice(0, -1))} aria-label="Delete"><Delete className="size-8" /></button>
+          <button type="button" className={key} onClick={() => setPin((p) => (p.length < 4 ? p + "0" : p))}>0</button>
+          <button type="button" disabled={pin.length !== 4 || busy} onClick={send} className={cn(key, "bg-white text-brand disabled:opacity-40")} aria-label="Check in"><Check className="size-9" /></button>
+        </div>
+      )}
       <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
     </div>
   );

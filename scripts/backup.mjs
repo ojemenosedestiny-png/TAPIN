@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 
 // Same order as BACKUP_TABLES in lib/backup.ts (a unit test keeps them in step).
-const TABLES = ["schools", "users", "classes", "students", "guardians", "student_guardians", "staff", "cards", "devices",
+const TABLES = ["schools", "users", "classes", "students", "guardians", "student_guardians", "staff", "staff_pins", "cards", "devices",
   "alert_settings", "school_calendar", "attendance", "excusals", "tap_events", "sms_logs", "notifications", "audit_logs",
   "platform_settings", "demo_requests", "orders", "invoices", "school_orders", "parent_payments", "early_releases", "early_pickup_requests", "subjects", "lesson_settings",
   "teacher_assignments", "lessons", "pickup_people", "pickup_people_students", "pickup_codes", "pickup_code_students", "pickup_events", "handovers",
