@@ -3,12 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { formatNgPhone } from "@/lib/phone";
 import { friendlyTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { loadAssistantNumber, shareMessage } from "@/lib/assistant-number";
+import { ShareAssistant } from "./share-assistant";
 
 type Msg = { id: string; phone: string; direction: "in" | "out"; body: string; command: string | null; status: string; error: string | null; created_at: string };
 
 /** WhatsApp assistant: is it switched on, and the latest conversations with parents. */
-export async function WhatsAppAssistantSection({ tz }: { tz: string }) {
+export async function WhatsAppAssistantSection({ tz, schoolName }: { tz: string; schoolName: string }) {
   const supabase = await createClient(); // RLS: this school's conversations only
+  const assistant = await loadAssistantNumber();
   const { data } = await supabase.from("whatsapp_messages").select("id, phone, direction, body, command, status, error, created_at").order("created_at", { ascending: false }).limit(20);
   const msgs = (data ?? []) as Msg[];
   const ready = !!process.env.WHATSAPP_INBOUND_SECRET && !!(process.env.WHATSAPP_ACCESS_TOKEN || process.env.TERMII_WHATSAPP_FROM || process.env.TERMII_SENDER_ID);
@@ -25,6 +28,7 @@ export async function WhatsAppAssistantSection({ tz }: { tz: string }) {
         <p className={cn("mt-3 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium", ready ? "bg-success/15 text-green-800" : "bg-amber-100 text-amber-900")}>
           {ready ? "Switched on" : "Waiting for TapIn to connect the WhatsApp number"}
         </p>
+        {assistant && <ShareAssistant message={shareMessage(schoolName, assistant)} />}
         {msgs.length > 0 && (
           <ul className="mt-4 divide-y divide-border text-sm">
             {msgs.map((m) => (

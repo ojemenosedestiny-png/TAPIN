@@ -4,7 +4,9 @@ import { normaliseNgPhone } from "@/lib/phone";
 
 export const demoRequestSchema = z.object({
   name: z.string().trim().min(2, "Enter your name.").max(120, "That name is too long."),
-  school: z.string().trim().min(2, "Enter the school's name.").max(160, "That name is too long."),
+  school: z.string().trim().min(2, "Enter the name.").max(160, "That name is too long."),
+  /** A school (pupils) or an office/company (staff). */
+  kind: z.enum(["school", "organisation"]).default("school"),
   phone: z.string().transform((v, ctx) => {
     const p = normaliseNgPhone(v);
     if (!p) {
@@ -15,7 +17,7 @@ export const demoRequestSchema = z.object({
   }),
   pupils: z.preprocess(
     (v) => (typeof v === "string" ? v.replace(/[^\d]/g, "") : v),
-    z.union([z.literal(""), z.coerce.number().int().min(1, "Enter how many pupils, or leave it blank.").max(20000, "Enter how many pupils, or leave it blank.")]),
+    z.union([z.literal(""), z.coerce.number().int().min(1, "Enter how many, or leave it blank.").max(20000, "Enter how many, or leave it blank.")]),
   ).transform((v) => (v === "" ? null : v)),
   // A hidden field people never see. Bots fill it in.
   website: z.string().max(0).optional(),

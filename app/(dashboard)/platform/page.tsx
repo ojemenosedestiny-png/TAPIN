@@ -21,7 +21,7 @@ export default async function PlatformPage() {
     supabase.from("schools").select("id, name, kind, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, created_at").order("name"),
     supabase.from("users").select("school_id, role"),
     supabase.from("devices").select("school_id, last_seen, revoked_at"),
-    supabase.from("demo_requests").select("id, name, school, phone, pupils, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
+    supabase.from("demo_requests").select("id, name, school, phone, pupils, kind, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
     supabase.from("schools").select("id, plan"), // separate, so a database without plans still lists schools
     supabase.from("subscriptions").select("school_id, renews_on, suspended"),
   ]);
@@ -90,7 +90,7 @@ export default async function PlatformPage() {
                 <tr>
                   <th scope="col" className="px-4 py-3 font-normal">School</th>
                   <th scope="col" className="px-4 py-3 font-normal">Contact</th>
-                  <th scope="col" className="px-4 py-3 text-right font-normal">Pupils</th>
+                  <th scope="col" className="px-4 py-3 text-right font-normal">Size</th>
                   <th scope="col" className="px-4 py-3 font-normal">Received</th>
                   <th scope="col" className="px-4 py-3"><span className="sr-only">Status</span></th>
                 </tr>
@@ -98,7 +98,7 @@ export default async function PlatformPage() {
               <tbody>
                 {(demos ?? []).map((d) => (
                   <tr key={d.id} className={`border-t border-border ${d.handled_at ? "text-muted-foreground" : ""}`}>
-                    <td className="px-4 py-3 font-medium text-ink">{d.school}</td>
+                    <td className="px-4 py-3 font-medium text-ink">{d.school}{d.kind === "organisation" && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-900">Office</span>}</td>
                     <td className="px-4 py-3">
                       {d.name}
                       <span className="block text-xs">
@@ -107,7 +107,7 @@ export default async function PlatformPage() {
                         <a href={`https://wa.me/${d.phone.replace("+", "")}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">WhatsApp</a>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums">{d.pupils ?? "—"}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{d.pupils ? `${d.pupils} ${d.kind === "organisation" ? "staff" : "pupils"}` : "—"}</td>
                     <td className="px-4 py-3 tabular-nums">{new Date(d.created_at).toLocaleString("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" })}</td>
                     <td className="px-4 py-3 text-right">
                       {d.handled_at && <span className="mr-2 text-xs">Called</span>}

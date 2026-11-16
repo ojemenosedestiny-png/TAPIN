@@ -201,6 +201,7 @@ export default async function BillingPage() {
           <WebsitePricesForm prices={{
             live_within_days: settings.live_within_days,
             whatsapp: settings.whatsapp,
+            assistant_whatsapp: settings.assistant_whatsapp ?? null,
           }} />
         )}
       </section>

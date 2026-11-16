@@ -28,6 +28,7 @@ export const BACKUP_TABLES = [
   { name: "orders", order: "id" },
   { name: "invoices", order: "id" },
   { name: "school_orders", order: "id" },
+  { name: "invoice_payments", order: "id" },
   { name: "parent_payments", order: "id" },
   { name: "early_releases", order: "id" },
   { name: "early_pickup_requests", order: "id" },

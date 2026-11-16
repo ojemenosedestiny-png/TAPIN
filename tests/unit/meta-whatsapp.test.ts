@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { metaReady, metaTemplateFor, sendMetaTemplate, sendMetaText, validMetaSignature } from "@/lib/meta-whatsapp";
+import { metaReady, metaTemplateFor, metaTemplateId, parseMetaTemplate, sendMetaTemplate, sendMetaText, validMetaSignature } from "@/lib/meta-whatsapp";
 
 const ok = (id = "wamid.X") => vi.fn(async () => new Response(JSON.stringify({ messages: [{ id }] }), { status: 200 })) as unknown as typeof fetch;
 
@@ -42,6 +42,24 @@ describe("Meta WhatsApp", () => {
     expect(body.template).toEqual({ name: "tapin_arrival", language: { code: "en" }, components: [{ type: "body", parameters: [
       { type: "text", text: "Ada" }, { type: "text", text: "Bright Stars" }, { type: "text", text: "7:42 AM" },
     ] }] });
+  });
+
+  it("sign-in codes use an Authentication template: the code in the body and in the Copy code button", async () => {
+    vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "EAAtest");
+    vi.stubEnv("WHATSAPP_PHONE_NUMBER_ID", "123");
+    vi.stubEnv("WHATSAPP_TEMPLATE_OTP", "tapin_code");
+    const t = metaTemplateFor("otp")!;
+    expect(t).toEqual({ name: "tapin_code", params: undefined, auth: true });
+    expect(metaTemplateId(t)).toBe("tapin_code:otp");
+    expect(parseMetaTemplate("tapin_code:1:otp")).toEqual({ name: "tapin_code", params: 1, auth: true });
+    expect(parseMetaTemplate(metaTemplateId({ name: "tapin_arrival", params: 3 }))).toEqual({ name: "tapin_arrival", params: 3 });
+    const f = ok();
+    await sendMetaTemplate("+2348031234567", t, { "1": "482913" }, f);
+    const body = JSON.parse((f as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]![1].body as string);
+    expect(body.template.components).toEqual([
+      { type: "body", parameters: [{ type: "text", text: "482913" }] },
+      { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: "482913" }] },
+    ]);
   });
 
   it("reports Meta's error and whether to retry", async () => {

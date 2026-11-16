@@ -8,14 +8,21 @@ import { monthLabel, naira, type InvoiceLine } from "@/lib/billing";
 import { Wordmark } from "@/components/brand/logo";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { PrintButton } from "@/app/(dashboard)/reports/print-button";
+import { settleInvoicePayment } from "@/lib/invoice-payments";
+import { opayConfig } from "@/lib/opay";
+import { PayOnlineButton } from "./pay-button";
 
 export const metadata: Metadata = { title: "Invoice" };
 
 /** One invoice, printable as a PDF. Super admin, or the school's own admin (RLS). */
-export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ paid?: string }> }) {
   const { id } = await params;
+  const { paid: returned } = await searchParams;
   const user = await requireArea("invoices");
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  // Back from OPay: ask OPay how it went (never trust the address alone), before showing the invoice.
+  const settled = returned ? await settleInvoicePayment(returned) : null;
+  const online = !!opayConfig();
   const supabase = await createClient();
   const [{ data: inv }, { data: seller }] = await Promise.all([
     supabase.from("invoices").select("id, school_id, number, period, lines, total, status, issued_at, paid_at, kind").eq("id", id).maybeSingle(),
@@ -34,6 +41,17 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </Link>
         <PrintButton />
       </div>
+
+      {settled && settled.invoiceId === inv.id && (
+        <p role="status" className={`mx-auto mb-4 max-w-3xl rounded-xl px-4 py-3 text-sm print:hidden ${settled.status === "paid" ? "bg-green-50 text-green-900" : settled.status === "pending" ? "bg-amber-50 text-amber-950" : "bg-red-50 text-red-900"}`}>
+          {settled.status === "paid" ? "Payment received. Thank you: this invoice is paid."
+            : settled.status === "pending" ? "OPay hasn't confirmed the payment yet. This page will show it as paid once they do; refresh in a minute."
+            : "The payment didn't go through. You can try again, or pay by bank transfer."}
+        </p>
+      )}
+      {user.role === "school_admin" && inv.status === "issued" && online && (
+        <div className="mx-auto mb-4 max-w-3xl print:hidden"><PayOnlineButton id={inv.id} /></div>
+      )}
 
       <article className="mx-auto max-w-3xl surface rounded-xl p-8 text-sm text-ink print:border-0 print:p-0">
         <header className="flex flex-wrap items-start justify-between gap-6">

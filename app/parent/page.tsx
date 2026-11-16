@@ -13,6 +13,8 @@ import { PersonAvatar } from "@/components/dashboard/person-avatar";
 import { AttendancePill } from "@/components/dashboard/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChannelChoice } from "./channel-choice";
+import { AssistantCard } from "@/components/parent/assistant-card";
+import { loadAssistantNumber } from "@/lib/assistant-number";
 import { ParentPickup, type ParentPickupPerson } from "./pickup";
 import { parentSignOut } from "./login/actions";
 import { PoweredBy } from "@/components/brand/powered-by";
@@ -31,7 +33,7 @@ async function Portal() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/parent/login");
-  const { data: kids } = await supabase.rpc("parent_children");
+  const [{ data: kids }, assistant] = await Promise.all([supabase.rpc("parent_children"), loadAssistantNumber()]);
   const children = (kids ?? []) as Child[];
   if (!children.length) {
     return (
@@ -139,6 +141,13 @@ async function Portal() {
         <p className="mb-3 mt-1 text-sm text-muted-foreground">Arrival, departure, late and absence alerts.</p>
         <ChannelChoice current={unique[0]!.channel} />
       </section>
+
+      {assistant && (
+        <section className="motion-rise rounded-2xl border border-border bg-card p-5" aria-labelledby="assistant-h">
+          <h2 id="assistant-h" className="mb-3 font-semibold text-ink">TapIn on WhatsApp</h2>
+          <AssistantCard digits={assistant} />
+        </section>
+      )}
     </div>
   );
 }

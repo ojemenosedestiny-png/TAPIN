@@ -145,7 +145,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
 
       {/* Settings */}
       {!org && <>
-      <WhatsAppAssistantSection tz={tz} />
+      <WhatsAppAssistantSection tz={tz} schoolName={school.name} />
 
       <section className="mb-10" aria-labelledby="settings">
         <h2 id="settings" className="mb-3 text-lg font-semibold text-ink">Alert settings</h2>

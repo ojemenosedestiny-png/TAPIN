@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "@/app/(dashboard)/reports/print-button";
+import { AssistantCard } from "@/components/parent/assistant-card";
+import { loadAssistantNumber } from "@/lib/assistant-number";
 
 export const metadata: Metadata = { title: "Parental consent form" };
 
@@ -11,7 +13,10 @@ export const metadata: Metadata = { title: "Parental consent form" };
 export default async function ConsentFormPage() {
   const user = await requireSchoolArea("help");
   const supabase = await createClient();
-  const { data: school } = await supabase.from("schools").select("name, retention_months").eq("id", user.schoolId).single();
+  const [{ data: school }, assistant] = await Promise.all([
+    supabase.from("schools").select("name, retention_months").eq("id", user.schoolId).single(),
+    loadAssistantNumber(),
+  ]);
   const name = school?.name ?? "the school";
   const line = <span className="inline-block min-w-56 border-b border-ink/60">&nbsp;</span>;
 
@@ -43,6 +48,12 @@ export default async function ConsentFormPage() {
           <p className="!mt-0">Signature: {line}</p>
           <p className="!mt-0">Date: {line}</p>
         </div>
+        {assistant && (
+          <section className="mt-8 rounded-lg border border-border p-4 [break-inside:avoid]">
+            <p className="!mt-0 font-semibold">Keep this part: TapIn on WhatsApp</p>
+            <div className="mt-3"><AssistantCard digits={assistant} print /></div>
+          </section>
+        )}
         <p className="mt-8 text-sm text-muted-foreground">For the school office: record this consent on the student&apos;s TapIn profile (or as “Yes” in the Consent Received column of the import), then file this form.</p>
       </article>
     </>

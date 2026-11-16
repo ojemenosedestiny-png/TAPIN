@@ -20,8 +20,8 @@ export async function requestDemo(_prev: ActionState, formData: FormData): Promi
   if (!(await checkRateLimitShared(`demo:${ip}`, { max: 5, windowMs: 60 * 60_000 })).ok) {
     return { errors: { _form: "We've already received a few requests from here. We'll be in touch soon." } };
   }
-  const { name, school, phone, pupils } = parsed.data;
-  const { error } = await createAdminClient().from("demo_requests").insert({ name, school, phone, pupils });
+  const { name, school, phone, pupils, kind } = parsed.data;
+  const { error } = await createAdminClient().from("demo_requests").insert({ name, school, phone, pupils, kind });
   if (error) return { errors: { _form: "Something went wrong sending the slip. Please try again." } };
   return { ok: `Thank you, ${name}. We'll call you to arrange a visit to ${school}.` };
 }

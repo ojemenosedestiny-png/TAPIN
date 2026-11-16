@@ -163,6 +163,12 @@ const webPricesSchema = z.object({
     if (!p) { ctx.addIssue({ code: "custom", message: "Enter a Nigerian mobile number, like 0803 123 4567." }); return z.NEVER; }
     return p.replace("+", "");
   }),
+  assistant_whatsapp: z.string().trim().optional().transform((v, ctx) => {
+    if (!v) return null;
+    const p = normaliseNgPhone(v);
+    if (!p) { ctx.addIssue({ code: "custom", message: "Enter a Nigerian mobile number, like 0916 708 0638." }); return z.NEVER; }
+    return p.replace("+", "");
+  }),
 });
 
 /** Website details (the prices themselves are on the Pricing page). Empty fields are left off the site. */

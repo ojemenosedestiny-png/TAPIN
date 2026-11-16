@@ -8,7 +8,7 @@
 export type TermiiApi = { apiKey: string; baseUrl: string };
 export type TermiiConfig = TermiiApi & { senderId: string; channel: "dnd" | "generic" };
 
-import { metaReady, metaTemplateFor, sendMetaTemplate, sendMetaText } from "@/lib/meta-whatsapp";
+import { metaReady, metaTemplateFor, metaTemplateId, parseMetaTemplate, sendMetaTemplate, sendMetaText } from "@/lib/meta-whatsapp";
 
 /**
  * What the WhatsApp senders need: Termii's API, or (when only Meta is set up) a placeholder,
@@ -114,7 +114,7 @@ export function whatsappTemplateFor(type: string): { deviceId: string; templateI
   // Meta (when set up): WHATSAPP_TEMPLATE_<TYPE>. The template travels as "meta" + its name.
   if (metaReady()) {
     const t = metaTemplateFor(type);
-    return t ? { deviceId: "meta", templateId: t.params === undefined ? t.name : `${t.name}:${t.params}` } : null;
+    return t ? { deviceId: "meta", templateId: metaTemplateId(t) } : null;
   }
   const deviceId = process.env.TERMII_WHATSAPP_DEVICE_ID?.trim();
   const templateId = process.env[`TERMII_WA_TEMPLATE_${type.toUpperCase()}`]?.trim();
@@ -129,8 +129,9 @@ export async function sendWhatsAppTemplate(
   fetchImpl: typeof fetch = fetch,
 ): Promise<SendResult> {
   if (template.deviceId === "meta") {
-    const [name, n] = template.templateId.split(":");
-    return sendMetaTemplate(to, { name: name!, params: n ? Number(n) : undefined }, data, fetchImpl);
+    const t = parseMetaTemplate(template.templateId);
+    if (!t) return { ok: false, error: "Bad WhatsApp template name", retryable: false };
+    return sendMetaTemplate(to, t, data, fetchImpl);
   }
   let res: Response;
   try {

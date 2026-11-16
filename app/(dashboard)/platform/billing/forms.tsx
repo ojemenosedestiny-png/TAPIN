@@ -134,7 +134,7 @@ export function SchoolOrderButtons({ id, status }: { id: string; status: "awaiti
   );
 }
 
-type WebPrices = { live_within_days: number | null; whatsapp: string | null };
+type WebPrices = { live_within_days: number | null; whatsapp: string | null; assistant_whatsapp: string | null };
 
 /** Website details. The plans and prices the website shows come from the Pricing page. */
 export function WebsitePricesForm({ prices }: { prices: WebPrices }) {
@@ -147,8 +147,10 @@ export function WebsitePricesForm({ prices }: { prices: WebPrices }) {
       <FormError state={state} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field name="live_within_days" label="Live within (days)" type="number" min={1} max={365} defaultValue={v(prices.live_within_days)} placeholder="Not shown" hint="Used in the FAQ." error={e.live_within_days} />
-        <Field name="whatsapp" label="WhatsApp number" type="tel" defaultValue={prices.whatsapp ? `+${prices.whatsapp}` : ""} placeholder="0803 123 4567" hint="Shows a 'Chat on WhatsApp' button." error={e.whatsapp} />
+        <Field name="whatsapp" label="WhatsApp number" type="tel" defaultValue={prices.whatsapp ? `+${prices.whatsapp}` : ""} placeholder="0803 123 4567" hint="Sales: a 'Chat on WhatsApp' button on the website." error={e.whatsapp} />
       </div>
+      <Field name="assistant_whatsapp" label="Parents' WhatsApp number (TapIn assistant)" type="tel" defaultValue={prices.assistant_whatsapp ? `+${prices.assistant_whatsapp}` : ""}
+        placeholder="0916 708 0638" hint="The number connected to Meta. Parents see it with a QR code on their page and on the consent form." error={e.assistant_whatsapp} className="sm:max-w-md" />
       <p className="text-xs text-muted-foreground">Plans and prices on the website come from the <a href="/platform/pricing" className="text-brand hover:underline">Pricing</a> page. Your phone and email below also appear in the website footer.</p>
       <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save website details"}</Button>
     </form>

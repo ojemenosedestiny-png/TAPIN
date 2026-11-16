@@ -17,7 +17,7 @@ describe("the Book a demo slip", () => {
     const msgs = r.success ? [] : r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
     expect(msgs).toEqual(expect.arrayContaining([
       "name: Enter your name.",
-      "school: Enter the school's name.",
+      "school: Enter the name.",
       "phone: Enter a Nigerian mobile number, like 0803 123 4567.",
     ]));
     expect(msgs.some((m) => m.startsWith("pupils:"))).toBe(true);

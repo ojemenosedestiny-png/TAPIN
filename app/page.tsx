@@ -226,7 +226,7 @@ export default async function Home() {
           <h2 id="off-h" className="big" style={{ fontSize: "clamp(32px, 3.6vw, 44px)" }}>Know who is really at work.</h2>
           <p style={{ margin: 0, fontSize: 17, color: "var(--slate)" }}>The same kiosk works for any workplace. Staff tap their card and type their own PIN, and a photo is kept with every check-in, so nobody clocks in for a colleague. Late arrivals and early leavers reach you as they happen.</p>
           <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 12 }}>
-            <BookDemo label="Book a demo for your office" className="btn btn-teal" />
+            <BookDemo label="Book a demo for your office" className="btn btn-teal" office />
             <Link href="/pricing#offices" className="btn btn-line">Office plans</Link>
           </div>
         </div>

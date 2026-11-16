@@ -33,7 +33,7 @@ export function OfficePlans({ pricing }: { pricing: WebPricing }) {
       ) : (
         <p style={{ margin: 0, fontSize: 15, color: "var(--slate)" }}>Office plans are priced for your building and number of staff.</p>
       )}
-      <div><BookDemo label="Get a quote for your office" className="btn btn-teal" /></div>
+      <div><BookDemo label="Get a quote for your office" className="btn btn-teal" office /></div>
     </section>
   );
 }

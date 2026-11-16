@@ -67,7 +67,7 @@ describe.skipIf(!enabled)("POST /api/tap", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.device.name).toBe("Main Gate");
-    expect(Object.keys(body.school).sort()).toEqual(["logo_url", "name", "timezone"]);
+    expect(Object.keys(body.school).sort()).toEqual(["kind", "logo_url", "name", "timezone"]); // kind: school or organisation (hides pickup buttons)
     await new Promise((r) => setTimeout(r, 500));
     const { data } = await db.from("devices").select("last_seen").eq("id", ids.device).single();
     expect(data?.last_seen).not.toBeNull();
