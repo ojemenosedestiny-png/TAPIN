@@ -20,8 +20,6 @@ const pricingSchema = z.object({
   price_per_sms: money,
   billing_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")).transform((v) => v || null),
   billing_email: z.string().trim().email("Enter a valid email.").optional().or(z.literal("")).transform((v) => v || null),
-  public_code: z.string().trim().toUpperCase().regex(/^([A-Z0-9]{2,8}(-[A-Z0-9]{2,8})?)?$/, "Letters and numbers, like GFA-ABJ.").optional().transform((v) => v || null),
-  parent_fee: z.union([z.literal(""), z.coerce.number().positive("Leave empty, or enter an amount.").max(1_000_000)]).optional().transform((v) => (v === "" || v === undefined ? null : v)),
 });
 
 export async function saveSchoolPricing(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -30,7 +28,6 @@ export async function saveSchoolPricing(_prev: ActionState, formData: FormData):
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
   const { school_id, ...pricing } = parsed.data;
   const { error } = await createAdminClient().from("schools").update(pricing).eq("id", school_id);
-  if (error?.code === "23505") return { errors: { public_code: "Another school already uses this code." } };
   if (error) return { errors: { _form: "Could not save pricing." } };
   await writeAudit({ schoolId: school_id, actorId: user.id, action: "billing.pricing", entity: "schools", entityId: school_id, details: pricing });
   revalidatePath("/platform/billing");

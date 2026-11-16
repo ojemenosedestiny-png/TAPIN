@@ -55,14 +55,13 @@ test.describe("public website", () => {
     await db.from("orders").delete().eq("school_name", school);
   });
 
-  test("pricing: parents must match the school code, student ID and their own phone", async ({ page }) => {
-    await page.goto("/pricing?for=parents");
-    await expect(page.getByRole("tab", { name: "For parents" })).toHaveAttribute("aria-selected", "true");
-    await page.getByLabel("School code").fill("NOPE-XX");
-    await page.getByLabel("Student ID").fill("STU0001");
-    await page.getByLabel("Your phone number").fill("08030000000");
-    await page.getByRole("button", { name: "Find my child" }).click();
-    await expect(page.getByText(/couldn't find a match/)).toBeVisible();
+  test("pricing is for schools only: parents never pay for TapIn", async ({ page }) => {
+    await page.goto("/pricing");
+    await expect(page.getByText("The school pays. Parents get every alert free.")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "For parents" })).toHaveCount(0);
+    await expect(page.getByText("Pay your child's TapIn fee")).toHaveCount(0);
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: /Pay your child/ })).toHaveCount(0);
   });
 });
 

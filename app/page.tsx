@@ -193,7 +193,6 @@ export default async function Home() {
             <p className="eyebrow" style={{ color: "var(--mint)" }}>For parents</p>
             <h2 id="par-h" className="big">Peace of mind, every school day.</h2>
             <p style={{ margin: 0, fontSize: 18, color: "#D5F3EE" }}>You&apos;ll know your child got to school safely, and when they left. No app to install. Just a message on the phone you already have.</p>
-            <Link href="/pricing?for=parents" className="btn btn-white" style={{ alignSelf: "flex-start", marginTop: 8 }}>Pay your child&apos;s TapIn fee</Link>
           </div>
         </div>
       </section>

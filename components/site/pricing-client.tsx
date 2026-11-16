@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Lock } from "lucide-react";
-import { findChild, payChildFee, placeOrder, type FoundChild, type PayState } from "@/app/pricing/actions";
+import { placeOrder, type PayState } from "@/app/pricing/actions";
 import { METHODS, naira, periodPrice, quoteFor, webPlanFor, type Billing, type PayMethod, type WebPricing } from "@/lib/pricing";
 import { BookDemo } from "./book-demo";
 
@@ -35,25 +35,13 @@ function Methods({ value, onChange }: { value: PayMethod; onChange: (m: PayMetho
   );
 }
 
-export function PricingClient({ pricing, initialTab, initialPlan, online }: { pricing: WebPricing; initialTab: "school" | "parent"; initialPlan: string; online: boolean }) {
-  const [tab, setTab] = useState(initialTab);
+/** Schools only: the school pays for TapIn, never the parents. */
+export function PricingClient({ pricing, initialPlan, online }: { pricing: WebPricing; initialPlan: string; online: boolean }) {
   return (
     <>
-      <section className="site-dark plain">
-        <div className="wrap" style={{ paddingTop: 30, paddingBottom: 72, display: "flex", justifyContent: "center" }}>
-          <div role="tablist" aria-label="Who is paying" style={{ display: "flex", gap: 6, padding: 6, background: "var(--deep-2)", borderRadius: 999 }}>
-            {(["school", "parent"] as const).map((t) => (
-              <button key={t} type="button" role="tab" id={`tab-${t}`} aria-selected={tab === t} aria-controls={`panel-${t}`} onClick={() => setTab(t)}
-                style={{ height: 48, padding: "0 24px", border: "none", borderRadius: 999, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "background-color 200ms ease, color 200ms ease",
-                  background: tab === t ? "#fff" : "transparent", color: tab === t ? "#0f172a" : "var(--on-deep-2)" }}>
-                {t === "school" ? "For schools" : "For parents"}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab} style={{ animation: "site-rise 500ms cubic-bezier(0.16, 1, 0.3, 1) both" }}>
-        {tab === "school" ? <SchoolTab pricing={pricing} initialPlan={initialPlan} online={online} /> : <ParentTab online={online} />}
+      <section className="site-dark plain"><div className="wrap" style={{ paddingTop: 0, paddingBottom: 72 }} /></section>
+      <div style={{ animation: "site-rise 500ms cubic-bezier(0.16, 1, 0.3, 1) both" }}>
+        <SchoolTab pricing={pricing} initialPlan={initialPlan} online={online} />
       </div>
     </>
   );
@@ -217,89 +205,5 @@ function SchoolTab({ pricing: PRICING, initialPlan, online }: { pricing: WebPric
         </aside>
       </section>
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------- Parents
-
-function ParentTab({ online }: { online: boolean }) {
-  const [code, setCode] = useState("");
-  const [sid, setSid] = useState("");
-  const [phone, setPhone] = useState("");
-  const [method, setMethod] = useState<PayMethod>("card");
-  const [found, findAction, finding] = useActionState<PayState, FormData>(findChild, {});
-  const [paid, payAction, paying] = useActionState<PayState, FormData>(payChildFee, {});
-  const child = found.data as FoundChild | undefined;
-  const e = { ...(found.errors ?? {}), ...(paid.errors ?? {}) };
-  const canPay = !!child && child.fee !== null && online;
-
-  return (
-    <section className="wrap" style={{ paddingTop: 56, paddingBottom: 112, display: "flex", flexWrap: "wrap", gap: 32, alignItems: "flex-start" }}>
-      <div style={{ flex: "1.3 1 480px", minWidth: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 28, padding: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: 24 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 className="jk" style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>Pay your child&apos;s TapIn fee</h2>
-          <p style={{ margin: 0, fontSize: 16, color: "var(--slate)" }}>Use the school code and student ID on the school&apos;s letter, and the phone number the school has for you.</p>
-        </div>
-        <form action={findAction} noValidate style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {e._form && <p className="err" role="alert">{e._form}</p>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 18 }}>
-            <Field id="p-school" name="school_code" label="School code" placeholder="e.g. GFA-ABJ" value={code} onChange={(ev) => setCode(ev.target.value.toUpperCase())} error={e.school_code} />
-            <Field id="p-student" name="student_id" label="Student ID" placeholder="e.g. STU0012" value={sid} onChange={(ev) => setSid(ev.target.value)} error={e.student_id} />
-            <Field id="p-phone" name="phone" label="Your phone number" type="tel" inputMode="tel" placeholder="080..." autoComplete="tel" value={phone} onChange={(ev) => setPhone(ev.target.value)} error={e.phone} />
-          </div>
-          <button type="submit" className="btn btn-teal" disabled={finding} style={{ alignSelf: "flex-start" }}>{finding ? "Checking…" : "Find my child"}</button>
-        </form>
-
-        {child && (
-          <form action={payAction} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <input type="hidden" name="school_code" value={code} />
-            <input type="hidden" name="student_id" value={sid} />
-            <input type="hidden" name="phone" value={phone} />
-            <input type="hidden" name="method" value={method} />
-            <div role="status" style={{ border: "1px solid var(--line-2)", background: "var(--mint-2)", borderRadius: 20, padding: 20, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", animation: "site-pop 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both" }}>
-              <span className="jk" style={{ flex: "none", width: 60, height: 60, borderRadius: 999, background: "var(--mint)", border: "3px solid var(--teal)", color: "var(--teal)", fontSize: 22, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{child.first.slice(0, 1)}</span>
-              <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                <p className="jk" style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>{child.first}</p>
-                <p style={{ margin: 0, fontSize: 14, color: "var(--slate)" }}>{[child.className, child.schoolName].filter(Boolean).join(" · ")}</p>
-              </div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink-green)", background: "var(--badge-in)", padding: "6px 12px", borderRadius: 999 }}>Student found</p>
-            </div>
-            {canPay ? (
-              <>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Payment method</p>
-                <Methods value={method} onChange={setMethod} />
-                <button type="submit" className="btn btn-gold jk" disabled={paying} style={{ height: 56, fontSize: 17, fontWeight: 800 }}>
-                  {paying ? "Opening the payment page…" : `Pay ${naira(child.fee!)} securely`}
-                </button>
-              </>
-            ) : (
-              <p style={{ margin: 0, fontSize: 15, color: "var(--slate)" }}>
-                {child.fee === null ? `${child.schoolName} hasn't set up online payment for parents. Please pay at the school office.` : "Online payment isn't switched on yet. Please pay at the school office for now."}
-              </p>
-            )}
-          </form>
-        )}
-      </div>
-
-      <aside style={{ flex: "1 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ background: "var(--deep)", color: "#fff", borderRadius: 28, padding: 32, display: "flex", flexDirection: "column", gap: 18 }}>
-          <h2 className="jk" style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>This term&apos;s fee</h2>
-          <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><dt style={{ color: "var(--on-deep)" }}>Student</dt><dd style={{ margin: 0, fontWeight: 700 }}>{child?.first ?? "—"}</dd></div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><dt style={{ color: "var(--on-deep)" }}>Covers</dt><dd style={{ margin: 0, fontWeight: 700, textAlign: "right" }}>Arrival, departure and absence alerts</dd></div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><dt style={{ color: "var(--on-deep)" }}>Pay with</dt><dd style={{ margin: 0, fontWeight: 700 }}>{METHODS.find((m) => m.id === method)!.name}</dd></div>
-          </dl>
-          <div style={{ borderTop: "1px solid #2A5652", paddingTop: 16, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontSize: 15, color: "var(--on-deep)" }}>Amount</span>
-            <span className="jk" style={{ fontSize: 32, fontWeight: 800 }}>{child?.fee ? naira(child.fee) : "—"}</span>
-          </div>
-          <p style={{ margin: 0, fontSize: 13, color: "var(--on-deep)" }}>Find your child first. You&apos;ll get a receipt as soon as the payment is confirmed.</p>
-        </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 24, padding: 24, display: "flex", flexDirection: "column", gap: 8 }}>
-          <p className="jk" style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Can&apos;t find your child?</p>
-          <p style={{ margin: 0, fontSize: 15, color: "var(--slate)" }}>Check the codes on the school&apos;s letter, and use the phone number you gave the school. Or ask the school office.</p>
-        </div>
-      </aside>
-    </section>
   );
 }

@@ -9,16 +9,16 @@ import "../site.css";
 
 export const metadata: Metadata = {
   title: { absolute: "TapIn · Pricing and payment" },
-  description: "Schools subscribe monthly, on a plan that fits their size. Parents can pay their child's TapIn fee when their school asks them to.",
+  description: "Schools subscribe monthly, on a plan that fits their size. The school pays; TapIn is free for parents.",
 };
 
-type Search = Promise<{ plan?: string; for?: string }>;
+type Search = Promise<{ plan?: string }>;
 
 async function Body({ searchParams }: { searchParams: Search }) {
   const sp = await searchParams;
   const pricing = await loadPricing();
   const plan = pricing.plans.find((p) => p.id === sp.plan)?.id ?? pricing.plans.find((p) => p.popular)?.id ?? pricing.plans[0]?.id ?? "";
-  return <PricingClient pricing={pricing} initialTab={sp.for === "parents" ? "parent" : "school"} initialPlan={plan} online={!!flutterwaveKey()} />;
+  return <PricingClient pricing={pricing} initialPlan={plan} online={!!flutterwaveKey()} />;
 }
 
 export default async function PricingPage({ searchParams }: { searchParams: Search }) {
@@ -30,7 +30,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Sear
         <SiteHeader active="pricing" />
         <div className="wrap load-in" style={{ paddingTop: 48, paddingBottom: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 18, textAlign: "center" }}>
           <h1 className="jk" style={{ margin: 0, maxWidth: 760, fontSize: "clamp(36px, 4.6vw, 58px)", lineHeight: 1.06, fontWeight: 800, letterSpacing: "-0.035em" }}>Pricing and payments</h1>
-          <p style={{ margin: 0, maxWidth: 560, fontSize: 18, color: "var(--on-deep)" }}>Schools subscribe monthly, on a plan that fits their size. Parents can pay their child&apos;s TapIn fee here when their school asks them to.</p>
+          <p style={{ margin: 0, maxWidth: 560, fontSize: 18, color: "var(--on-deep)" }}>Schools subscribe monthly, on a plan that fits their size. The school pays. Parents get every alert free.</p>
         </div>
       </section>
       <Suspense fallback={<div style={{ minHeight: 800 }} aria-busy="true" />}>

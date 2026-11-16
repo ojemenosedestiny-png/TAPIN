@@ -274,7 +274,7 @@ export async function answer(db: Db, rawPhone: string, text: string, now = new D
     case "absences": return done(await absences(db, pickChildren(text, mine) ?? mine, now), "absences");
     case "pickup": return done(await pickupToday(db, pickChildren(text, mine) ?? mine, now), "pickup");
     case "guardians": return done(await guardiansFor(db, mine), "guardians");
-    case "fees": return done(feesOn ? await fees(db, mine) : "Your school doesn't collect fees through TapIn.", "fees");
+    case "fees": return done(feesOn ? await fees(db, mine) : "TapIn is free for parents. For school fees, please contact the school office.", "fees");
     case "menu": return done(menuText(parentName, feesOn), "menu");
     case "code":
     case "absent":

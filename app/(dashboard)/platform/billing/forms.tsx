@@ -8,7 +8,7 @@ import { Field, FormError, useActionFeedback, withSuccessToast } from "@/compone
 import { Label } from "@/components/ui/label";
 import { generateInvoices, savePlatformSettings, saveSchoolPricing, saveWebsitePrices, setInvoiceStatus, setOrderStatus } from "./actions";
 
-type Pricing = { id: string; name: string; price_per_student: number; setup_fee: number; price_per_sms: number; billing_start: string | null; billing_email: string | null; public_code: string | null; parent_fee: number | null };
+type Pricing = { id: string; name: string; price_per_student: number; setup_fee: number; price_per_sms: number; billing_start: string | null; billing_email: string | null };
 
 export function PricingDialog({ school }: { school: Pricing }) {
   const [open, setOpen] = useState(false);
@@ -36,10 +36,6 @@ export function PricingDialog({ school }: { school: Pricing }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field name="billing_start" label="Billing starts" type="date" defaultValue={school.billing_start ?? ""} error={e.billing_start} />
             <Field name="billing_email" label="Invoices go to (email)" type="email" defaultValue={school.billing_email ?? ""} error={e.billing_email} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field name="public_code" label="School code (for parents)" placeholder="e.g. GFA-ABJ" defaultValue={school.public_code ?? ""} hint="Printed on letters; parents use it on the pricing page." error={e.public_code} />
-            <Field name="parent_fee" label="Parent fee per term (optional)" type="number" min={0} step="0.01" defaultValue={school.parent_fee ?? ""} hint="Leave empty if parents don't pay online." error={e.parent_fee} />
           </div>
           <DialogFooter><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save pricing"}</Button></DialogFooter>
         </form>
