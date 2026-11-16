@@ -175,3 +175,51 @@ describe.skipIf(!enabled)("WhatsApp assistant: requests that change something", 
     expect(after - before).toBe(1);
   });
 });
+
+describe.skipIf(!enabled)("WhatsApp assistant: staff PINs", () => {
+  const STAFF = `+234809${String(Math.floor(Math.random() * 1e7)).padStart(7, "0")}`;
+  const sids: Record<string, string> = {};
+  let answer3: typeof import("@/lib/whatsapp-assistant-server").answer;
+  let checkPin: typeof import("@/lib/emergency").checkPin;
+
+  beforeAll(async () => {
+    ({ answer: answer3 } = await import("@/lib/whatsapp-assistant-server"));
+    ({ checkPin } = await import("@/lib/emergency"));
+    db ??= createClient(url!, service!, { auth: { persistSession: false } });
+    const { data: s } = await db.from("schools").insert({ name: `wa-staff-${Date.now()}`, staff_pin_required: true }).select("id").single();
+    sids.school = s!.id;
+    const { data: st } = await db.from("staff").insert({ school_id: sids.school, name: "Tunde Bello", phone: STAFF }).select("id").single();
+    sids.staff = st!.id;
+    await db.from("staff_pins").insert({ staff_id: sids.staff, school_id: sids.school, pin_hash: "scrypt$00$00", failures: 5, locked_until: new Date(Date.now() + 600_000).toISOString() });
+  }, 60_000);
+
+  afterAll(async () => {
+    if (db && sids.school) {
+      await db.from("audit_logs").delete().eq("school_id", sids.school);
+      await db.from("schools").delete().eq("id", sids.school);
+    }
+    await db?.from("whatsapp_pending").delete().eq("phone", STAFF);
+  });
+
+  it("a staff member who isn't a parent gets the staff menu", async () => {
+    const r = await answer3(db, STAFF, "Hi");
+    expect(r.command).toBe("staff_menu");
+    expect(r.reply).toContain("Hello Tunde");
+  });
+
+  it("\"Generate ping\" makes a new PIN that works at the kiosk, lifts the lockout and tells the admin", async () => {
+    const r = await answer3(db, STAFF, "Generate ping");
+    expect(r.command).toBe("staff_pin");
+    const pin = r.reply!.match(/is \*(\d{4})\*/)![1]!;
+    const { data: row } = await db.from("staff_pins").select("pin_hash, failures, locked_until").eq("staff_id", sids.staff).single();
+    expect(checkPin(pin, row!.pin_hash)).toBe(true);
+    expect(row).toMatchObject({ failures: 0, locked_until: null });
+    const { data: n } = await db.from("notifications").select("message").eq("school_id", sids.school).eq("kind", "staff_pin");
+    expect(n![0]!.message).toContain("Tunde Bello got a new check-in PIN by WhatsApp");
+  });
+
+  it("says no PIN is needed when the school has PINs off", async () => {
+    await db.from("schools").update({ staff_pin_required: false }).eq("id", sids.school);
+    expect((await answer3(db, STAFF, "PIN")).reply).toContain("doesn't ask for a PIN");
+  });
+});

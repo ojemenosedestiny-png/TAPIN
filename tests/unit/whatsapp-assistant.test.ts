@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { absenceLabel, dayOffset, inSession, menuText, parseCommand, parseInbound, parseTimeOfDay, pickChildren, termStart, whichChildQuestion } from "@/lib/whatsapp-assistant";
+import { absenceLabel, hidePins, isPinRequest, staffPinText, dayOffset, inSession, menuText, parseCommand, parseInbound, parseTimeOfDay, pickChildren, termStart, whichChildQuestion } from "@/lib/whatsapp-assistant";
 
 describe("parseCommand", () => {
   it("understands numbers and words", () => {
@@ -104,5 +104,21 @@ describe("details in a message", () => {
     expect(m).toContain("6 Get a one-day pickup code");
     expect(m).toContain("7 My child is absent today");
     expect(m).toContain("8 I'm collecting my child early");
+  });
+});
+
+describe("staff PINs by WhatsApp", () => {
+  it("recognises a PIN request, however it's typed", () => {
+    for (const t of ["PIN", "pin", "new pin", "I forgot my PIN", "Generate ping", "my ping no work"]) expect(isPinRequest(t)).toBe(true);
+    for (const t of ["pinch", "spinning", "1", "hello"]) expect(isPinRequest(t)).toBe(false);
+  });
+  it("a parent (not staff) asking for a PIN gets a pickup code", () => {
+    expect(parseCommand("send me a pin")).toBe("code");
+  });
+  it("the PIN goes to the staff member but is hidden in the log", () => {
+    const text = staffPinText({ first: "Tunde", school: "Bright Kids", pin: "4821" });
+    expect(text).toContain("your new check-in PIN for Bright Kids is *4821*");
+    expect(hidePins(text)).toContain("is *••••*");
+    expect(hidePins(text)).not.toContain("4821");
   });
 });

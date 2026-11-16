@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { afterWrongStaffPin, decodeKioskPhoto, staffPhotoPath, staffPinLocked, staffSecurityFrom, validStaffPin, weakPin, withinStaffHours, STAFF_PIN_LOCK_MS } from "@/lib/staff-security";
+import { afterWrongStaffPin, newStaffPin, decodeKioskPhoto, staffPhotoPath, staffPinLocked, staffSecurityFrom, validStaffPin, weakPin, withinStaffHours, STAFF_PIN_LOCK_MS } from "@/lib/staff-security";
 
 describe("staff check-in security", () => {
   it("reads the school's choices", () => {
@@ -44,5 +44,13 @@ describe("staff check-in security", () => {
   });
   it("keeps photos in the school's own folder", () => {
     expect(staffPhotoPath("sch", "2026-11-16", "st", new Date(1000))).toBe("sch/staff-taps/2026-11-16/st-1000.jpg");
+  });
+});
+
+describe("newStaffPin", () => {
+  it("gives 4 digits and never an easy PIN", () => {
+    const seq = [1234, 7777, 42];
+    expect(newStaffPin(() => seq.shift()!)).toBe("0042");
+    for (let i = 0; i < 200; i++) { const p = newStaffPin(); expect(validStaffPin(p) && !weakPin(p)).toBe(true); }
   });
 });

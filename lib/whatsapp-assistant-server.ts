@@ -7,9 +7,11 @@ import { getSchoolPlan, planAllows } from "@/lib/plans";
 import { hashPickupCode, joinNames, newPickupCode } from "@/lib/pickup";
 import { messagingApi, sendWhatsAppText } from "@/lib/termii";
 import {
-  DIDNT_UNDERSTAND, NOT_REGISTERED, absenceLabel, clean, dayOffset, menuText, parseCommand, parseTimeOfDay, pickChildren, termStart,
-  whichChildQuestion, type Command,
+  DIDNT_UNDERSTAND, NOT_REGISTERED, absenceLabel, clean, dayOffset, hidePins, isPinRequest, menuText, parseCommand, parseTimeOfDay, pickChildren,
+  staffMenuText, staffPinText, termStart, whichChildQuestion, type Command,
 } from "@/lib/whatsapp-assistant";
+import { hashPin } from "@/lib/emergency";
+import { newStaffPin } from "@/lib/staff-security";
 
 type Db = SupabaseClient;
 type Child = { id: string; first: string; full: string; schoolId: string; school: string; tz: string; fee: number | null; className: string | null; guardianId: string };
@@ -18,6 +20,46 @@ type Child = { id: string; first: string; full: string; schoolId: string; school
 export const PENDING_MS = 10 * 60_000;
 /** Pickup codes a parent may ask for by WhatsApp in a day. */
 export const CODES_PER_DAY = 3;
+/** New check-in PINs a staff member may ask for by WhatsApp in a day. */
+export const STAFF_PINS_PER_DAY = 3;
+
+type StaffMember = { id: string; name: string; first: string; schoolId: string; school: string; tz: string; pinRequired: boolean };
+
+/** Active staff with this phone number (the one on their staff record), in any school. */
+async function staffFor(db: Db, phone: string): Promise<StaffMember[]> {
+  const { data } = await db.from("staff").select("id, name, school_id, status, schools(name, timezone, staff_pin_required)").eq("phone", phone);
+  return (data ?? []).flatMap((s) => {
+    const sc = s.schools as unknown as { name: string; timezone: string; staff_pin_required: boolean | null } | null;
+    if (!sc || s.status !== "active") return [];
+    return [{ id: s.id as string, name: s.name as string, first: (s.name as string).split(" ")[0]!, schoolId: s.school_id as string, school: sc.name, tz: sc.timezone, pinRequired: !!sc.staff_pin_required }];
+  });
+}
+
+/**
+ * A staff member asked for a new kiosk PIN. Anyone with their phone (and so their WhatsApp) may: the card is still
+ * needed at the kiosk. The old PIN stops working, a lockout is lifted, and the school admin is told.
+ */
+async function issueStaffPin(db: Db, phone: string, staff: StaffMember[], now: Date): Promise<string> {
+  if (!(await checkRateLimitShared(`wa-staffpin:${phone}`, { max: STAFF_PINS_PER_DAY, windowMs: 24 * 60 * 60_000 })).ok) {
+    return `You've asked for ${STAFF_PINS_PER_DAY} new PINs today, the most allowed. Please ask the school admin.`;
+  }
+  const replies: string[] = [];
+  for (const s of staff) {
+    if (!s.pinRequired) { replies.push(`${s.school} doesn't ask for a PIN at the kiosk right now, so you don't need one. Just tap your card.`); continue; }
+    const pin = newStaffPin();
+    const { error } = await db.from("staff_pins").upsert(
+      { staff_id: s.id, school_id: s.schoolId, pin_hash: hashPin(pin), failures: 0, locked_until: null, set_at: now.toISOString() }, { onConflict: "staff_id" });
+    if (error) { console.error("whatsapp staff pin", error); replies.push(`Sorry, I couldn't make a new PIN for ${s.school} just now. Please try again in a minute.`); continue; }
+    await db.from("audit_logs").insert({ school_id: s.schoolId, actor_id: null, action: "staff.pin_whatsapp", entity: "staff", entity_id: s.id, details: { name: s.name } })
+      .then(({ error: e }) => e && console.error("staff pin audit", e));
+    await db.from("notifications").insert({
+      school_id: s.schoolId, kind: "staff_pin", dedupe_key: `staff-pin-wa:${s.id}:${now.toISOString()}`,
+      message: `${s.name} got a new check-in PIN by WhatsApp at ${friendlyTime(now, s.tz)}. If they didn't ask for it, remove their PIN on the Staff page.`,
+    }).then(({ error: e }) => e && console.error("staff pin notice", e));
+    replies.push(staffPinText({ first: s.first, school: s.school, pin }));
+  }
+  return replies.join("\n\n");
+}
 
 /** The parent's children, found only through the phone number the school has for them. */
 async function childrenFor(db: Db, phone: string): Promise<{ guardianIds: string[]; parentName: string | null; parentFull: string | null; kids: Child[] }> {
@@ -213,13 +255,24 @@ async function clearPending(db: Db, phone: string) {
 
 const WHAT: Record<"code" | "absent" | "early", string> = { code: "is the pickup code for", absent: "will be absent", early: "are you collecting early" };
 
-export type HandleResult = { reply: string | null; command: Command | "unknown" | "unregistered" | "limited"; schoolId: string | null; guardianId: string | null };
+export type HandleResult = { reply: string | null; command: Command | "staff_pin" | "staff_menu" | "unknown" | "unregistered" | "limited"; schoolId: string | null; guardianId: string | null };
 
 /** Works out the reply to one message, and records what the parent asked for (codes, absences, early pickups). */
 export async function answer(db: Db, rawPhone: string, text: string, now = new Date()): Promise<HandleResult> {
   const phone = normaliseNgPhone(rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`) ?? normaliseNgPhone(rawPhone);
   if (!phone) return { reply: null, command: "unregistered", schoolId: null, guardianId: null };
-  const { guardianIds, parentName, parentFull, kids } = await childrenFor(db, phone);
+  const [{ guardianIds, parentName, parentFull, kids }, allStaff] = await Promise.all([childrenFor(db, phone), staffFor(db, phone)]);
+
+  // Staff (some are parents too): "PIN" gets a new kiosk check-in PIN. A staff member who isn't a parent gets the staff menu.
+  const staffAllowed = await Promise.all([...new Set(allStaff.map((s) => s.schoolId))].map(async (id) => [id, planAllows(await getSchoolPlan(db, id), "whatsapp_assistant")] as const));
+  const staff = allStaff.filter((s) => staffAllowed.find(([id]) => id === s.schoolId)?.[1]);
+  if (staff.length && (isPinRequest(text) || !kids.length)) {
+    const schoolId = staff[0]!.schoolId;
+    if (!(await checkRateLimitShared(`wa-parent:${phone}`, { max: 20, windowMs: 60 * 60_000 })).ok) return { reply: null, command: "limited", schoolId, guardianId: null };
+    if (isPinRequest(text)) return { reply: (await issueStaffPin(db, phone, staff, now)).slice(0, 1500), command: "staff_pin", schoolId, guardianId: guardianIds[0] ?? null };
+    return { reply: staffMenuText(staff[0]!.first), command: "staff_menu", schoolId, guardianId: null };
+  }
+
   if (!kids.length) {
     // One "not registered" reply per number per day, so the assistant can't be used to spam.
     const ok = (await checkRateLimitShared(`wa-unknown:${phone}`, { max: 1, windowMs: 24 * 60 * 60_000 })).ok;
@@ -275,7 +328,7 @@ export async function answer(db: Db, rawPhone: string, text: string, now = new D
     case "pickup": return done(await pickupToday(db, pickChildren(text, mine) ?? mine, now), "pickup");
     case "guardians": return done(await guardiansFor(db, mine), "guardians");
     case "fees": return done(feesOn ? await fees(db, mine) : "TapIn is free for parents. For school fees, please contact the school office.", "fees");
-    case "menu": return done(menuText(parentName, feesOn), "menu");
+    case "menu": return done(`${menuText(parentName, feesOn)}${staff.length ? "\nPIN New check-in PIN (staff)" : ""}`, "menu");
     case "code":
     case "absent":
     case "early": {
@@ -319,7 +372,7 @@ export async function handleInbound(db: Db, msg: { phone: string; text: string; 
   const api = messagingApi();
   const sent = api ? await sendWhatsAppText(api, phone, r.reply) : { ok: false as const, error: "WhatsApp is not set up", retryable: false };
   await db.from("whatsapp_messages").insert({
-    school_id: r.schoolId, guardian_id: r.guardianId, phone, direction: "out", body: r.reply, command: r.command,
+    school_id: r.schoolId, guardian_id: r.guardianId, phone, direction: "out", body: hidePins(r.reply), command: r.command,
     status: sent.ok ? "ok" : "failed", error: sent.ok ? null : sent.error, provider_id: sent.ok ? sent.messageId : null,
   });
 }

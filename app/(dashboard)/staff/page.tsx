@@ -175,6 +175,7 @@ async function StaffSecuritySection({ staffId, name, tz }: { staffId: string; na
         <p className="text-ink">
           {pin ? <>PIN set{locked && <span className="ml-2 font-medium text-red-700">Locked after wrong PINs</span>}</> : "No PIN yet"}
           {!school?.staff_pin_required && <span className="block text-xs text-muted-foreground">PINs are off for your school (Settings → Staff check-in security).</span>}
+          {school?.staff_pin_required && <span className="block text-xs text-muted-foreground">They can also get a new PIN themselves: WhatsApp “PIN” to TapIn from the phone number on this staff record. You&apos;ll get an alert when they do.</span>}
         </p>
         <div className="flex flex-wrap gap-2">
           {locked && <StaffPinButton staffId={staffId} what="unlock" label="Unlock" />}

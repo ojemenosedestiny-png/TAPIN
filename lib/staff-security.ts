@@ -3,6 +3,8 @@
  * PIN after the card, a kiosk photo at each tap, alerts, and the hours staff may check in.
  */
 
+import { randomInt } from "node:crypto";
+
 export const STAFF_PIN_LOCK_AFTER = 5;
 export const STAFF_PIN_LOCK_MS = 15 * 60_000;
 /** A kiosk photo: a small JPEG as a data URL (about 20–60 KB at 320×240). */
@@ -66,4 +68,12 @@ export function staffPinLockedNow(lockedUntil: string | null | undefined): boole
 /** ISO time n days ago, for "last 7 days" queries. */
 export function daysAgoIso(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+/** A fresh 4-digit PIN that isn't one of the easy ones (for staff who ask the WhatsApp assistant). */
+export function newStaffPin(rand: (max: number) => number = (max) => randomInt(0, max)): string {
+  for (;;) {
+    const pin = String(rand(10_000)).padStart(4, "0");
+    if (!weakPin(pin)) return pin;
+  }
 }

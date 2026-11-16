@@ -15,7 +15,8 @@ const NUMBERS: Record<string, Command> = { "0": "menu", "1": "attendance", "2": 
 
 // In priority order: the first that matches wins.
 const INTENTS: [Command, RegExp][] = [
-  ["code", /\b(pick ?up code|collection code|one day code|code)\b/],
+  // Parents have no PIN: to them "pin" means a pickup code. (Staff asking for a PIN are answered first, see isPinRequest.)
+  ["code", /\b(pick ?up code|collection code|one day code|code|pins?|pings?)\b/],
   ["absent", /\b(sick|ill|unwell|not (feeling )?well|no (dey )?well|fever|malaria|typhoid|hospital|clinic|doctor|not coming|won'?t (be )?(coming|come|in)|no (go|dey|fit) (come|go)( to)? school|stay(ing)? (at )?home|go stay (for )?house|travel(l?ing)?|funeral|absent (today|tomorrow)|off (today|tomorrow)|(is|will be) absent)\b/],
   ["early", /\b(early|collecting|collect (him|her|them|am)|coming (for|to (pick|collect|carry))|i('ll| will| go| dey)? (pick|collect|carry|come for)|pick (him|her|them|am) (up )?(at|by|around)|leave early)\b/],
   ["absences", /\b(how many days|days (missed|absent)|absent days|missed|miss(ed)? school|absen(ce|ces)|history|this term)\b/],
@@ -121,6 +122,30 @@ export function menuText(name: string | null, feesOn: boolean): string {
     "8 I'm collecting my child early",
     "0 This menu",
   ].filter(Boolean).join("\n");
+}
+
+/** A staff member asking for a (new) kiosk check-in PIN. "ping" too: it's how many people type it. */
+export function isPinRequest(text: string): boolean {
+  return /\b(pins?|pings?)\b/.test(clean(text));
+}
+
+export function staffMenuText(name: string | null): string {
+  return `${name ? `Hello ${name}` : "Hello"}, this is TapIn. Staff can reply *PIN* to get a new check-in PIN for the kiosk.`;
+}
+
+/** The reply with a staff member's new PIN. */
+export function staffPinText(o: { first: string; school: string; pin: string }): string {
+  return [
+    `${o.first}, your new check-in PIN for ${o.school} is *${o.pin}*`,
+    "",
+    "At the kiosk: tap your card, then type this PIN. Your old PIN no longer works.",
+    "Keep it to yourself and delete this message once you remember it. The school admin has been told a new PIN was sent.",
+  ].join("\n");
+}
+
+/** The same reply as kept in the message log, which school admins can read: the PIN is hidden. */
+export function hidePins(reply: string): string {
+  return reply.replace(/check-in PIN for (.+?) is \*\d{4}\*/g, "check-in PIN for $1 is *••••*");
 }
 
 export const NOT_REGISTERED = "This number isn't registered with a TapIn school. Please ask your child's school to add this phone number to your child's record.";
