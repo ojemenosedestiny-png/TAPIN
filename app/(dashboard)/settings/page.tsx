@@ -42,19 +42,20 @@ export default async function SettingsPage() {
   const logo = school.logo_url ? (await signPhotos(supabase, [school.logo_url])).get(school.logo_url) ?? null : null;
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
+  const org = user.schoolKind === "organisation";
   return (
     <>
       <PageHeader title="Settings" description={school.name} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="day">
-          <h2 id="day" className="text-lg font-semibold text-ink">School day</h2>
-          <p className="mb-4 mt-1 text-sm text-muted-foreground">Used for late arrivals, sign-out and absence alerts.</p>
+          <h2 id="day" className="text-lg font-semibold text-ink">{org ? "Working day" : "School day"}</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">{org ? "Used to mark staff late, or leaving early." : "Used for late arrivals, sign-out and absence alerts."}</p>
           <div className="mb-6"><LogoUpload schoolId={user.schoolId} logoUrl={logo} /></div>
           <SchoolDayForm school={school} />
         </section>
 
         <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="calendar">
-          <h2 id="calendar" className="text-lg font-semibold text-ink">School calendar</h2>
+          <h2 id="calendar" className="text-lg font-semibold text-ink">{org ? "Calendar" : "School calendar"}</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Holidays and breaks: no absence alerts, and nobody is counted absent. Weekends are skipped automatically.</p>
           <HolidayForm />
           <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Upcoming holidays</h3>
@@ -73,11 +74,11 @@ export default async function SettingsPage() {
           )}
         </section>
 
-        <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="handover">
+        {!org && <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="handover">
           <h2 id="handover" className="text-lg font-semibold text-ink">Parent handover</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">Who brought each child, and who collected them, recorded at the gate. Parents get a message either way.</p>
           <HandoverForm enabled={!!school.handover_enabled} minutes={school.late_pickup_minutes ?? 30} />
-        </section>
+        </section>}
 
         <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="staff-security">
           <h2 id="staff-security" className="text-lg font-semibold text-ink">Staff check-in security</h2>
@@ -85,9 +86,9 @@ export default async function SettingsPage() {
           <StaffSecurityForm values={school} staffWithoutPin={staffWithoutPin} />
         </section>
 
-        <PortalSection tz={school.timezone} />
+        {!org && <PortalSection tz={school.timezone} />}
 
-        <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="privacy">
+        {!org && <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="privacy">
           <h2 id="privacy" className="text-lg font-semibold text-ink">Privacy and data</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">
             When a student leaves (status Withdrawn, Graduated or Inactive), everything about them — attendance, card, photo, messages and
@@ -99,7 +100,7 @@ export default async function SettingsPage() {
             {" · "}
             <Link href="/help/consent-form" className="font-medium text-brand hover:underline">Printable consent form</Link>
           </p>
-        </section>
+        </section>}
 
         {plan && (
           <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="your-plan">

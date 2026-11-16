@@ -17,13 +17,15 @@ export default async function QuotesPage() {
     supabase.from("price_items").select("id, name, unit, unit_price").eq("active", true).gt("unit_price", 0).order("sort"),
     supabase.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, active, sort").eq("active", true).order("sort"),
     supabase.from("platform_settings").select("annual_free_months").eq("id", true).maybeSingle(),
-    supabase.from("schools").select("id, name").order("name"),
+    supabase.from("schools").select("id, name, kind").order("name"),
     supabase.from("quotes").select("id, number, school_name, plan_name, billing, first_payment, valid_until, created_at").order("created_at", { ascending: false }).limit(50),
   ]);
-  // Student numbers only (never names): the super admin cannot read students through RLS.
+  // Numbers only (never names): the super admin cannot read students through RLS. Organisations: their staff.
   const admin = createAdminClient();
   const counts = await Promise.all((schools ?? []).map(async (s) => {
-    const { count } = await admin.from("students").select("id", { count: "exact", head: true }).eq("school_id", s.id);
+    const { count } = s.kind === "organisation"
+      ? await admin.from("staff").select("id", { count: "exact", head: true }).eq("school_id", s.id).eq("status", "active")
+      : await admin.from("students").select("id", { count: "exact", head: true }).eq("school_id", s.id);
     return [s.id, count ?? 0] as const;
   }));
   const countOf = new Map(counts);

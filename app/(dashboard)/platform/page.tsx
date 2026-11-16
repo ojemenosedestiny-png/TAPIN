@@ -18,7 +18,7 @@ export default async function PlatformPage() {
   const supabase = await createClient(); // RLS: super admin can read schools, users and devices — not students
 
   const [{ data: schools }, { data: users }, { data: devices }, { data: demos }, { data: plans }, { data: subs }] = await Promise.all([
-    supabase.from("schools").select("id, name, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, created_at").order("name"),
+    supabase.from("schools").select("id, name, kind, timezone, resumption_time, absence_cutoff_time, closing_time, sms_sender_name, created_at").order("name"),
     supabase.from("users").select("school_id, role"),
     supabase.from("devices").select("school_id, last_seen, revoked_at"),
     supabase.from("demo_requests").select("id, name, school, phone, pupils, created_at, handled_at").order("created_at", { ascending: false }).limit(50),
@@ -35,7 +35,7 @@ export default async function PlatformPage() {
 
   return (
     <>
-      <PageHeader title="Schools" description="Create schools and their admin accounts." />
+      <PageHeader title="Schools" description="Create schools and organisations, and their admin accounts." />
       <BackupStatus />
       <OpenOrders />
 
@@ -61,7 +61,7 @@ export default async function PlatformPage() {
             <tbody>
               {list.map((s) => (
                 <tr key={s.id} className={`border-t border-border ${subStatus.get(s.id) === "overdue" ? "bg-red-50/60" : ""}`}>
-                  <td className="px-4 py-3 font-medium text-ink">{s.name}{planOf.get(s.id) === "premium" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-900">Premium</span>}
+                  <td className="px-4 py-3 font-medium text-ink">{s.name}{s.kind === "organisation" && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-900">Organisation</span>}{planOf.get(s.id) === "premium" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-900">Premium</span>}
                     {subStatus.get(s.id) === "overdue" && <Link href="/platform/subscriptions" className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-800 hover:underline">Overdue</Link>}
                     {subStatus.get(s.id) === "due" && <Link href="/platform/subscriptions" className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-900 hover:underline">Renews soon</Link>}</td>
                   <td className="px-4 py-3 text-muted-foreground">{s.resumption_time.slice(0, 5)}–{s.closing_time.slice(0, 5)}</td>
@@ -123,7 +123,7 @@ export default async function PlatformPage() {
 
       <div className="mt-10 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="new-school">
-          <h2 id="new-school" className="mb-4 font-heading text-lg font-semibold text-ink">New school</h2>
+          <h2 id="new-school" className="mb-4 font-heading text-lg font-semibold text-ink">New school or organisation</h2>
           <CreateSchoolForm />
         </section>
         <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="new-user">

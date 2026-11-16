@@ -15,6 +15,7 @@ import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { PersonAvatar } from "@/components/dashboard/person-avatar";
 import { AttendancePill } from "@/components/dashboard/status-pill";
 import { HandoverBoard, NeedsAction, loadHandoverData } from "./handover";
+import { OrgToday } from "./org-today";
 import {
   ArrivalsChart, BlockHeading, ClassBars, GateFeed, KpiStrip, LiveDot, type ClassRow, type FeedItem, type Kpi,
 } from "@/components/dashboard/today-blocks";
@@ -29,8 +30,9 @@ export default async function TodayPage() {
   const supabase = await createClient();
 
   const { data: school } = await supabase
-    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, handover_enabled").eq("id", user.schoolId).single();
+    .from("schools").select("name, timezone, resumption_time, absence_cutoff_time, closing_time, handover_enabled, staff_pin_required, staff_photo").eq("id", user.schoolId).single();
   if (!school) throw new Error("School not found.");
+  if (user.schoolKind === "organisation") return <OrgToday user={user} supabase={supabase} school={school} now={new Date()} />;
   const tz = school.timezone;
   const now = new Date();
   const today = localDate(now, tz);

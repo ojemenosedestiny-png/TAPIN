@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       device: { id: device.id, name: device.name },
-      school: { name: device.school.name, logo_url: logo, timezone: device.school.timezone },
+      school: { name: device.school.name, logo_url: logo, timezone: device.school.timezone, kind: device.school.kind ?? "school" },
       server_time: new Date().toISOString(),
     },
     { headers: { "Cache-Control": "no-store" } },

@@ -30,7 +30,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const range = parseRange(sp.from, sp.to, today);
   const classId = sp.class && /^[0-9a-f-]{36}$/i.test(sp.class) ? sp.class : null;
   const onlyAbsent = sp.status === "absent";
-  const who = sp.who === "staff" && user.role === "school_admin" ? "staff" : "students";
+  const org = user.schoolKind === "organisation"; // staff only
+  const who = org || (sp.who === "staff" && user.role === "school_admin") ? "staff" : "students";
 
   const [{ data: classes }, report] = await Promise.all([
     supabase.from("classes").select("id, name").order("name"),
@@ -57,7 +58,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="motion-rise">
           <h1 className="font-heading text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">Reports</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{school.name} · {className ?? (user.role === "teacher" ? "My classes" : "All classes")} · {rangeLabel}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{school.name} · {org ? "Staff" : className ?? (user.role === "teacher" ? "My classes" : "All classes")} · {rangeLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <PrintButton />
@@ -67,7 +68,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
-      {user.role === "school_admin" && (
+      {user.role === "school_admin" && !org && (
         <nav aria-label="Report on" className="mb-4 flex gap-1 border-b border-border print:hidden">
           {(["students", "staff"] as const).map((w) => (
             <Link key={w} href={`/reports?${qs({ who: w === "staff" ? "staff" : undefined, class: undefined, status: undefined })}`} aria-current={who === w ? "page" : undefined}

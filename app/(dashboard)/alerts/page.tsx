@@ -54,12 +54,14 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
   const pct = allowance ? Math.min(100, Math.round((sent / allowance) * 100)) : 100;
   const unread = (notes ?? []).filter((n) => !n.read_at).length;
   const tz = school.timezone;
-  const when = (iso: string) => new Date(iso).toLocaleString("en-NG", { timeZone: tz, dateStyle: "medium", timeStyle: "short" });
+  const org = user.schoolKind === "organisation"; // staff only: no parent messages
+  const when =(iso: string) => new Date(iso).toLocaleString("en-NG", { timeZone: tz, dateStyle: "medium", timeStyle: "short" });
 
   return (
     <>
-      <PageHeader title="Alerts" description="SMS to guardians and alerts for your admin team." />
+      <PageHeader title="Alerts" description={org ? "Notices for your admin team: late arrivals, early leavers, wrong PINs, unknown cards and offline kiosks." : "SMS to guardians and alerts for your admin team."} />
 
+      {!org && <>
       {!cfg && wa && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900" role="status">
           <MessageSquare className="mt-0.5 size-5 shrink-0" aria-hidden />
@@ -112,6 +114,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           early: (settings as AlertSettings).early_template,
         }} />
       </section>
+      </>}
 
       {/* Needs attention */}
       <section className="mb-10" aria-labelledby="attention">
@@ -141,6 +144,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       </section>
 
       {/* Settings */}
+      {!org && <>
       <WhatsAppAssistantSection tz={tz} />
 
       <section className="mb-10" aria-labelledby="settings">
@@ -197,6 +201,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           </div>
         )}
       </section>
+      </>}
     </>
   );
 }

@@ -57,3 +57,28 @@ describe("role access", () => {
     expect(isRole(undefined)).toBe(false);
   });
 });
+
+describe("organisations (staff only)", () => {
+  it("hide every pupil area, keep the staff ones", async () => {
+    const { canAccessAs, ORG_HIDDEN } = await import("@/lib/auth/roles");
+    for (const area of ["students", "classes", "lessons", "pickup", "enroll"] as const) {
+      expect(canAccessAs("school_admin", area, "organisation")).toBe(false);
+      expect(canAccessAs("school_admin", area, "school")).toBe(true);
+    }
+    for (const area of ["today", "staff", "cards", "devices", "alerts", "reports", "settings", "emergency", "orders", "invoices", "activity"] as const) {
+      expect(canAccessAs("school_admin", area, "organisation")).toBe(true);
+    }
+    expect(ORG_HIDDEN).toContain("my-report");
+    // The super admin is never limited by a kind.
+    expect(canAccessAs("super_admin", "platform", null)).toBe(true);
+  });
+  it("the menu follows the kind", async () => {
+    const { navFor } = await import("@/components/dashboard/nav");
+    const org = navFor("school_admin", "organisation").map((i) => i.href);
+    expect(org).toContain("/staff");
+    expect(org).toContain("/today");
+    expect(org).not.toContain("/students");
+    expect(org).not.toContain("/pickup");
+    expect(navFor("school_admin", "school").map((i) => i.href)).toContain("/students");
+  });
+});

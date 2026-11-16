@@ -15,7 +15,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
   const plan = await getSchoolPlan(createAdminClient(), user.schoolId);
   return (
     <div className="canvas min-h-dvh lg:flex">
-      <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} plan={plan} />
+      <Sidebar role={user.role} name={user.name} schoolName={user.schoolName} kind={user.schoolKind} plan={plan} />
       <main id="main" className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-12 lg:py-12">
         {children}
         <footer className="mt-16 flex justify-center pb-2">

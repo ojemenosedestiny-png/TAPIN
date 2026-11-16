@@ -23,6 +23,7 @@ const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour ti
 export const createSchoolSchema = z
   .object({
     name: z.string().trim().min(2, "School name is too short.").max(120),
+    kind: z.enum(["school", "organisation"], { message: "Choose School or Organisation." }).default("school"),
     timezone: z.string().trim().min(1).default("Africa/Lagos"),
     resumption_time: timeSchema,
     closing_time: timeSchema,

@@ -34,7 +34,7 @@ const HEARTBEAT_MS = 60_000;
 const FLUSH_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 8000;
 
-type SchoolInfo = { name: string; logo_url: string | null; timezone: string };
+type SchoolInfo = { name: string; logo_url: string | null; timezone: string; kind?: string };
 type Screen =
   | { kind: "idle" }
   | { kind: "result"; data: TapResponse }
@@ -734,8 +734,8 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
 
       <div className="relative flex flex-wrap justify-center gap-2.5">
         <button onClick={onTestSound} className={action}><Volume2 className="size-5" aria-hidden /> Test sound</button>
-        {scanning && <button onClick={onPickupCode} className={action}><KeyRound className="size-5" aria-hidden /> Pickup code</button>}
-        {scanning && <button onClick={onScanQr} className={action}><QrCode className="size-5" aria-hidden /> Scan QR</button>}
+        {scanning && school?.kind !== "organisation" && <button onClick={onPickupCode} className={action}><KeyRound className="size-5" aria-hidden /> Pickup code</button>}
+        {scanning && school?.kind !== "organisation" && <button onClick={onScanQr} className={action}><QrCode className="size-5" aria-hidden /> Scan QR</button>}
         {scanning && onEmergency && (
           <button onClick={onEmergency} className="flex items-center gap-2 rounded-full bg-red-600 px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-red-700 active:scale-95">
             <Siren className="size-5" aria-hidden /> Emergency

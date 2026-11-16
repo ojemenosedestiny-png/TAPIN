@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { SetupCounts } from "@/lib/setup";
+import type { OrgSetupCounts, SetupCounts } from "@/lib/setup";
 
 /** Counts for the getting-started checklist. Runs as the school admin (RLS keeps it to their school). */
 export async function loadSetupCounts(db: SupabaseClient): Promise<SetupCounts> {
@@ -31,4 +31,20 @@ export async function loadSetupCounts(db: SupabaseClient): Promise<SetupCounts> 
     kiosks: n(kiosks),
     testAlert: n(testAlert) > 0,
   };
+}
+
+/** Counts for an organisation's checklist (staff only). */
+export async function loadOrgSetupCounts(db: SupabaseClient): Promise<OrgSetupCounts> {
+  const head = { count: "exact" as const, head: true };
+  const n = (r: { count: number | null }) => r.count ?? 0;
+  const [settings, holidays, staff, photos, cards, kiosks, security] = await Promise.all([
+    db.from("audit_logs").select("id", head).eq("action", "school.update"),
+    db.from("school_calendar").select("date", head),
+    db.from("staff").select("id", head).eq("status", "active"),
+    db.from("staff").select("id", head).eq("status", "active").not("photo_url", "is", null),
+    db.from("cards").select("id", head).eq("holder_type", "staff").eq("status", "active"),
+    db.from("devices").select("id", head).is("revoked_at", null),
+    db.from("audit_logs").select("id", head).eq("action", "school.staff_security"),
+  ]);
+  return { settingsSaved: n(settings) > 0, holidays: n(holidays), staff: n(staff), staffPhotos: n(photos), staffCards: n(cards), kiosks: n(kiosks), securitySaved: n(security) > 0 };
 }

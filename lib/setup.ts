@@ -59,3 +59,18 @@ export function setupSummary(steps: SetupStep[]) {
     next: steps.find((s) => !s.done && !s.optional) ?? steps.find((s) => !s.done) ?? null,
   };
 }
+
+/** An organisation (staff only): its own, shorter list. */
+export type OrgSetupCounts = { settingsSaved: boolean; holidays: number; staff: number; staffCards: number; staffPhotos: number; kiosks: number; securitySaved: boolean };
+
+export function orgSetupSteps(c: OrgSetupCounts): SetupStep[] {
+  return [
+    { id: "hours", title: "Check working hours", why: "The start and closing times decide who is late and who left early.", href: "/settings", action: "Open settings", done: c.settingsSaved },
+    { id: "holidays", title: "Add public holidays", why: "Nobody is counted absent on a holiday, and reports leave those days out.", href: "/settings#calendar", action: "Add holidays", done: c.holidays > 0, optional: true },
+    { id: "staff", title: "Add your staff", why: "Everyone who will tap in and out at the kiosk.", href: "/staff", action: "Add staff", done: c.staff > 0 },
+    { id: "photos", title: "Add staff photos", why: "The kiosk shows each person's photo when they tap, so a lent card is noticed.", href: "/staff", action: "Add photos", done: all(c.staffPhotos, c.staff) && c.staff > 0, progress: c.staff ? { done: c.staffPhotos, of: c.staff } : undefined, optional: true },
+    { id: "cards", title: "Give each person a card", why: "Open a person on the Staff page and choose Assign card, then tap a blank card.", href: "/staff", action: "Assign cards", done: all(c.staffCards, c.staff), progress: c.staff ? { done: c.staffCards, of: c.staff } : undefined },
+    { id: "kiosk", title: "Register the entrance kiosk", why: "Connect the phone or tablet at the entrance. Its token is shown once.", href: "/devices", action: "Register a kiosk", done: c.kiosks > 0 },
+    { id: "security", title: "Choose check-in security", why: "PIN after the card, a photo at every tap, alerts, and the hours staff may check in.", href: "/settings#staff-security", action: "Choose", done: c.securitySaved, optional: true },
+  ];
+}

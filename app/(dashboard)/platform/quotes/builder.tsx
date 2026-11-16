@@ -57,7 +57,7 @@ export function QuoteBuilder({ schools, items, plans, freeMonths }: { schools: {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="q-students">Number of students</Label>
+            <Label htmlFor="q-students">Number of students (staff, for an organisation)</Label>
             <input id="q-students" type="number" min={0} value={students || ""} onChange={(ev) => {
               const n = Number(ev.target.value) || 0;
               setStudents(n);

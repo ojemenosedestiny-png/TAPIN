@@ -8,7 +8,7 @@ import { Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme";
 import { cn } from "@/lib/utils";
 import { logout } from "@/app/(auth)/login/actions";
-import type { Role } from "@/lib/auth/roles";
+import type { OrgKind, Role } from "@/lib/auth/roles";
 import { initials } from "./person-avatar";
 import { navFor } from "./nav";
 import { PremiumBadge } from "./upgrade";
@@ -20,10 +20,11 @@ const ROLE_LABEL: Record<Role, string> = {
   teacher: "Teacher",
 };
 
-export function Sidebar({ role, name, schoolName, plan = "basic" }: { role: Role; name: string; schoolName: string | null; plan?: Plan }) {
+export function Sidebar({ role, name, schoolName, kind = "school", plan = "basic" }: { role: Role; name: string; schoolName: string | null; kind?: OrgKind | null; plan?: Plan }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const items = navFor(role);
+  const items = navFor(role, kind);
+  const roleLabel = role === "school_admin" && kind === "organisation" ? "Admin" : ROLE_LABEL[role];
 
   const nav = (
     <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
@@ -65,7 +66,7 @@ export function Sidebar({ role, name, schoolName, plan = "basic" }: { role: Role
         </span>
         <div className="min-w-0 flex-1">
           <Link href="/account" onClick={() => setOpen(false)} className="block truncate text-sm font-semibold text-ink hover:text-brand">{name}</Link>
-          <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[role]}</p>
+          <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
         </div>
         <form action={logout}>
           <button type="submit" aria-label="Sign out" title="Sign out"

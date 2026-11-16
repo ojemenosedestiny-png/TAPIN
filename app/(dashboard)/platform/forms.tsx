@@ -34,6 +34,24 @@ function useResetOnSuccess(state: FormState) {
   return ref;
 }
 
+/** School (pupils, parents, staff) or Organisation (an office or company: staff only). */
+function KindChoice({ name, defaultValue, idPrefix }: { name: string; defaultValue: "school" | "organisation"; idPrefix: string }) {
+  return (
+    <div className="space-y-1.5">
+      <span className="text-sm font-medium text-ink">Type</span>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Type">
+        {(["school", "organisation"] as const).map((k) => (
+          <label key={k} htmlFor={`${idPrefix}-kind-${k}`} className="cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm has-[:checked]:border-brand has-[:checked]:bg-accent">
+            <input id={`${idPrefix}-kind-${k}`} type="radio" name={name} value={k} defaultChecked={defaultValue === k} className="sr-only" />
+            <span className="block font-medium text-ink">{k === "school" ? "School" : "Organisation"}</span>
+            <span className="block text-xs text-muted-foreground">{k === "school" ? "Pupils, parents and staff" : "An office or company: staff only"}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CreateSchoolForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(createSchool, {});
   const ref = useResetOnSuccess(state);
@@ -41,7 +59,8 @@ export function CreateSchoolForm() {
   return (
     <form ref={ref} action={action} className="space-y-4" noValidate>
       <Status state={state} />
-      <Field name="name" label="School name" error={e.name} required />
+      <KindChoice name="kind" defaultValue="school" idPrefix="new" />
+      <Field name="name" label="Name" error={e.name} required />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field name="resumption_time" label="Resumption" type="time" defaultValue="07:45" error={e.resumption_time} required />
         <Field name="absence_cutoff_time" label="Absence cutoff" type="time" defaultValue="09:00" error={e.absence_cutoff_time} required />
@@ -51,7 +70,7 @@ export function CreateSchoolForm() {
         <Field name="timezone" label="Timezone" defaultValue="Africa/Lagos" error={e.timezone} required />
         <Field name="sms_sender_name" label="SMS sender name (optional)" maxLength={11} error={e.sms_sender_name} />
       </div>
-      <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create school"}</Button>
+      <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create"}</Button>
     </form>
   );
 }
@@ -107,7 +126,7 @@ export function DemoHandledButton({ id, handled }: { id: string; handled: boolea
   );
 }
 
-type SchoolRow = { id: string; name: string; timezone: string; resumption_time: string; absence_cutoff_time: string; closing_time: string; sms_sender_name: string | null; plan?: string | null };
+type SchoolRow = { id: string; name: string; timezone: string; resumption_time: string; absence_cutoff_time: string; closing_time: string; sms_sender_name: string | null; plan?: string | null; kind?: string | null };
 
 /** Edit a school's name, hours, timezone or SMS sender name. */
 export function EditSchoolDialog({ school }: { school: SchoolRow }) {
@@ -129,7 +148,8 @@ export function EditSchoolDialog({ school }: { school: SchoolRow }) {
           </DialogHeader>
           <input type="hidden" name="id" value={school.id} />
           <FormError state={state} />
-          <FormField id={id("name")} name="name" label="School name" defaultValue={school.name} error={e.name} required />
+          <KindChoice name="kind" defaultValue={school.kind === "organisation" ? "organisation" : "school"} idPrefix={school.id} />
+          <FormField id={id("name")} name="name" label="Name" defaultValue={school.name} error={e.name} required />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FormField id={id("res")} name="resumption_time" label="Resumption" type="time" defaultValue={school.resumption_time.slice(0, 5)} error={e.resumption_time} required />
             <FormField id={id("cut")} name="absence_cutoff_time" label="Absence cutoff" type="time" defaultValue={school.absence_cutoff_time.slice(0, 5)} error={e.absence_cutoff_time} required />

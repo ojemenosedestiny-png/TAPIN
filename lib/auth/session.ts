@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canAccess, homePath, isRole, type Area, type Role } from "./roles";
+import { canAccessAs, homePath, isOrgKind, isRole, type Area, type OrgKind, type Role } from "./roles";
 
 export type CurrentUser = {
   id: string;
@@ -9,6 +9,8 @@ export type CurrentUser = {
   role: Role;
   schoolId: string | null;
   schoolName: string | null;
+  /** "organisation" = staff only: pupil areas are hidden. */
+  schoolKind: OrgKind | null;
   /** Has two-factor on but hasn't entered the code in this session yet. */
   needsMfa: boolean;
   /** Must turn two-factor on before using anything else (the super admin can see every school). */
@@ -32,7 +34,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id, email, name, role, school_id, schools(name)")
+    .select("id, email, name, role, school_id, schools(name, kind)")
     .eq("id", auth.user.id)
     .maybeSingle();
 
@@ -43,7 +45,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const needsMfa = aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2";
   const needsMfaSetup = mustSetUpMfa(profile.role, aal?.nextLevel);
 
-  const school = profile.schools as unknown as { name: string } | null;
+  const school = profile.schools as unknown as { name: string; kind?: string } | null;
   return {
     id: profile.id,
     email: profile.email,
@@ -51,6 +53,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     role: profile.role,
     schoolId: profile.school_id,
     schoolName: school?.name ?? null,
+    schoolKind: school ? (isOrgKind(school.kind) ? school.kind : "school") : null,
     needsMfa,
     needsMfaSetup,
   };
@@ -62,7 +65,7 @@ export async function requireArea(area: Area): Promise<CurrentUser> {
   if (!user) redirect("/login");
   if (user.needsMfa) redirect("/auth/mfa");
   if (user.needsMfaSetup && area !== "account") redirect("/account?setup=2fa");
-  if (!canAccess(user.role, area)) redirect(homePath(user.role));
+  if (!canAccessAs(user.role, area, user.schoolKind)) redirect(homePath(user.role));
   return user;
 }
 

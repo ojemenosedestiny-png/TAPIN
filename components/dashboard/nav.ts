@@ -2,7 +2,7 @@ import {
   Bell, BookOpen, History, ListChecks, LifeBuoy, Nfc, Wallet, CalendarCheck, CreditCard, FileBarChart, GraduationCap, Settings, Smartphone, Users, Building2, Presentation, UserRound, ShieldCheck, Siren, Tag, FileText, Repeat, ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
-import { canAccess, type Area, type Role } from "@/lib/auth/roles";
+import { canAccessAs, type Area, type OrgKind, type Role } from "@/lib/auth/roles";
 import type { Feature } from "@/lib/plans";
 
 export type NavItem = { area: Area; label: string; href: string; icon: LucideIcon; feature?: Feature };
@@ -33,6 +33,6 @@ const ITEMS: NavItem[] = [
   { area: "help", label: "Help", href: "/help", icon: LifeBuoy },
 ];
 
-export function navFor(role: Role): NavItem[] {
-  return ITEMS.filter((i) => canAccess(role, i.area));
+export function navFor(role: Role, kind: OrgKind | null = "school"): NavItem[] {
+  return ITEMS.filter((i) => canAccessAs(role, i.area, kind));
 }

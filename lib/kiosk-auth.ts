@@ -7,7 +7,7 @@ import { checkRateLimitShared } from "@/lib/rate-limit-shared";
 export type KioskDevice = {
   id: string;
   name: string;
-  school: { id: string; name: string; logo_url: string | null; timezone: string; resumption_time: string; closing_time: string; handover_enabled?: boolean; staff_pin_required?: boolean; staff_photo?: boolean; staff_alerts?: boolean; staff_from?: string | null; staff_until?: string | null };
+  school: { id: string; name: string; logo_url: string | null; timezone: string; resumption_time: string; closing_time: string; handover_enabled?: boolean; staff_pin_required?: boolean; staff_photo?: boolean; staff_alerts?: boolean; staff_from?: string | null; staff_until?: string | null; kind?: string };
 };
 
 export type KioskAuth = { ok: true; device: KioskDevice } | { ok: false; status: number; error: string };
@@ -32,7 +32,7 @@ export async function authenticateKiosk(req: NextRequest): Promise<KioskAuth> {
   const db = createAdminClient();
   const { data, error } = await db
     .from("devices")
-    .select("id, name, revoked_at, schools(id, name, logo_url, timezone, resumption_time, closing_time, handover_enabled, staff_pin_required, staff_photo, staff_alerts, staff_from, staff_until)")
+    .select("id, name, revoked_at, schools(id, name, logo_url, timezone, resumption_time, closing_time, handover_enabled, staff_pin_required, staff_photo, staff_alerts, staff_from, staff_until, kind)")
     .eq("token_hash", hashDeviceToken(token))
     .maybeSingle();
   if (error) return { ok: false, status: 503, error: "Server unavailable. Taps are being saved." };

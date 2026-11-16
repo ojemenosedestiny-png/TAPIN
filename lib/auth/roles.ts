@@ -35,6 +35,21 @@ export function canAccess(role: Role, area: Area): boolean {
   return ACCESS[role].includes(area);
 }
 
+/** A school, or an organisation (an office or company using TapIn for staff only). */
+export type OrgKind = "school" | "organisation";
+
+/** What an organisation never uses: everything about pupils, classes, lessons and parents' pickup. */
+export const ORG_HIDDEN: readonly Area[] = ["students", "classes", "lessons", "pickup", "my-report", "enroll"];
+
+/** canAccess, also hiding pupil areas from organisations. */
+export function canAccessAs(role: Role, area: Area, kind: OrgKind | null | undefined): boolean {
+  return canAccess(role, area) && !(kind === "organisation" && ORG_HIDDEN.includes(area));
+}
+
+export function isOrgKind(v: unknown): v is OrgKind {
+  return v === "school" || v === "organisation";
+}
+
 /** Where a user lands after logging in. */
 export function homePath(role: Role): string {
   return role === "super_admin" ? "/platform" : "/today";

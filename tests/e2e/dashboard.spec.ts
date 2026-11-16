@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 import { ADMIN_STATE, fixture } from "./fixture-data";
 
@@ -305,5 +307,42 @@ test.describe("drop-off, pickup and parent requests", () => {
     const { data: req } = await db.from("early_pickup_requests").select("status").eq("student_id", other!.id).eq("date", today).single();
     expect(req?.status).toBe("approved");
     await expect(page.getByText(`Early pickup: ${other!.name} at 12:30 PM`)).toBeHidden();
+  });
+});
+
+test.describe("organisations (staff only)", () => {
+  test("an organisation admin sees staff tools, never pupil pages", async ({ page }, info) => {
+    test.skip(info.project.name !== "laptop", "one extra login per run (login is rate limited)");
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    const tag = `e2e-org-${Date.now()}`;
+    const password = `E2e-${randomUUID()}A1`;
+    const { data: org } = await db.from("schools").insert({ name: `E2E Office ${tag}`, kind: "organisation", resumption_time: "08:00", closing_time: "17:00", absence_cutoff_time: "10:00" }).select("id").single();
+    const { data: auth } = await db.auth.admin.createUser({ email: `${tag}@example.com`, password, email_confirm: true });
+    try {
+      await db.from("users").insert({ id: auth.user!.id, school_id: org!.id, name: "Olu Office", email: `${tag}@example.com`, role: "school_admin" });
+      await db.from("staff").insert({ school_id: org!.id, name: "Kemi Accounts" });
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(`${tag}@example.com`);
+      await page.getByLabel("Password", { exact: true }).fill(password);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await expect(page).toHaveURL(/\/today/);
+      await expect(page.getByRole("heading", { name: "Staff today" })).toBeVisible();
+      await expect(page.getByRole("link", { name: /Kemi Accounts/ })).toBeVisible();
+      await expect(page.getByText("After 8:00 AM")).toBeVisible(); // the start time, not shifted by a timezone
+      const menu = page.getByRole("navigation", { name: "Main" });
+      await expect(menu.getByRole("link", { name: "Staff", exact: true })).toBeVisible();
+      await expect(menu.getByRole("link", { name: "Students" })).toHaveCount(0);
+      await expect(menu.getByRole("link", { name: "Safe pickup" })).toHaveCount(0);
+      // Typing a pupil address goes back to Today.
+      await page.goto("/students");
+      await expect(page).toHaveURL(/\/today/);
+      await page.goto("/settings");
+      await expect(page.getByRole("heading", { name: "Working day" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Staff check-in security" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Parent handover" })).toHaveCount(0);
+    } finally {
+      if (auth.user) await db.auth.admin.deleteUser(auth.user.id);
+      await db.from("schools").delete().eq("id", org!.id);
+    }
   });
 });

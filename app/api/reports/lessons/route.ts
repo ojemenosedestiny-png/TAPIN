@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canAccess } from "@/lib/auth/roles";
+import { canAccessAs } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { parseRange } from "@/lib/reports";
@@ -20,7 +20,7 @@ function cell(v: string | number | null | undefined): string {
 /** GET /api/reports/lessons?from&to&teacher&class&subject&flagged — the lesson log as CSV. School admins only. */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.needsMfa || !user.schoolId || !canAccess(user.role, "lessons")) return new Response("Sign in first.", { status: 401 });
+  if (!user || user.needsMfa || !user.schoolId || !canAccessAs(user.role, "lessons", user.schoolKind)) return new Response("Sign in first.", { status: 401 });
   if (!checkRateLimit(`export:${user.id}`, { max: 20, windowMs: 10 * 60_000 }).ok) return new Response("Too many exports. Try again in a few minutes.", { status: 429 });
 
   const db = await createClient();
