@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Smartphone } from "lucide-react";
+import Link from "next/link";
+import { ShoppingCart, Smartphone } from "lucide-react";
 import { requireSchoolArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { deviceStatus, type DeviceStatus } from "@/lib/devices";
@@ -28,7 +29,10 @@ export default async function DevicesPage() {
   return (
     <>
       <PageHeader title="Devices" description="Gate kiosks. A kiosk counts as offline after 10 minutes without checking in.">
-        <RegisterDevice />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline"><Link href="/orders"><ShoppingCart className="size-4" /> Order another kiosk</Link></Button>
+          <RegisterDevice />
+        </div>
       </PageHeader>
 
       {(devices ?? []).length === 0 ? (

@@ -7,7 +7,7 @@ import { CreateSchoolForm, CreateUserForm, DeleteSchoolButton, DemoHandledButton
 import { formatNgPhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BACKUP_BUCKET, backupIsStale } from "@/lib/backup";
-import { DatabaseBackup } from "lucide-react";
+import { DatabaseBackup, ShoppingCart } from "lucide-react";
 import { subscriptionStatus } from "@/lib/subscriptions";
 import Link from "next/link";
 
@@ -37,6 +37,7 @@ export default async function PlatformPage() {
     <>
       <PageHeader title="Schools" description="Create schools and their admin accounts." />
       <BackupStatus />
+      <OpenOrders />
 
       {list.length === 0 ? (
         <EmptyState
@@ -146,6 +147,23 @@ async function BackupStatus() {
       {latest
         ? <>Last nightly backup: <strong className="font-semibold tabular-nums">{latest}</strong> · {days.length} kept{stale ? " — older than 2 days, check the scheduled job." : ""}</>
         : <>No backup yet. The first runs tonight at 01:30 UTC once this version is deployed.</>}
+    </p>
+  );
+}
+
+/** Schools' card and kiosk orders that need TapIn: waiting for payment, or paid and waiting for delivery. */
+async function OpenOrders() {
+  const db = createAdminClient();
+  const [{ count: unpaid }, { count: toDeliver }] = await Promise.all([
+    db.from("school_orders").select("id", { count: "exact", head: true }).eq("status", "awaiting_payment"),
+    db.from("school_orders").select("id", { count: "exact", head: true }).eq("status", "paid"),
+  ]);
+  if (!unpaid && !toDeliver) return null;
+  const parts = [unpaid ? `${unpaid} waiting for payment` : null, toDeliver ? `${toDeliver} paid, to deliver` : null].filter(Boolean).join(" · ");
+  return (
+    <p className="-mt-3 mb-6 flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-ink" role="status">
+      <ShoppingCart className="size-4 shrink-0" aria-hidden />
+      Card and kiosk orders: {parts}. <Link href="/platform/billing" className="font-medium text-brand hover:underline">Open Billing</Link>
     </p>
   );
 }

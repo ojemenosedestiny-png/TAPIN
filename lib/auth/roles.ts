@@ -21,12 +21,13 @@ export type Area =
   | "lessons"
   | "my-report"
   | "pickup"
-  | "emergency";
+  | "emergency"
+  | "orders"; // a school buying more cards, wristbands or kiosks
 
 const ACCESS: Record<Role, readonly Area[]> = {
   // No routine access to student records.
   super_admin: ["platform", "help", "account", "invoices", "activity"],
-  school_admin: ["today", "setup", "students", "staff", "lessons", "pickup", "emergency", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account", "invoices", "activity"],
+  school_admin: ["today", "setup", "students", "staff", "lessons", "pickup", "emergency", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account", "invoices", "activity", "orders"],
   teacher: ["today", "students", "reports", "my-report", "emergency", "help", "account"],
 };
 
@@ -43,7 +44,7 @@ export function homePath(role: Role): string {
 export function areaForPath(pathname: string): Area | null {
   const first = pathname.split("/").filter(Boolean)[0] ?? "";
   const areas: readonly string[] = [
-    "platform", "today", "setup", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account", "invoices", "activity", "lessons", "my-report", "pickup", "emergency",
+    "platform", "today", "setup", "students", "staff", "classes", "cards", "devices", "alerts", "reports", "settings", "enroll", "help", "account", "invoices", "activity", "lessons", "my-report", "pickup", "emergency", "orders",
   ];
   return areas.includes(first) ? (first as Area) : null;
 }

@@ -245,6 +245,34 @@ describe.skipIf(!enabled)("Row Level Security", () => {
     }
   });
 
+  it("card and kiosk orders: a school's admins see their own, the super admin sees all, nobody writes from the browser", async () => {
+    const period = "2026-11-01";
+    const mk = async (schoolId: string, n: string) => {
+      const { data: inv } = await admin.from("invoices").insert({ school_id: schoolId, kind: "order", period, number: `RLS-O-${Date.now()}-${n}`, lines: [], total: 1500 }).select("id").single();
+      const { data: o } = await admin.from("school_orders").insert({ school_id: schoolId, invoice_id: inv!.id, lines: [{ description: "Card", quantity: 1, unit_price: 1500, amount: 1500 }], total: 1500 }).select("id").single();
+      return { invoice: inv!.id as string, order: o!.id as string };
+    };
+    const a = await mk(ids.schoolA!, "a");
+    const b = await mk(ids.schoolB!, "b");
+    try {
+      expect((await asAdminA.from("school_orders").select("id").eq("id", a.order)).data).toHaveLength(1);
+      expect((await asAdminA.from("school_orders").select("id").eq("id", b.order)).data ?? []).toEqual([]);
+      expect((await asSuper.from("school_orders").select("id").in("id", [a.order, b.order])).data).toHaveLength(2);
+      for (const c of [asTeacherA, anonClient]) expect((await c.from("school_orders").select("id").eq("id", a.order)).data ?? []).toEqual([]);
+      // Only the server places, pays or delivers orders.
+      expect((await asAdminA.from("school_orders").update({ status: "delivered" }).eq("id", a.order).select()).data ?? []).toEqual([]);
+      expect((await asAdminA.from("school_orders").insert({ school_id: ids.schoolA, lines: [], total: 1 })).error).not.toBeNull();
+      // A school can have several order invoices in one month (only monthly invoices are one per month).
+      const extra = await mk(ids.schoolA!, "a2");
+      expect(extra.order).toBeTruthy();
+      await admin.from("school_orders").delete().eq("id", extra.order);
+      await admin.from("invoices").delete().eq("id", extra.invoice);
+    } finally {
+      await admin.from("school_orders").delete().in("id", [a.order, b.order]);
+      await admin.from("invoices").delete().in("id", [a.invoice, b.invoice]);
+    }
+  });
+
   it("attempt counters: only the server can use them; nobody can read or reset them", async () => {
     const key = `test-${Date.now()}-0123456789abcdef`;
     expect((await admin.rpc("rate_limit_hit", { p_key: key, p_max: 2, p_window_seconds: 60 })).data).toBe(true);

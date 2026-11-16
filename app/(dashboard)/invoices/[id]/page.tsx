@@ -18,7 +18,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const supabase = await createClient();
   const [{ data: inv }, { data: seller }] = await Promise.all([
-    supabase.from("invoices").select("id, school_id, number, period, lines, total, status, issued_at, paid_at").eq("id", id).maybeSingle(),
+    supabase.from("invoices").select("id, school_id, number, period, lines, total, status, issued_at, paid_at, kind").eq("id", id).maybeSingle(),
     supabase.from("platform_settings").select("*").eq("id", true).maybeSingle(),
   ]);
   if (!inv) notFound();
@@ -29,8 +29,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <>
       <div className="mb-6 flex items-center justify-between print:hidden">
-        <Link href={user.role === "super_admin" ? "/platform/billing" : "/settings"} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink">
-          <ArrowLeft className="size-4" /> {user.role === "super_admin" ? "Billing" : "Settings"}
+        <Link href={user.role === "super_admin" ? "/platform/billing" : inv.kind === "order" ? "/orders" : "/settings"} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-ink">
+          <ArrowLeft className="size-4" /> {user.role === "super_admin" ? "Billing" : inv.kind === "order" ? "Orders" : "Settings"}
         </Link>
         <PrintButton />
       </div>
@@ -61,7 +61,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <p className="text-muted-foreground">Bill to</p>
           <p className="font-medium">{school?.name ?? "—"}</p>
           {school?.billing_email && <p className="text-muted-foreground">{school.billing_email}</p>}
-          <p className="mt-2 text-muted-foreground">Period: {monthLabel(inv.period)}</p>
+          <p className="mt-2 text-muted-foreground">{inv.kind === "order" ? "Order: cards and kiosks" : `Period: ${monthLabel(inv.period)}`}</p>
         </section>
 
         <table className="mt-8 w-full">

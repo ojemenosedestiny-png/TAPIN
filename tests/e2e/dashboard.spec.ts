@@ -114,6 +114,21 @@ test.describe("super admin billing", () => {
   });
 });
 
+test.describe("ordering cards and kiosks", () => {
+  test.use({ storageState: ADMIN_STATE });
+
+  test("the school admin reaches the order page from Cards and Devices, and sees its orders", async ({ page }) => {
+    await page.goto("/cards");
+    await page.getByRole("link", { name: "Order more cards" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Order cards and kiosks" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your orders" })).toBeVisible();
+    // Either the price list (items TapIn has priced) or a note that ordering isn't open yet.
+    await expect(page.getByRole("button", { name: "Place order and get invoice" }).or(page.getByText(/Ordering isn't open yet/))).toBeVisible();
+    await page.goto("/devices");
+    await expect(page.getByRole("link", { name: "Order another kiosk" })).toBeVisible();
+  });
+});
+
 test.describe("today and reports", () => {
   test.use({ storageState: ADMIN_STATE });
 

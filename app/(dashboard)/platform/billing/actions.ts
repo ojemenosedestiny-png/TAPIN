@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAudit } from "@/lib/audit";
 import { invoiceLines, invoiceNumber, monthLabel, toPeriod } from "@/lib/billing";
 import { fieldErrors } from "@/lib/validation";
+import { canMove, type OrderStatus } from "@/lib/school-orders";
 import type { ActionState } from "@/components/forms/field";
 
 const money = z.coerce.number().min(0, "Can't be negative.").max(100_000_000);
@@ -71,7 +72,7 @@ export async function generateInvoices(_prev: ActionState, formData: FormData): 
     db.from("schools").select("id, name, price_per_student, setup_fee, price_per_sms, billing_start"),
     db.rpc("school_usage", { p_month: period }),
     db.from("platform_settings").select("invoice_prefix").eq("id", true).single(),
-    db.from("invoices").select("school_id, period"),
+    db.from("invoices").select("school_id, period").eq("kind", "monthly"), // order invoices don't count here
   ]);
   const usageBy = new Map(((usage ?? []) as { school_id: string; active_students: number; sms_sent: number }[]).map((u) => [u.school_id, u]));
   const hasThisMonth = new Set((existing ?? []).filter((i) => i.period === period).map((i) => i.school_id));
@@ -109,6 +110,9 @@ export async function setInvoiceStatus(_prev: ActionState, formData: FormData): 
     .update({ status: status.data, paid_at: status.data === "paid" ? new Date().toISOString() : null })
     .eq("id", id.data).select("number, school_id").single();
   if (error || !data) return { errors: { _form: "Could not update the invoice." } };
+  // An order's invoice paid or voided here moves the order with it.
+  if (status.data === "paid") await createAdminClient().from("school_orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("invoice_id", id.data).eq("status", "awaiting_payment");
+  if (status.data === "void") await createAdminClient().from("school_orders").update({ status: "cancelled" }).eq("invoice_id", id.data).eq("status", "awaiting_payment");
   await writeAudit({ schoolId: data.school_id, actorId: user.id, action: `billing.invoice_${status.data}`, entity: "invoices", entityId: id.data, details: { number: data.number } });
   revalidatePath("/platform/billing");
   return { ok: `Invoice ${data.number} marked ${status.data}.` };
@@ -128,6 +132,28 @@ export async function setOrderStatus(_prev: ActionState, formData: FormData): Pr
   return { ok: status === "paid" ? "Order marked paid." : "Order cancelled." };
 }
 
+
+/** A school's card and kiosk order: paid (its invoice too), delivered, or cancelled (its invoice voided). */
+export async function setSchoolOrderStatus(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireArea("platform");
+  const id = z.string().uuid().safeParse(formData.get("id"));
+  const to = z.enum(["paid", "delivered", "cancelled"]).safeParse(formData.get("status"));
+  if (!id.success || !to.success) return { errors: { _form: "Invalid request." } };
+  const db = createAdminClient();
+  const { data: o } = await db.from("school_orders").select("status, school_id, invoice_id").eq("id", id.data).maybeSingle();
+  if (!o || !canMove(o.status as OrderStatus, to.data, "super")) return { errors: { _form: "That change isn't possible for this order." } };
+  const now = new Date().toISOString();
+  const { error } = await db.from("school_orders")
+    .update({ status: to.data, ...(to.data === "paid" ? { paid_at: now } : {}), ...(to.data === "delivered" ? { delivered_at: now } : {}) })
+    .eq("id", id.data).eq("status", o.status);
+  if (error) return { errors: { _form: "Could not update the order." } };
+  if (o.invoice_id && to.data === "paid") await db.from("invoices").update({ status: "paid", paid_at: now }).eq("id", o.invoice_id).eq("status", "issued");
+  if (o.invoice_id && to.data === "cancelled") await db.from("invoices").update({ status: "void" }).eq("id", o.invoice_id).eq("status", "issued");
+  await writeAudit({ schoolId: o.school_id, actorId: user.id, action: `school_order.${to.data}`, entity: "school_orders", entityId: id.data, details: {} });
+  revalidatePath("/platform/billing");
+  revalidatePath("/platform");
+  return { ok: to.data === "paid" ? "Marked paid. Prepare the delivery." : to.data === "delivered" ? "Marked delivered." : "Order cancelled and its invoice voided." };
+}
 
 const webPricesSchema = z.object({
   live_within_days: z.union([z.literal(""), z.coerce.number().int("Whole days.").min(1, "1 to 365.").max(365, "1 to 365.")]).optional().transform((v) => (v === "" || v === undefined ? null : v)),

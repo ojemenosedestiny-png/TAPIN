@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field, FormError, useActionFeedback, withSuccessToast } from "@/components/forms/field";
 import { Label } from "@/components/ui/label";
-import { generateInvoices, savePlatformSettings, saveSchoolPricing, saveWebsitePrices, setInvoiceStatus, setOrderStatus } from "./actions";
+import { generateInvoices, savePlatformSettings, saveSchoolPricing, saveWebsitePrices, setInvoiceStatus, setOrderStatus, setSchoolOrderStatus } from "./actions";
 
 type Pricing = { id: string; name: string; price_per_student: number; setup_fee: number; price_per_sms: number; billing_start: string | null; billing_email: string | null };
 
@@ -112,6 +112,24 @@ export function OrderStatusButtons({ id }: { id: string }) {
       <input type="hidden" name="id" value={id} />
       <Button type="submit" name="status" value="paid" size="sm" variant="outline" disabled={pending}>Mark paid</Button>
       <Button type="submit" name="status" value="cancelled" size="sm" variant="ghost" disabled={pending}>Cancel</Button>
+    </form>
+  );
+}
+
+/** A school's card and kiosk order: what TapIn can do next. */
+export function SchoolOrderButtons({ id, status }: { id: string; status: "awaiting_payment" | "paid" }) {
+  const [state, action, pending] = useActionState(withSuccessToast(setSchoolOrderStatus), {});
+  useActionFeedback(state);
+  return (
+    <form action={action} className="inline-flex gap-1"
+      onSubmit={(e) => { const v = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value"); if (v === "cancelled" && !window.confirm("Cancel this order and void its invoice?")) e.preventDefault(); }}>
+      <input type="hidden" name="id" value={id} />
+      {status === "awaiting_payment" ? (
+        <>
+          <Button type="submit" name="status" value="paid" size="sm" variant="outline" disabled={pending}>Mark paid</Button>
+          <Button type="submit" name="status" value="cancelled" size="sm" variant="ghost" disabled={pending}>Cancel</Button>
+        </>
+      ) : <Button type="submit" name="status" value="delivered" size="sm" variant="outline" disabled={pending}>Mark delivered</Button>}
     </form>
   );
 }

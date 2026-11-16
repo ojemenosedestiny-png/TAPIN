@@ -6,7 +6,8 @@ import { invoiceLines, monthLabel, naira } from "@/lib/billing";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusPill, type PillTone } from "@/components/dashboard/status-pill";
 import { KpiStrip } from "@/components/dashboard/today-blocks";
-import { GenerateInvoices, InvoiceStatusButton, OrderStatusButtons, PlatformSettingsForm, PricingDialog, WebsitePricesForm } from "./forms";
+import { GenerateInvoices, InvoiceStatusButton, OrderStatusButtons, PlatformSettingsForm, PricingDialog, SchoolOrderButtons, WebsitePricesForm } from "./forms";
+import { STATUS_LABEL, type OrderLine, type OrderStatus } from "@/lib/school-orders";
 import { formatNgPhone } from "@/lib/phone";
 
 export const metadata: Metadata = { title: "Billing" };
@@ -21,15 +22,16 @@ export default async function BillingPage() {
   const thisMonth = `${now.toISOString().slice(0, 7)}-01`;
   const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
 
-  const [{ data: schools }, { data: usage }, { data: invoices }, { data: settings }, { data: orders }] = await Promise.all([
+  const [{ data: schools }, { data: usage }, { data: invoices }, { data: settings }, { data: orders }, { data: hardware }] = await Promise.all([
     db.from("schools").select("id, name, price_per_student, setup_fee, price_per_sms, billing_start, billing_email").order("name"),
     db.rpc("school_usage", { p_month: thisMonth }),
-    db.from("invoices").select("id, school_id, number, period, total, status, issued_at").order("issued_at", { ascending: false }).limit(60),
+    db.from("invoices").select("id, school_id, number, period, total, status, issued_at, kind").order("issued_at", { ascending: false }).limit(60),
     db.from("platform_settings").select("*").eq("id", true).single(),
     db.from("orders").select("id, reference, plan, billing, students, school_name, contact_name, phone, email, state, method, amount, status, created_at").order("created_at", { ascending: false }).limit(50),
+    db.from("school_orders").select("id, school_id, lines, total, note, status, created_at, invoice_id").order("created_at", { ascending: false }).limit(50),
   ]);
   const usageBy = new Map(((usage ?? []) as { school_id: string; active_students: number; sms_sent: number }[]).map((u) => [u.school_id, u]));
-  const invoiced = new Set((invoices ?? []).map((i) => i.school_id));
+  const invoiced = new Set((invoices ?? []).filter((i) => i.kind === "monthly").map((i) => i.school_id));
   const name = new Map((schools ?? []).map((s) => [s.id, s.name]));
 
   const rows = (schools ?? []).map((s) => {
@@ -51,6 +53,34 @@ export default async function BillingPage() {
         { label: "Active students", value: students, caption: `Across ${rows.length} school${rows.length === 1 ? "" : "s"}` },
         { label: "Unpaid invoices", value: Math.round(unpaid), tone: "warn", caption: "Naira outstanding" },
       ]} />
+
+      <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="hardware">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-2 pt-4">
+          <h2 id="hardware" className="text-base font-semibold text-ink">Card and kiosk orders</h2>
+          <p className="text-xs text-muted-foreground">Schools order on their &ldquo;Order cards and kiosks&rdquo; page and pay by invoice</p>
+        </div>
+        {(hardware ?? []).length === 0 ? <p className="px-5 pb-5 text-sm text-muted-foreground">No orders yet.</p> : (
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr><th scope="col" className="px-5 py-2 font-normal">School</th><th scope="col" className="px-3 py-2 font-normal">Items</th><th scope="col" className="px-3 py-2 text-right font-normal">Total</th><th scope="col" className="px-3 py-2 font-normal">Status</th><th scope="col" className="px-5 py-2"><span className="sr-only">Actions</span></th></tr>
+            </thead>
+            <tbody>
+              {(hardware ?? []).map((o) => (
+                <tr key={o.id} className={`border-t border-border ${o.status === "awaiting_payment" || o.status === "paid" ? "" : "text-muted-foreground"}`}>
+                  <td className="px-5 py-2.5"><span className="font-medium text-ink">{name.get(o.school_id) ?? "—"}</span><span className="block text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString("en-NG", { dateStyle: "medium", timeZone: "Africa/Lagos" })}</span></td>
+                  <td className="px-3 py-2.5">{(o.lines as OrderLine[]).map((l) => `${l.quantity} × ${l.description.replace(/ \(.*\)$/, "")}`).join(", ")}{o.note && <span className="block text-xs text-muted-foreground">&ldquo;{o.note}&rdquo;</span>}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{naira(Number(o.total))}</td>
+                  <td className="px-3 py-2.5"><StatusPill tone={o.status === "awaiting_payment" ? "amber" : o.status === "paid" ? "teal" : o.status === "delivered" ? "green" : "slate"}>{STATUS_LABEL[o.status as OrderStatus]}</StatusPill></td>
+                  <td className="px-5 py-2 text-right"><div className="flex items-center justify-end gap-2">
+                    {o.invoice_id && <Link href={`/invoices/${o.invoice_id}`} className="text-xs font-medium text-brand hover:underline">Invoice</Link>}
+                    {(o.status === "awaiting_payment" || o.status === "paid") && <SchoolOrderButtons id={o.id} status={o.status} />}
+                  </div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       <section className="motion-rise mt-6 overflow-x-auto surface rounded-xl" aria-labelledby="schools">
         <div className="flex flex-wrap items-end justify-between gap-3 px-5 pb-2 pt-4">
