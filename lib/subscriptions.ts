@@ -47,9 +47,12 @@ export function planForStudents<P extends { min_students: number; max_students: 
     .find((p) => students >= p.min_students && (p.max_students === null || students <= p.max_students)) ?? null;
 }
 
-/** "301–800 students", "801+ students". */
-export function studentRange(min: number, max: number | null): string {
-  return max === null ? `${min}+ students` : `${min}–${max} students`;
+export type Audience = "school" | "organisation";
+
+/** "301–800 students", "801+ students"; for an organisation plan, staff: "1–25 staff". */
+export function studentRange(min: number, max: number | null, audience: Audience | string = "school"): string {
+  const who = audience === "organisation" ? "staff" : "students";
+  return max === null ? `${min}+ ${who}` : `${min}–${max} ${who}`;
 }
 
 /** Adds whole months to an ISO date, keeping the day where it exists (31 Jan + 1 month = 28/29 Feb). */

@@ -22,7 +22,7 @@ export default async function SubscriptionsPage() {
   const [{ data: schools }, { data: subs }, { data: plans }, { data: settings }] = await Promise.all([
     supabase.from("schools").select("id, name").order("name"),
     supabase.from("subscriptions").select("school_id, plan_id, agreed_monthly_price, billing, started_on, renews_on, suspended, notes"),
-    supabase.from("subscription_plans").select("id, name, monthly_price, active").order("sort"),
+    supabase.from("subscription_plans").select("id, name, monthly_price, active, audience").order("sort"),
     supabase.from("platform_settings").select("annual_free_months").eq("id", true).maybeSingle(),
   ]);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });

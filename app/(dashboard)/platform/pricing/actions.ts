@@ -50,6 +50,7 @@ const planSchema = z.object({
   monthly_price: money,
   features: z.string().max(2000).optional().transform((v) => (v ?? "").split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 20)),
   tier: z.enum(["basic", "premium"]),
+  audience: z.enum(["school", "organisation"]).default("school"),
 }).refine((p) => p.max_students === null || p.max_students >= p.min_students, { message: "Must be at least the minimum.", path: ["max_students"] });
 
 /** Adds or edits a monthly plan. Schools on it keep their agreed price; their feature level follows the plan. */

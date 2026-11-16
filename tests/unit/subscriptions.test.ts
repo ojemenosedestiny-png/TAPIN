@@ -79,3 +79,22 @@ describe("subscriptions", () => {
     expect(subscriptionStatus("2026-12-15", true, "2026-11-15")).toBe("suspended");
   });
 });
+
+describe("office plans", () => {
+  it("are sized by staff, school plans by students", async () => {
+    const { studentRange } = await import("@/lib/subscriptions");
+    expect(studentRange(1, 25, "organisation")).toBe("1–25 staff");
+    expect(studentRange(26, null, "organisation")).toBe("26+ staff");
+    expect(studentRange(0, 300)).toBe("0–300 students");
+  });
+  it("are listed apart on the website and never on the school order form", async () => {
+    const { pricingFrom, quoteFor } = await import("@/lib/pricing");
+    const cfg = pricingFrom([
+      { id: "s", name: "Starter", min_students: 0, max_students: 300, monthly_price: 40000, features: [], active: true, sort: 1 },
+      { id: "o", name: "Office", min_students: 1, max_students: 50, monthly_price: 25000, features: [], active: true, sort: 2, audience: "organisation" },
+    ], [], null);
+    expect(cfg.plans.map((p) => p.id)).toEqual(["s"]);
+    expect(cfg.orgPlans).toMatchObject([{ id: "o", range: "1–50 staff", monthlyPrice: 25000 }]);
+    expect(quoteFor("o", "monthly", 20, cfg)).toBeNull();
+  });
+});

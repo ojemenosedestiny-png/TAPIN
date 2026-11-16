@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Reveal } from "@/components/home/reveal";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
 import { PricingClient } from "@/components/site/pricing-client";
+import { OfficePlans } from "@/components/site/office-plans";
 import { loadPricing } from "@/lib/pricing-data";
 import { flutterwaveKey } from "@/lib/flutterwave";
 import "../site.css";
@@ -36,6 +37,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Sear
       <Suspense fallback={<div style={{ minHeight: 800 }} aria-busy="true" />}>
         <Body searchParams={searchParams} />
       </Suspense>
+      <OfficePlans pricing={pricing} />
       <SiteFooter contact={pricing.contact} />
     </main>
   );

@@ -128,7 +128,7 @@ export default async function PlatformPage() {
         </section>
         <section className="surface rounded-xl p-6 shadow-sm" aria-labelledby="new-user">
           <h2 id="new-user" className="mb-4 font-heading text-lg font-semibold text-ink">New staff account</h2>
-          <CreateUserForm schools={list.map(({ id, name }) => ({ id, name }))} />
+          <CreateUserForm schools={list.map(({ id, name, kind }) => ({ id, name, kind }))} />
         </section>
       </div>
     </>

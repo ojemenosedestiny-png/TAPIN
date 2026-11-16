@@ -15,7 +15,7 @@ export default async function QuotesPage() {
   const supabase = await createClient(); // RLS: super admin only
   const [{ data: items }, { data: plans }, { data: settings }, { data: schools }, { data: quotes }] = await Promise.all([
     supabase.from("price_items").select("id, name, unit, unit_price").eq("active", true).gt("unit_price", 0).order("sort"),
-    supabase.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, active, sort").eq("active", true).order("sort"),
+    supabase.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, active, sort, audience").eq("active", true).order("sort"),
     supabase.from("platform_settings").select("annual_free_months").eq("id", true).maybeSingle(),
     supabase.from("schools").select("id, name, kind").order("name"),
     supabase.from("quotes").select("id, number, school_name, plan_name, billing, first_payment, valid_until, created_at").order("created_at", { ascending: false }).limit(50),
@@ -38,7 +38,7 @@ export default async function QuotesPage() {
         <h2 id="new-quote" className="mb-4 text-base font-semibold text-ink">New quote</h2>
         {(plans ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No active plans yet. Add a plan on the <Link href="/platform/pricing" className="text-brand hover:underline">Pricing</Link> page first.</p> : (
           <QuoteBuilder
-            schools={(schools ?? []).map((s) => ({ id: s.id, name: s.name, students: countOf.get(s.id) ?? 0 }))}
+            schools={(schools ?? []).map((s) => ({ id: s.id, name: s.name, kind: s.kind as string, students: countOf.get(s.id) ?? 0 }))}
             items={(items ?? []).map((i) => ({ ...i, unit_price: Number(i.unit_price) }))}
             plans={(plans ?? []).map((p) => ({ ...p, monthly_price: Number(p.monthly_price) }))}
             freeMonths={(settings?.annual_free_months as number | undefined) ?? 0}

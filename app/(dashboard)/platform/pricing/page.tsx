@@ -29,7 +29,7 @@ export default async function PricingPage() {
   const supabase = await createClient(); // RLS: super admin only
   const [{ data: items }, { data: plans }, { data: settings }, { data: history }] = await Promise.all([
     supabase.from("price_items").select("id, name, description, unit, unit_price, active").order("sort").order("created_at"),
-    supabase.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, features, tier, active").order("sort").order("created_at"),
+    supabase.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, features, tier, active, audience").order("sort").order("created_at"),
     supabase.from("platform_settings").select("annual_free_months").eq("id", true).maybeSingle(),
     supabase.from("price_history").select("id, entity, name, field, old_value, new_value, changed_at, users(name)").order("changed_at", { ascending: false }).limit(40),
   ]);
@@ -74,7 +74,7 @@ export default async function PricingPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-ink">{p.name} {p.tier === "premium" && <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">Premium</span>}</p>
-                  <p className="text-xs text-muted-foreground">{studentRange(p.min_students, p.max_students)}</p>
+                  <p className="text-xs text-muted-foreground">{p.audience === "organisation" ? "Offices · " : ""}{studentRange(p.min_students, p.max_students, p.audience)}</p>
                 </div>
                 <StatusPill tone={p.active ? "green" : "slate"}>{p.active ? "Active" : "Retired"}</StatusPill>
               </div>

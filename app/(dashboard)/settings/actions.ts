@@ -16,6 +16,8 @@ export async function createTeamLogin(_prev: ActionState, formData: FormData): P
   const parsed = createStaffUserSchema.safeParse({ ...Object.fromEntries(formData), school_id: user.schoolId });
   if (!parsed.success) return { errors: fieldErrors(parsed.error) };
   const input = parsed.data;
+  // Organisations have admins only: teachers see classes and pupils, which an office doesn't have.
+  if (user.schoolKind === "organisation" && input.role !== "school_admin") return { errors: { role: "Organisations have admin logins only." } };
 
   const db = createAdminClient();
   const { data: created, error } = await db.auth.admin.createUser({ email: input.email, password: input.password, email_confirm: true });
@@ -49,6 +51,7 @@ export async function updateTeamMember(_prev: ActionState, formData: FormData): 
   const { id, name, role } = parsed.data;
   const staffId = parsed.data.staff_id || null;
   if (id === user.id && role !== "school_admin") return { errors: { role: "You can't remove your own admin role. Ask another admin." } };
+  if (user.schoolKind === "organisation" && role !== "school_admin") return { errors: { role: "Organisations have admin logins only." } };
   const db = createAdminClient();
   if (staffId) {
     const { data: st } = await db.from("staff").select("id").eq("id", staffId).eq("school_id", user.schoolId).maybeSingle();

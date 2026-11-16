@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { moveRow, saveAnnualDiscount, saveItem, savePlan } from "./actions";
 
 export type ItemRow = { id: string; name: string; description: string | null; unit: string; unit_price: number; active: boolean };
-export type PlanRow = { id: string; name: string; min_students: number; max_students: number | null; monthly_price: number; features: string[]; tier: "basic" | "premium"; active: boolean };
+export type PlanRow = { id: string; name: string; min_students: number; max_students: number | null; monthly_price: number; features: string[]; tier: "basic" | "premium"; active: boolean; audience?: "school" | "organisation" };
 
 function ActiveBox({ name, defaultChecked, label }: { name: string; defaultChecked: boolean; label: string }) {
   return (
@@ -74,8 +74,12 @@ export function PlanDialog({ plan }: { plan?: PlanRow }) {
           {plan && <input type="hidden" name="id" value={plan.id} />}
           <FormError state={state} />
           <Field name="name" id={`pl-name-${k}`} label="Name" defaultValue={plan?.name} error={e.name} required />
+          <SelectField name="audience" id={`pl-aud-${k}`} label="For" defaultValue={plan?.audience ?? "school"} error={e.audience}>
+            <option value="school">Schools (sized by students)</option>
+            <option value="organisation">Offices and companies (sized by staff)</option>
+          </SelectField>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field name="min_students" id={`pl-min-${k}`} label="From (students)" type="number" min={0} defaultValue={plan?.min_students ?? 0} error={e.min_students} />
+            <Field name="min_students" id={`pl-min-${k}`} label="From (students or staff)" type="number" min={0} defaultValue={plan?.min_students ?? 0} error={e.min_students} />
             <Field name="max_students" id={`pl-max-${k}`} label="To (empty = no limit)" type="number" min={1} defaultValue={plan?.max_students ?? ""} error={e.max_students} />
             <Field name="monthly_price" id={`pl-price-${k}`} label="Monthly price (₦)" type="number" min={0} step="0.01" defaultValue={plan?.monthly_price ?? ""} error={e.monthly_price} required />
           </div>

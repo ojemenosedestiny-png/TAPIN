@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError, SelectField, useActionFeedback } from "@/components/forms/field";
 import { createTeamLogin } from "./actions";
 
-export function TeamForm() {
+export function TeamForm({ org = false }: { org?: boolean }) {
   const ref = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(createTeamLogin, {});
   useActionFeedback(state, () => ref.current?.reset());
@@ -21,10 +21,18 @@ export function TeamForm() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field name="password" label="Temporary password" type="password" autoComplete="new-password" error={e.password}
           hint="10+ characters with upper and lower case and a number." required />
-        <SelectField name="role" label="Role" defaultValue="teacher">
-          <option value="teacher">Teacher</option>
-          <option value="school_admin">School admin</option>
-        </SelectField>
+        {org ? (
+          <div className="space-y-1.5">
+            <input type="hidden" name="role" value="school_admin" />
+            <p className="text-sm font-medium text-ink">Role</p>
+            <p className="flex h-9 items-center text-sm text-muted-foreground">Admin: sees and manages everything</p>
+          </div>
+        ) : (
+          <SelectField name="role" label="Role" defaultValue="teacher" error={e.role}>
+            <option value="teacher">Teacher</option>
+            <option value="school_admin">School admin</option>
+          </SelectField>
+        )}
       </div>
       <Button type="submit" disabled={pending}><UserPlus className="size-4" /> {pending ? "Creating…" : "Create login"}</Button>
     </form>

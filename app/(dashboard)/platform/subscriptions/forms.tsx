@@ -8,7 +8,7 @@ import { Field, FormError, SelectField, useActionFeedback } from "@/components/f
 import { nextRenewal, type Billing } from "@/lib/subscriptions";
 import { moveToCurrentPrice, renewSubscription, saveSubscription, toggleSuspend } from "./actions";
 
-export type SubPlan = { id: string; name: string; monthly_price: number; active: boolean };
+export type SubPlan = { id: string; name: string; monthly_price: number; active: boolean; audience?: string };
 export type SubRow = { school_id: string; plan_id: string; agreed_monthly_price: number; billing: Billing; started_on: string; renews_on: string; notes: string | null };
 
 export function SubscriptionDialog({ schoolId, schoolName, plans, sub, today }: { schoolId: string; schoolName: string; plans: SubPlan[]; sub?: SubRow; today: string }) {
@@ -42,7 +42,7 @@ export function SubscriptionDialog({ schoolId, schoolName, plans, sub, today }: 
               setPlanId(ev.target.value);
               if (!sub) setPrice(String(plans.find((p) => p.id === ev.target.value)?.monthly_price ?? ""));
             }}>
-            {choosable.map((p) => <option key={p.id} value={p.id}>{p.name} · ₦{p.monthly_price.toLocaleString("en-NG")}/month{p.active ? "" : " (retired)"}</option>)}
+            {choosable.map((p) => <option key={p.id} value={p.id}>{p.name}{p.audience === "organisation" ? " (office)" : ""} · ₦{p.monthly_price.toLocaleString("en-NG")}/month{p.active ? "" : " (retired)"}</option>)}
           </SelectField>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field name="agreed_monthly_price" id={`sb-price-${k}`} label="Agreed monthly price (₦)" type="number" min={0} step="0.01" value={price}

@@ -137,7 +137,7 @@ export default async function SettingsPage() {
 
         <section className="surface rounded-xl p-6 shadow-sm xl:col-span-2" aria-labelledby="team">
           <h2 id="team" className="text-lg font-semibold text-ink">Team</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Dashboard logins for your school. Teachers see attendance for their own classes only.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{org ? "Dashboard logins for your organisation. Admins see and manage everything." : "Dashboard logins for your school. Teachers see attendance for their own classes only."}</p>
           <ul className="mt-4 divide-y divide-border rounded-xl border border-border">
             {(team ?? []).map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -146,14 +146,14 @@ export default async function SettingsPage() {
                   <p className="truncate text-muted-foreground">{m.email}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <StatusPill tone={m.role === "school_admin" ? "teal" : "slate"} dot={false}>{m.role === "school_admin" ? "School admin" : "Teacher"}</StatusPill>
+                  <StatusPill tone={m.role === "school_admin" ? "teal" : "slate"} dot={false}>{m.role === "school_admin" ? (org ? "Admin" : "School admin") : "Teacher"}</StatusPill>
                   <TeamMemberActions member={{ ...(m as { id: string; name: string; email: string; role: "school_admin" | "teacher" }), staff_id: staffOf.get(m.id) ?? null }} isSelf={m.id === user.id} staff={staffList ?? []} />
                 </div>
               </li>
             ))}
           </ul>
           <h3 className="mb-3 mt-6 font-semibold text-ink">Add a login</h3>
-          <TeamForm />
+          <TeamForm org={org} />
         </section>
       </div>
     </>

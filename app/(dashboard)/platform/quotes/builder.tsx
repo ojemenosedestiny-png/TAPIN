@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/forms/field";
 import { Label } from "@/components/ui/label";
@@ -8,37 +8,45 @@ import { computeQuote, planForStudents, studentRange, type Billing } from "@/lib
 import { saveQuote } from "./actions";
 
 type Item = { id: string; name: string; unit: string; unit_price: number };
-type Plan = { id: string; name: string; min_students: number; max_students: number | null; monthly_price: number; active: boolean; sort: number };
+type Plan = { id: string; name: string; min_students: number; max_students: number | null; monthly_price: number; active: boolean; sort: number; audience?: string };
 const ngn = (n: number) => `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 const input = "h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 /** The quote builder: live totals while you type; the server recalculates from current prices when you save. */
-export function QuoteBuilder({ schools, items, plans, freeMonths }: { schools: { id: string; name: string; students: number }[]; items: Item[]; plans: Plan[]; freeMonths: number }) {
+export function QuoteBuilder({ schools, items, plans, freeMonths }: { schools: { id: string; name: string; students: number; kind?: string }[]; items: Item[]; plans: Plan[]; freeMonths: number }) {
   const [state, action, pending] = useActionState(saveQuote, {});
   const e = state.errors ?? {};
   const [schoolId, setSchoolId] = useState("");
   const [students, setStudents] = useState(0);
   const [qty, setQty] = useState<Record<string, number>>({});
-  const [planId, setPlanId] = useState(plans[0]?.id ?? "");
+  const [newKind, setNewKind] = useState<"school" | "organisation">("school");
+  const audienceOf = (id: string, k = newKind) => (id ? (schools.find((x) => x.id === id)?.kind === "organisation" ? "organisation" : "school") : k);
+  const shownFor = (a: string) => plans.filter((p) => (p.audience ?? "school") === a);
+  const [planId, setPlanId] = useState(shownFor("school")[0]?.id ?? "");
   const [billing, setBilling] = useState<Billing>("monthly");
   const [kind, setKind] = useState<"" | "percent" | "fixed">("");
   const [value, setValue] = useState(0);
-  const plan = plans.find((p) => p.id === planId);
-  const suggested = students > 0 ? planForStudents(plans, students) : null;
+  const audience = audienceOf(schoolId);
+  const shown = shownFor(audience);
+  const plan = shown.find((p) => p.id === planId);
+  const suggested = students > 0 ? planForStudents(shown, students) : null;
+  /** School or office changed: keep the plan if it still fits, otherwise the first of the right kind. */
+  const retarget = (a: string, n: number) => {
+    const list = shownFor(a);
+    const fit = n > 0 ? planForStudents(list, n) : null;
+    setPlanId(fit?.id ?? (list.some((p) => p.id === planId) ? planId : list[0]?.id ?? ""));
+  };
 
-  const totals = useMemo(() => computeQuote({
+  const totals = computeQuote({
     items: items.map((i) => ({ ...i, quantity: qty[i.id] ?? 0 })), monthlyPrice: plan?.monthly_price ?? 0, billing, annualFreeMonths: freeMonths,
     discount: kind ? { kind, value } : null,
-  }), [items, qty, plan, billing, freeMonths, kind, value]);
+  });
 
   const pickSchool = (id: string) => {
     setSchoolId(id);
     const s = schools.find((x) => x.id === id);
-    if (s?.students) {
-      setStudents(s.students);
-      const p = planForStudents(plans, s.students);
-      if (p) setPlanId(p.id);
-    }
+    if (s?.students) setStudents(s.students);
+    retarget(audienceOf(id), s?.students ?? students);
   };
 
   return (
@@ -47,29 +55,40 @@ export function QuoteBuilder({ schools, items, plans, freeMonths }: { schools: {
         <FormError state={state} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="q-school">School</Label>
+            <Label htmlFor="q-school">School or organisation</Label>
             <select id="q-school" name="school_id" value={schoolId} onChange={(ev) => pickSchool(ev.target.value)} className={input}>
-              <option value="">A new school (type its name)</option>
+              <option value="">Someone new (type the name)</option>
               {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
-          {!schoolId && <Field name="school_name" label="New school's name" error={e.school_name} placeholder="Bright Stars College" />}
+          {!schoolId && <Field name="school_name" label="Name" error={e.school_name} placeholder="Bright Stars College" />}
+          {!schoolId && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <span className="text-sm font-medium text-ink">Quote for</span>
+              <div className="flex gap-4 text-sm">
+                {(["school", "organisation"] as const).map((k) => (
+                  <label key={k} className="flex items-center gap-2"><input type="radio" name="for_kind" checked={newKind === k} onChange={() => { setNewKind(k); retarget(k, students); }} className="accent-[var(--brand)]" /> {k === "school" ? "A school" : "An office or company"}</label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="q-students">Number of students (staff, for an organisation)</Label>
+            <Label htmlFor="q-students">{audience === "organisation" ? "Number of staff" : "Number of students"}</Label>
             <input id="q-students" type="number" min={0} value={students || ""} onChange={(ev) => {
               const n = Number(ev.target.value) || 0;
               setStudents(n);
-              const p = planForStudents(plans, n);
+              const p = planForStudents(shown, n);
               if (p) setPlanId(p.id);
             }} className={input} />
-            {suggested && <p className="text-xs text-muted-foreground">Fits {suggested.name} ({studentRange(suggested.min_students, suggested.max_students)}).</p>}
+            {suggested && <p className="text-xs text-muted-foreground">Fits {suggested.name} ({studentRange(suggested.min_students, suggested.max_students, audience)}).</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="q-plan">Plan</Label>
             <select id="q-plan" name="plan_id" value={planId} onChange={(ev) => setPlanId(ev.target.value)} className={input} aria-invalid={!!e.plan_id}>
-              {plans.map((p) => <option key={p.id} value={p.id}>{p.name} · {ngn(p.monthly_price)}/month</option>)}
+              {shown.length === 0 && <option value="">No active {audience === "organisation" ? "office" : "school"} plans yet</option>}
+              {shown.map((p) => <option key={p.id} value={p.id}>{p.name} · {ngn(p.monthly_price)}/month</option>)}
             </select>
             {e.plan_id && <p className="text-sm text-red-700">{e.plan_id}</p>}
           </div>

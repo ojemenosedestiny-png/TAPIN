@@ -34,8 +34,9 @@ export async function createSchoolUser(_prev: FormState, formData: FormData): Pr
   const input = parsed.data;
 
   const db = createAdminClient();
-  const { data: school } = await db.from("schools").select("id").eq("id", input.school_id).maybeSingle();
+  const { data: school } = await db.from("schools").select("id, kind").eq("id", input.school_id).maybeSingle();
   if (!school) return { errors: { school_id: "School not found." } };
+  if (school.kind === "organisation" && input.role !== "school_admin") return { errors: { role: "Organisations have admin logins only." } };
 
   const { data: created, error: authError } = await db.auth.admin.createUser({
     email: input.email,

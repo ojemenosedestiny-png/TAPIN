@@ -75,8 +75,10 @@ export function CreateSchoolForm() {
   );
 }
 
-export function CreateUserForm({ schools }: { schools: { id: string; name: string }[] }) {
+export function CreateUserForm({ schools }: { schools: { id: string; name: string; kind?: string | null }[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createSchoolUser, {});
+  const [schoolId, setSchoolId] = useState("");
+  const org = schools.find((s) => s.id === schoolId)?.kind === "organisation";
   const ref = useResetOnSuccess(state);
   const e = state.errors ?? {};
   const selectClass =
@@ -85,9 +87,9 @@ export function CreateUserForm({ schools }: { schools: { id: string; name: strin
     <form ref={ref} action={action} className="space-y-4" noValidate>
       <Status state={state} />
       <div className="space-y-1.5">
-        <Label htmlFor="school_id">School</Label>
-        <select id="school_id" name="school_id" className={selectClass} required defaultValue="">
-          <option value="" disabled>Choose a school</option>
+        <Label htmlFor="school_id">School or organisation</Label>
+        <select id="school_id" name="school_id" className={selectClass} required value={schoolId} onChange={(ev) => setSchoolId(ev.target.value)}>
+          <option value="" disabled>Choose one</option>
           {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         {e.school_id && <p className="text-sm text-red-700">{e.school_id}</p>}
@@ -101,9 +103,10 @@ export function CreateUserForm({ schools }: { schools: { id: string; name: strin
         <div className="space-y-1.5">
           <Label htmlFor="role">Role</Label>
           <select id="role" name="role" className={selectClass} defaultValue="school_admin">
-            <option value="school_admin">School admin</option>
-            <option value="teacher">Teacher</option>
+            <option value="school_admin">{org ? "Admin" : "School admin"}</option>
+            {!org && <option value="teacher">Teacher</option>}
           </select>
+          {e.role && <p className="text-sm text-red-700">{e.role}</p>}
         </div>
       </div>
       <p className="text-xs text-muted-foreground">At least 10 characters with upper and lower case letters and a number.</p>

@@ -15,6 +15,7 @@ export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
         <Link href="/#how">How it works</Link>
         <Link href="/#features">Features</Link>
         <Link href="/#parents">For parents</Link>
+        <Link href="/#offices">For offices</Link>
         <Link href="/pricing" aria-current={active === "pricing" ? "page" : undefined}>Pricing</Link>
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

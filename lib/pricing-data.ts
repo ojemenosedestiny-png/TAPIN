@@ -15,7 +15,7 @@ export async function loadPricing(): Promise<WebPricing> {
   try {
     const db = createAdminClient();
     const [{ data: plans, error }, { data: items }, { data: settings }] = await Promise.all([
-      db.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, features, active, sort").eq("active", true).order("sort"),
+      db.from("subscription_plans").select("id, name, min_students, max_students, monthly_price, features, active, sort, audience").eq("active", true).order("sort"),
       db.from("price_items").select("name, unit, unit_price, description, active").eq("active", true).order("sort"),
       db.from("platform_settings").select("annual_free_months, live_within_days, phone, email, whatsapp").eq("id", true).maybeSingle(),
     ]);

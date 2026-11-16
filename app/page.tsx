@@ -42,6 +42,12 @@ const TAPS = [
   { i: "MA", name: "Mrs. Adeyemi", cls: "Staff", t: "7:30", staff: true },
 ];
 
+const OFFICE_TAPS = [
+  { i: "MB", name: "Musa Bello", dept: "Operations", t: "8:21", late: true },
+  { i: "KA", name: "Kemi Adeyemi", dept: "Accounts", t: "8:02" },
+  { i: "GO", name: "Grace Okon", dept: "Front desk", t: "7:55" },
+];
+
 export default async function Home() {
   const pricing = await loadPricing();
   const plans = pricing.plans;
@@ -193,6 +199,35 @@ export default async function Home() {
             <p className="eyebrow" style={{ color: "var(--mint)" }}>For parents</p>
             <h2 id="par-h" className="big">Peace of mind, every school day.</h2>
             <p style={{ margin: 0, fontSize: 18, color: "#D5F3EE" }}>You&apos;ll know your child got to school safely, and when they left. No app to install. Just a message on the phone you already have.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* OFFICES AND COMPANIES */}
+      <section id="offices" className="wrap pad" style={{ paddingTop: 112, paddingBottom: 112, display: "flex", flexWrap: "wrap-reverse", alignItems: "center", gap: 56 }} aria-labelledby="off-h">
+        <div className="panel" style={{ flex: "1.4 1 520px", minWidth: 0 }} data-reveal data-ui>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <p className="jk" style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Staff check-in · Head office</p>
+            <p className="chip">Sample data</p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {OFFICE_TAPS.map((t, i) => (
+              <div key={t.name} className="tap-row" style={d(i)}>
+                <span className="initials">{t.i}</span>
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{t.name} <span style={{ fontWeight: 400, color: "var(--slate-2)" }}>· {t.dept}</span></span>
+                <span style={{ fontSize: 13, color: "var(--slate-2)" }}>{t.t}</span>
+                <span className={`badge ${t.late ? "late" : "in"}`}>{t.late ? "Late" : "PIN ✓"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ flex: "1 1 340px", minWidth: 0, display: "flex", flexDirection: "column", gap: 18 }} data-reveal>
+          <p className="eyebrow">For offices and companies</p>
+          <h2 id="off-h" className="big" style={{ fontSize: "clamp(32px, 3.6vw, 44px)" }}>Know who is really at work.</h2>
+          <p style={{ margin: 0, fontSize: 17, color: "var(--slate)" }}>The same kiosk works for any workplace. Staff tap their card and type their own PIN, and a photo is kept with every check-in, so nobody clocks in for a colleague. Late arrivals and early leavers reach you as they happen.</p>
+          <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 12 }}>
+            <BookDemo label="Book a demo for your office" className="btn btn-teal" />
+            <Link href="/pricing#offices" className="btn btn-line">Office plans</Link>
           </div>
         </div>
       </section>

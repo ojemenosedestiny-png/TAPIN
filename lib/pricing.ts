@@ -24,7 +24,10 @@ export type WebPlan = {
 export type SetupItem = { name: string; unit: string; price: number; description: string | null };
 
 export type WebPricing = {
+  /** School plans (by students): these are on the order form. */
   plans: WebPlan[];
+  /** Office and company plans (by staff): listed for a quote. */
+  orgPlans: WebPlan[];
   /** Months free when paying a year up front. 0 = no yearly option. */
   annualFreeMonths: number;
   setup: SetupItem[];
@@ -33,19 +36,21 @@ export type WebPricing = {
   contact: { city: string; phone: string | null; email: string | null; whatsapp: string | null };
 };
 
-export type PlanRowIn = { id: string; name: string; min_students: number; max_students: number | null; monthly_price: number | string; features: string[] | null; active: boolean; sort: number };
+export type PlanRowIn = { id: string; name: string; min_students: number; max_students: number | null; monthly_price: number | string; features: string[] | null; active: boolean; sort: number; audience?: string | null };
 export type ItemRowIn = { name: string; unit: string; unit_price: number | string; description: string | null; active: boolean };
 export type SettingsIn = { annual_free_months?: number | null; live_within_days?: number | null; phone?: string | null; email?: string | null; whatsapp?: string | null } | null;
 
 /** Builds the website's prices from the database rows. Inactive plans and items, and items at ₦0, are left out. */
 export function pricingFrom(plans: PlanRowIn[], items: ItemRowIn[], s: SettingsIn): WebPricing {
   const active = plans.filter((p) => p.active).sort((a, b) => a.sort - b.sort);
+  const toWeb = (list: PlanRowIn[]): WebPlan[] => list.map((p, i) => ({
+    id: p.id, name: p.name, min: p.min_students, max: p.max_students, range: studentRange(p.min_students, p.max_students, p.audience ?? "school"),
+    monthlyPrice: Number(p.monthly_price) > 0 ? Number(p.monthly_price) : null, features: p.features ?? [],
+    popular: list.length >= 3 && i === 1,
+  }));
   return {
-    plans: active.map((p, i) => ({
-      id: p.id, name: p.name, min: p.min_students, max: p.max_students, range: studentRange(p.min_students, p.max_students),
-      monthlyPrice: Number(p.monthly_price) > 0 ? Number(p.monthly_price) : null, features: p.features ?? [],
-      popular: active.length >= 3 && i === 1,
-    })),
+    plans: toWeb(active.filter((p) => (p.audience ?? "school") === "school")),
+    orgPlans: toWeb(active.filter((p) => p.audience === "organisation")),
     annualFreeMonths: Math.max(0, Math.min(6, s?.annual_free_months ?? 0)),
     setup: items.filter((i) => i.active && Number(i.unit_price) > 0).map((i) => ({ name: i.name, unit: i.unit, price: Number(i.unit_price), description: i.description })),
     liveWithinDays: s?.live_within_days ?? null,
