@@ -14,7 +14,7 @@ import { hashPin } from "@/lib/emergency";
 import { newStaffPin } from "@/lib/staff-security";
 
 type Db = SupabaseClient;
-type Child = { id: string; first: string; full: string; schoolId: string; school: string; tz: string; fee: number | null; className: string | null; guardianId: string };
+type Child = { id: string; first: string; added: string; full: string; schoolId: string; school: string; tz: string; fee: number | null; className: string | null; guardianId: string };
 
 /** How long the assistant remembers a question it asked ("Which child?"). */
 export const PENDING_MS = 10 * 60_000;
@@ -67,13 +67,13 @@ async function childrenFor(db: Db, phone: string): Promise<{ guardianIds: string
   const guardianIds = (guardians ?? []).map((g) => g.id as string);
   if (!guardianIds.length) return { guardianIds, parentName: null, parentFull: null, kids: [] };
   const { data: links } = await db.from("student_guardians")
-    .select("guardian_id, students(id, first_name, last_name, status, school_id, classes(name), schools(name, timezone, parent_fee))").in("guardian_id", guardianIds);
+    .select("guardian_id, students(id, first_name, last_name, status, school_id, created_at, classes(name), schools(name, timezone, parent_fee))").in("guardian_id", guardianIds);
   const kids = new Map<string, Child>();
   for (const l of links ?? []) {
-    const s = l.students as unknown as { id: string; first_name: string; last_name: string; status: string; school_id: string; classes: { name: string } | null; schools: { name: string; timezone: string; parent_fee: number | null } | null } | null;
+    const s = l.students as unknown as { id: string; created_at: string; first_name: string; last_name: string; status: string; school_id: string; classes: { name: string } | null; schools: { name: string; timezone: string; parent_fee: number | null } | null } | null;
     if (!s || s.status !== "active" || !s.schools) continue;
     kids.set(s.id, {
-      id: s.id, first: s.first_name, full: `${s.first_name} ${s.last_name}`, schoolId: s.school_id, school: s.schools.name, tz: s.schools.timezone,
+      id: s.id, added: localDate(new Date(s.created_at), s.schools.timezone), first: s.first_name, full: `${s.first_name} ${s.last_name}`, schoolId: s.school_id, school: s.schools.name, tz: s.schools.timezone,
       fee: s.schools.parent_fee, className: s.classes?.name ?? null, guardianId: l.guardian_id as string,
     });
   }
@@ -99,7 +99,9 @@ async function absences(db: Db, kids: Child[], now: Date): Promise<string> {
   const lines: string[] = [];
   for (const k of kids) {
     const today = dateIn(now, k.tz);
-    const from = termStart(today);
+    // From the start of term, or from when the child was added to TapIn if later (no record before that).
+    const term = termStart(today);
+    const from = k.added > term ? k.added : term;
     const [{ data: att }, { data: hol }, { data: exc }] = await Promise.all([
       db.from("attendance").select("date").eq("holder_type", "student").eq("holder_id", k.id).gte("date", from).lte("date", today).not("sign_in_at", "is", null),
       db.from("school_calendar").select("date").eq("school_id", k.schoolId).eq("is_holiday", true).gte("date", from).lte("date", today),
@@ -296,13 +298,14 @@ export async function answer(db: Db, rawPhone: string, text: string, now = new D
   const pending = await getPending(db, phone, now);
   if (pending && (isNumber || command === null || pickChildren(text, mine) !== null || pending.intent === "early_time")) {
     if (pending.intent === "early_time") {
-      const time = parseTimeOfDay(text) ?? parseTimeOfDay(`at ${clean(text)}`);
+      // A bare number here is more likely a menu choice ("1" = attendance) than a time: a time needs ":" or am/pm.
+      const time = parseTimeOfDay(text) ?? (isNumber ? null : parseTimeOfDay(`at ${clean(text)}`));
       const chosen = mine.filter((k) => pending.data.kids?.includes(k.id));
       if (time && chosen.length) {
         await clearPending(db, phone);
         return done(await requestEarly(db, parentFull, chosen, time, `${pending.data.text ?? ""} ${text}`.trim(), now), "early");
       }
-      if (command === null) return done(`What time will you collect ${joinNames(chosen.map((k) => k.first))}? For example: 12:30.`, "early");
+      if (command === null) return done(`What time will you collect ${joinNames(chosen.map((k) => k.first))}? For example: 12:30 or 1pm.`, "early");
     } else {
       const chosen = pickChildren(text, mine, true);
       if (chosen) {
@@ -313,7 +316,7 @@ export async function answer(db: Db, rawPhone: string, text: string, now = new D
         const time = pending.data.time ?? parseTimeOfDay(original);
         if (time) return done(await requestEarly(db, parentFull, chosen, time, original, now), "early");
         await setPending(db, phone, { intent: "early_time", data: { text: original, kids: chosen.map((k) => k.id) } }, now);
-        return done(`What time will you collect ${joinNames(chosen.map((k) => k.first))}? For example: 12:30.`, "early");
+        return done(`What time will you collect ${joinNames(chosen.map((k) => k.first))}? For example: 12:30 or 1pm.`, "early");
       }
       if (isNumber || command === null) return done(whichChildQuestion(mine, WHAT[pending.intent]), pending.intent);
     }
@@ -349,7 +352,7 @@ export async function answer(db: Db, rawPhone: string, text: string, now = new D
       }
       if (time) return done(await requestEarly(db, parentFull, chosen, time, text, now), "early");
       await setPending(db, phone, { intent: "early_time", data: { text: isNumber ? undefined : text, kids: chosen.map((k) => k.id) } }, now);
-      return done(`What time will you collect ${joinNames(chosen.map((k) => k.first))}? For example: 12:30.`, "early");
+      return done(`What time will you collect ${joinNames(chosen.map((k) => k.first))}? For example: 12:30 or 1pm.`, "early");
     }
     default:
       return done(DIDNT_UNDERSTAND, "unknown");

@@ -68,7 +68,7 @@ describe("Meta WhatsApp", () => {
     const bad = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Invalid parameter", code: 100 } }), { status: 400 })) as unknown as typeof fetch;
     expect(await sendMetaText("+2348031234567", "x", bad)).toEqual({ ok: false, error: "Meta 400: Invalid parameter (#100)", retryable: false });
     const auth = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Authorization Error", code: 0, error_subcode: 2494010, error_data: { details: "This phone number is not registered" } } }), { status: 400 })) as unknown as typeof fetch;
-    expect((await sendMetaText("+2348031234567", "x", auth)).error).toBe("Meta 400: Authorization Error (#0/2494010). This phone number is not registered");
+    expect(await sendMetaText("+2348031234567", "x", auth)).toMatchObject({ ok: false, error: "Meta 400: Authorization Error (#0/2494010). This phone number is not registered" });
   });
 
   it("checks the webhook signature", () => {

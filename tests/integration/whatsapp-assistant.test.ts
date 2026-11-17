@@ -149,7 +149,10 @@ describe.skipIf(!enabled)("WhatsApp assistant: requests that change something", 
     const { data: notice } = await db.from("notifications").select("message").eq("school_id", ids2.school).eq("kind", "early_pickup");
     expect(notice?.[0]?.message).toBe("Ngozi Eze will collect Ada Eze early today at 12:30 PM (by WhatsApp).");
 
-    expect((await answer2(db, MUM, "I go pick Ada early")).reply).toBe("What time will you collect Ada? For example: 12:30.");
+    expect((await answer2(db, MUM, "I go pick Ada early")).reply).toBe("What time will you collect Ada? For example: 12:30 or 1pm.");
+    // A bare "1" is the menu (today's attendance), not 1 o'clock; the question stays open.
+    expect((await answer2(db, MUM, "1")).command).toBe("attendance");
+    expect((await answer2(db, MUM, "I go pick Ada early")).command).toBe("early");
     expect((await answer2(db, MUM, "1pm")).reply).toMatch(/collect them at 1:00 PM today/);
     const { data: moved } = await db.from("early_pickup_requests").select("at_time").eq("student_id", ids2.ada).eq("date", today2).single();
     expect(moved?.at_time).toBe("13:00:00");
@@ -160,6 +163,8 @@ describe.skipIf(!enabled)("WhatsApp assistant: requests that change something", 
     expect(r.command).toBe("absences");
     expect(r.reply).toMatch(/^Kola: .* since /);
     expect(r.reply).not.toMatch(/Ada:/);
+    // Kola was added to TapIn today: no days before that count as absent.
+    expect(r.reply).toMatch(/^Kola: no unexplained absences since /);
   });
 
   it("acts once when WhatsApp delivers the same message twice", async () => {
