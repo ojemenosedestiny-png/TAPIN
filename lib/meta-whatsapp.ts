@@ -58,9 +58,13 @@ async function post(payload: Record<string, unknown>, fetchImpl: typeof fetch): 
   } catch (e) {
     return { ok: false, error: `Network error: ${(e as Error).message}`, retryable: true };
   }
-  const body = (await res.json().catch(() => ({}))) as { messages?: { id?: string }[]; error?: { message?: string; code?: number } };
+  const body = (await res.json().catch(() => ({}))) as { messages?: { id?: string }[]; error?: { message?: string; code?: number; error_subcode?: number; error_data?: { details?: string } } };
   if (res.ok && body.messages?.length) return { ok: true, messageId: body.messages[0]?.id ?? null };
-  const msg = body.error?.message ?? "send failed";
+  // Meta's code and details say what's actually wrong ("Authorization Error" alone doesn't).
+  const e = body.error;
+  const code = e?.code !== undefined ? ` (#${e.code}${e.error_subcode ? `/${e.error_subcode}` : ""})` : "";
+  const details = e?.error_data?.details && e.error_data.details !== e.message ? `. ${e.error_data.details}` : "";
+  const msg = `${e?.message ?? "send failed"}${code}${details}`;
   return { ok: false, error: `Meta ${res.status}: ${msg}`.slice(0, 300), retryable: res.status >= 500 || res.status === 429 || body.error?.code === 130429 };
 }
 
