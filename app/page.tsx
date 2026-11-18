@@ -7,14 +7,55 @@ import { BookDemo } from "@/components/site/book-demo";
 import { CountUp } from "@/components/site/count-up";
 import { naira } from "@/lib/pricing";
 import { loadPricing } from "@/lib/pricing-data";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./site.css";
 
 // Signed-in staff and parents never see this page: proxy.ts sends them to their own home first.
 export const metadata: Metadata = {
-  title: { absolute: "TapIn · School attendance that keeps every child accounted for" },
-  description: "Students tap their ID card. The kiosk greets them by name, records attendance, and tells their parents in seconds.",
-  robots: { index: true, follow: true },
+  title: { absolute: "TapIn · NFC school attendance and child safety in Nigeria" },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "school attendance system Nigeria", "NFC attendance", "student ID card attendance", "school gate kiosk",
+    "parent WhatsApp alerts", "child pickup safety", "school management Nigeria", "staff attendance", "TapIn",
+  ],
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } },
+  alternates: { canonical: "/" },
+  openGraph: { url: "/", title: "TapIn · Every child accounted for, from the school gate to the parent's phone", description: SITE_DESCRIPTION },
 };
+
+/** The questions on the page, also given to Google as structured data. */
+function faqs(live: number | null) {
+  return [
+    { q: "What happens if the internet goes down?", a: "The kiosk keeps working. It greets each child, saves every tap, and sends the records and parent messages as soon as the connection returns." },
+    { q: "Do parents need to download an app?", a: "No. Alerts arrive on WhatsApp, which parents already use. Parents can also chat with TapIn on WhatsApp to check attendance or get a one-day pickup code." },
+    { q: "What if a student loses their card?", a: "The admin blocks the old card from the dashboard in seconds and links a new one to the same student." },
+    { q: "Is our students' data safe?", a: "Each school's data is kept separate and only staff you approve can see it. We follow the Nigeria Data Protection Act and record parental consent before any photo is added." },
+    { q: "How long does setup take?", a: `We install the kiosk, print the cards and register your students${live ? `. Most schools are live within ${live} days.` : ", usually within a few days."}` },
+  ];
+}
+
+/** Structured data: who TapIn is, what it does, and the FAQ. */
+function jsonLd(contact: { phone: string | null; email: string | null; city: string }, live: number | null) {
+  const org = {
+    "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/logo.svg`,
+    description: SITE_DESCRIPTION, areaServed: "NG",
+    address: { "@type": "PostalAddress", addressLocality: contact.city.split(",")[0], addressCountry: "NG" },
+    ...(contact.email ? { email: contact.email } : {}),
+    ...(contact.phone ? { contactPoint: { "@type": "ContactPoint", telephone: contact.phone, contactType: "sales", areaServed: "NG", availableLanguage: "en" } } : {}),
+  };
+  const app = {
+    "@type": "SoftwareApplication", name: SITE_NAME, url: SITE_URL, applicationCategory: "EducationalApplication", operatingSystem: "Web, Android",
+    description: SITE_DESCRIPTION, publisher: { "@id": `${SITE_URL}/#org` },
+    offers: { "@type": "Offer", url: `${SITE_URL}/pricing`, priceCurrency: "NGN", availability: "https://schema.org/InStock" },
+  };
+  const faq = {
+    "@type": "FAQPage",
+    mainEntity: faqs(live).map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+  };
+  const site = { "@type": "WebSite", "@id": `${SITE_URL}/#site`, name: SITE_NAME, url: SITE_URL, publisher: { "@id": `${SITE_URL}/#org` } };
+  // "<" escaped so no text can close the script tag.
+  return JSON.stringify({ "@context": "https://schema.org", "@graph": [org, site, app, faq] }).replace(/</g, "\\u003c");
+}
 
 const d = (i: number) => ({ "--i": i }) as React.CSSProperties;
 const Tick = ({ c = "#5EEAD4", s = 18 }: { c?: string; s?: number }) => (
@@ -54,6 +95,7 @@ export default async function Home() {
   const live = pricing.liveWithinDays;
   return (
     <main id="main" className="site">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(pricing.contact, live) }} />
       <Reveal />
 
       {/* HERO */}
@@ -267,11 +309,7 @@ export default async function Home() {
         <div className="wrap pad" style={{ maxWidth: 820, paddingTop: 112, paddingBottom: 112, display: "flex", flexDirection: "column", gap: 32 }}>
           <h2 id="faq-h" className="jk" style={{ margin: 0, textAlign: "center", fontSize: "clamp(30px, 3.2vw, 40px)", fontWeight: 800, letterSpacing: "-0.03em" }} data-reveal>Questions schools ask</h2>
           <div data-reveal>
-            <details><summary>What happens if the internet goes down?</summary><p>The kiosk keeps working. It greets each child, saves every tap, and sends the records and parent messages as soon as the connection returns.</p></details>
-            <details><summary>Do parents need a smartphone?</summary><p>No. Alerts arrive by WhatsApp, or as a normal SMS on any phone.</p></details>
-            <details><summary>What if a student loses their card?</summary><p>The admin blocks the old card from the dashboard in seconds and links a new one to the same student.</p></details>
-            <details><summary>Is our students&apos; data safe?</summary><p>Each school&apos;s data is kept separate and only staff you approve can see it. We follow the Nigeria Data Protection Act and record parental consent before any photo is added.</p></details>
-            <details><summary>How long does setup take?</summary><p>We install the kiosk, print the cards and register your students{live ? `. Most schools are live within ${live} days.` : ", usually within a few days."}</p></details>
+            {faqs(live).map((f) => <details key={f.q}><summary>{f.q}</summary><p>{f.a}</p></details>)}
           </div>
         </div>
       </section>

@@ -9,8 +9,11 @@ import { flutterwaveKey } from "@/lib/flutterwave";
 import "../site.css";
 
 export const metadata: Metadata = {
-  title: { absolute: "TapIn · Pricing and payment" },
-  description: "Schools subscribe monthly, on a plan that fits their size. The school pays; TapIn is free for parents.",
+  title: { absolute: "TapIn pricing · School attendance plans in naira" },
+  description: "Monthly TapIn plans for Nigerian schools, priced by number of students, with NFC cards and the gate kiosk set up for you. The school pays; TapIn is free for parents.",
+  robots: { index: true, follow: true },
+  alternates: { canonical: "/pricing" },
+  openGraph: { url: "/pricing", title: "TapIn pricing · School attendance plans in naira", description: "Monthly plans by school size. NFC cards and the gate kiosk set up for you. Free for parents." },
 };
 
 type Search = Promise<{ plan?: string }>;

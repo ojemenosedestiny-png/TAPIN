@@ -4,7 +4,12 @@ import { Wordmark } from "@/components/brand/logo";
 import { PoweredBy } from "@/components/brand/powered-by";
 
 export const instant = true;
-export const metadata: Metadata = { title: "Privacy notice", robots: { index: true, follow: true } };
+export const metadata: Metadata = {
+  title: "Privacy notice",
+  description: "How TapIn handles children's, parents' and staff data for schools in Nigeria, under the Nigeria Data Protection Act 2023.",
+  robots: { index: true, follow: true },
+  alternates: { canonical: "/privacy" },
+};
 
 /** Public privacy notice for parents and staff (build plan §6, Nigeria Data Protection Act 2023). */
 export default function PrivacyPage() {
