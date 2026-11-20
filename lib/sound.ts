@@ -24,6 +24,8 @@ export const SOUNDS = {
     { freq: E4, at: 0, length: 0.45, wave: "triangle", bright: 0, gain: 0.9 },
     { freq: C4, at: 0.2, length: 0.7, wave: "triangle", bright: 0, gain: 0.9 },
   ],
+  /** The card was read: a tiny, quiet tick the instant it touches, before the server answers. */
+  read: [{ freq: C6, at: 0, length: 0.12, gain: 0.35, bright: 0 }],
   /** Saved offline: a single neutral note. */
   saved: [{ freq: G4, at: 0, length: 1, gain: 0.8 }],
 } satisfies Record<string, Note[]>;

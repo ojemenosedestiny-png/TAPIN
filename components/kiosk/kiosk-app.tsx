@@ -140,6 +140,8 @@ function Kiosk({ token }: { token: string }) {
   const [fatal, setFatal] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [emergency, setEmergency] = useState<EmergencyState>({ available: false, active: null });
+  /** Taps sent and not answered yet: "Reading card…" shows the instant a card touches. */
+  const [reading, setReading] = useState(0);
 
   const queueRef = useRef<QueuedTap[]>([]);
   const busyRef = useRef<Promise<void>>(Promise.resolve());
@@ -264,6 +266,9 @@ function Kiosk({ token }: { token: string }) {
   };
 
   const onTap = (uid: string) => {
+    // Instant feedback: the tick and "Reading card…" don't wait for the network.
+    play("read");
+    setReading((n) => n + 1);
     // One tap at a time, in order.
     busyRef.current = busyRef.current.then(async () => {
       const tappedAt = new Date().toISOString();
@@ -288,6 +293,8 @@ function Kiosk({ token }: { token: string }) {
         persistQueue(enqueue(queueRef.current, { client_id: clientId, uid, tapped_at: tappedAt }));
         play("saved");
         show({ kind: "saved_offline" });
+      } finally {
+        setReading((n) => Math.max(0, n - 1));
       }
     });
   };
@@ -571,6 +578,8 @@ function Kiosk({ token }: { token: string }) {
         <StaffCheck key={`${screen.uid}:${screen.error ?? ""}`} data={screen.data} error={screen.error}
           onActivity={() => show(screen)} onCancel={() => show({ kind: "idle" })} onSubmit={(pin, photo) => void submitStaff(screen.uid, screen.data, pin, photo)} />
       )}
+
+      {reading > 0 && <Reading />}
 
       {/* Status badges */}
       <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-2">
@@ -1368,6 +1377,16 @@ function QrScan({ error, onCancel, onCode, onCodeEntry }: { error?: string; onCa
         <button type="button" onClick={onCodeEntry} className="flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-xl ring-1 ring-white/30"><KeyRound className="size-5" aria-hidden /> Type a code</button>
         <button type="button" onClick={onCancel} className="rounded-full px-6 py-3 text-xl text-white/75 hover:bg-white/10">Cancel</button>
       </div>
+    </div>
+  );
+}
+
+/** Over whatever is on screen, the moment a card is read, until the answer comes back. */
+function Reading() {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 bg-ink/85 px-6 text-center text-white" role="status" aria-live="polite">
+      <Nfc className="size-24 animate-pulse text-brand-light" aria-hidden />
+      <p className="text-5xl font-semibold">Reading card…</p>
     </div>
   );
 }

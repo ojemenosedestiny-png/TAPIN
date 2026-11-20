@@ -108,16 +108,23 @@ export async function POST(req: NextRequest) {
   const time = friendlyTime(tappedAt, school.timezone);
   const db = createAdminClient();
 
+  const uid = normaliseUid(parsed.data.uid);
+  // Speed: every database call is a round trip, so independent lookups go out together.
+  const [{ data: prev }, { data: card }] = await Promise.all([
+    parsed.data.client_id
+      ? db.from("tap_events").select("result, late").eq("device_id", device.id).eq("client_id", parsed.data.client_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    uid
+      ? db.from("cards").select("id, holder_type, holder_id, status").eq("uid", uid).eq("school_id", school.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
   // Replay of an offline tap we already processed → answer the same way, change nothing.
-  if (parsed.data.client_id) {
-    const { data: prev } = await db.from("tap_events").select("result, late").eq("device_id", device.id).eq("client_id", parsed.data.client_id).maybeSingle();
-    if (prev) {
-      const action = PLAIN_RESULTS.includes(prev.result as TapAction) ? (prev.result as TapAction) : "duplicate";
-      return json({ action, late: prev.late, time, replayed: true });
-    }
+  if (prev) {
+    const action = PLAIN_RESULTS.includes(prev.result as TapAction) ? (prev.result as TapAction) : "duplicate";
+    return json({ action, late: prev.late, time, replayed: true });
   }
 
-  const uid = normaliseUid(parsed.data.uid);
   // Set once a staff tap passes the school's check (PIN, photo): recorded on that person's taps.
   let staffCheck: { pinChecked: boolean | null; photoPath: string | null } | null = null;
   const log = async (result: TapAction, extra: { holder_type?: string; holder_id?: string; late?: boolean } = {}): Promise<number | null> => {
@@ -147,7 +154,6 @@ export async function POST(req: NextRequest) {
     return json({ action: "unknown", time });
   }
 
-  const { data: card } = await db.from("cards").select("id, holder_type, holder_id, status").eq("uid", uid).eq("school_id", school.id).maybeSingle();
   if (!card) {
     // Safe pickup card?
     const pickup = await pickupCardTap(db, device, uid, tappedAt, log).catch((e) => { console.error("pickup tap", e); return null; });
@@ -162,20 +168,34 @@ export async function POST(req: NextRequest) {
     return json({ action: "blocked", time });
   }
 
-  const person = await loadHolder(db, card.holder_type, card.holder_id);
+  // Taps sent later by an offline kiosk skip the handover windows: nobody is standing there any more.
+  const fresh = Date.now() - tappedAt.getTime() < 60_000;
+  const isStudent = card.holder_type === "student";
+  // Read-only lookups for every branch below, in one round trip. The attendance reads start too;
+  // a branch that returns early just doesn't use them.
+  const tapState = readTapState(db, device, card.holder_type, card.holder_id, tappedAt);
+  tapState.catch(() => {}); // awaited (and its error handled) only by applyTap
+  const [person, emergency, win, lessonRules] = await Promise.all([
+    loadHolder(db, card.holder_type, card.holder_id),
+    activeEmergency(db, school.id),
+    isStudent && fresh ? openWindow(db, device, new Date()) : Promise.resolve(null),
+    card.holder_type === "staff"
+      ? db.from("lesson_settings").select("enabled, min_minutes, max_minutes, director_phone, director_alerts").eq("school_id", school.id).maybeSingle().then((r) => r.data)
+      : Promise.resolve(null),
+  ]);
   if (!person || !person.active) {
     await log("blocked", { holder_type: card.holder_type, holder_id: card.holder_id });
     return json({ action: "blocked", time });
   }
 
-  const photoFor = async () => {
-    if (!person.photo) return null;
-    const { data } = await db.storage.from(PHOTO_BUCKET).createSignedUrl(person.photo, 120);
-    return data?.signedUrl ?? null;
-  };
+  // The photo link is fetched once, alongside the rest of the work.
+  let photoP: Promise<string | null> | null = null;
+  const photoFor = () => (photoP ??= person.photo
+    ? db.storage.from(PHOTO_BUCKET).createSignedUrl(person.photo, 120).then(({ data }) => data?.signedUrl ?? null, () => null)
+    : Promise.resolve(null));
+  void photoFor();
 
   // Emergency roll call running: every tap at any kiosk marks the person safe.
-  const emergency = await activeEmergency(db, school.id);
   if (emergency) {
     await markSafe(db, emergency.id, school.id, {
       holder_type: card.holder_type as "student" | "staff", holder_id: card.holder_id, name: person.name,
@@ -206,7 +226,7 @@ export async function POST(req: NextRequest) {
 
   // Teachers, when the school uses lessons: arrival, then Start lesson / Sign out, then the next tap ends the lesson.
   if (card.holder_type === "staff") {
-    const { data: rules } = await db.from("lesson_settings").select("enabled, min_minutes, max_minutes, director_phone, director_alerts").eq("school_id", school.id).maybeSingle();
+    const rules = lessonRules;
     if (rules?.enabled) {
       const lesson = await staffLessonTap(db, device, { staffId: card.holder_id, tappedAt, rules, log });
       if (lesson) {
@@ -227,12 +247,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Taps sent later by an offline kiosk skip the handover windows: nobody is standing there any more.
-  const fresh = Date.now() - tappedAt.getTime() < 60_000;
   let mode: ReturnType<typeof handoverMode> = "alone";
-  if (card.holder_type === "student") {
+  if (isStudent) {
     if (fresh) {
-      const win = await openWindow(db, device, new Date());
       if (win) {
         const childTapId = await log("pickup", { holder_type: "student", holder_id: card.holder_id });
         const r = await childTapInWindow(db, device, win, { id: card.holder_id, name: person.name, firstName: person.firstName, className: person.className, photo: person.photo }, childTapId, new Date());
@@ -242,16 +259,16 @@ export async function POST(req: NextRequest) {
     mode = handoverMode({ transport: person.transport, handoverEnabled: !!school.handover_enabled });
   }
 
-  const decision = await applyTap(db, device, card.holder_type, card.holder_id, tappedAt, mode === "handover" && fresh);
+  const decision = await applyTap(db, device, card.holder_type, card.holder_id, tappedAt, mode === "handover" && fresh, tapState);
   if (decision.kind === "held") {
-    await log("held", { holder_type: card.holder_type, holder_id: card.holder_id });
-    return json({ action: "held", name: person.name, first_name: person.firstName, photo_url: await photoFor(), class: person.className, time });
+    const [, photo] = await Promise.all([log("held", { holder_type: card.holder_type, holder_id: card.holder_id }), photoFor()]);
+    return json({ action: "held", name: person.name, first_name: person.firstName, photo_url: photo, class: person.className, time });
   }
   const action: TapAction = decision.kind === "sign_in" ? "signed_in" : decision.kind === "sign_out" ? "signed_out" : "duplicate";
   const late = decision.kind === "sign_in" && decision.late;
   const early = decision.kind === "sign_out" && decision.early;
   const releaseReason = "releaseReason" in decision ? decision.releaseReason : undefined;
-  const tapEventId = await log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late });
+  const [tapEventId, photoUrl] = await Promise.all([log(action, { holder_type: card.holder_type, holder_id: card.holder_id, late }), photoFor()]);
 
   if (card.holder_type === "staff" && (action === "signed_in" || action === "signed_out")) {
     runAfter("staff notice", () => staffTapNotice(db, device, { staffId: card.holder_id, name: person.name, action, late, early, tappedAt }));
@@ -281,8 +298,6 @@ export async function POST(req: NextRequest) {
       if (queued) await processOutbox(db, { limit: 20, schoolId: school.id });
     });
   }
-
-  const photoUrl = await photoFor();
 
   return json({
     action,
@@ -402,23 +417,25 @@ async function loadHolder(db: Db, type: string, id: string) {
  * Decides and records the tap. Writes are conditional, so two kiosks tapping the same
  * card at the same moment can't create two sign-ins or overwrite a sign-out.
  */
-async function applyTap(db: Db, device: KioskDevice, holderType: string, holderId: string, tappedAt: Date, holdSignOut = false) {
+/** What applyTap needs to decide: the last tap, today's attendance row and any early release. Read-only. */
+async function readTapState(db: Db, device: KioskDevice, holderType: string, holderId: string, tappedAt: Date) {
   const school = device.school;
-  const day = { timeZone: school.timezone, resumptionTime: school.resumption_time, closingTime: school.closing_time };
-
   const date = localDate(tappedAt, school.timezone);
-  const [{ data: last }, today, { data: release }] = await Promise.all([
+  const [{ data: last }, { data: today }, { data: release }] = await Promise.all([
     db.from("tap_events").select("tapped_at").eq("holder_type", holderType).eq("holder_id", holderId)
       .in("result", ["signed_in", "signed_out", "duplicate"]).order("tapped_at", { ascending: false }).limit(1).maybeSingle(),
-    getRow(),
+    db.from("attendance").select("id, sign_in_at, sign_out_at")
+      .eq("school_id", school.id).eq("holder_type", holderType).eq("holder_id", holderId).eq("date", date).maybeSingle(),
     db.from("early_releases").select("id, reason").eq("holder_type", holderType).eq("holder_id", holderId).eq("date", date).is("used_at", null).maybeSingle(),
   ]);
+  return { last, today, release };
+}
 
-  async function getRow() {
-    const { data } = await db.from("attendance").select("id, sign_in_at, sign_out_at")
-      .eq("school_id", school.id).eq("holder_type", holderType).eq("holder_id", holderId).eq("date", localDate(tappedAt, school.timezone)).maybeSingle();
-    return data;
-  }
+async function applyTap(db: Db, device: KioskDevice, holderType: string, holderId: string, tappedAt: Date, holdSignOut = false,
+  state: ReturnType<typeof readTapState> = readTapState(db, device, holderType, holderId, tappedAt)) {
+  const school = device.school;
+  const day = { timeZone: school.timezone, resumptionTime: school.resumption_time, closingTime: school.closing_time };
+  const { last, today, release } = await state;
 
   const decision = decideTap({ tappedAt, lastTapAt: last ? new Date(last.tapped_at) : null, today, school: day, earlyRelease: !!release });
   // A parent-pickup child can't sign out alone: their parent's card (or a code) opens the pickup first.
