@@ -23,7 +23,10 @@ describe("tap rules (build plan §4 step 5)", () => {
 
   it("a tap within 5 minutes of the last tap is a duplicate", () => {
     const r = decideTap({ tappedAt: at("07:46"), lastTapAt: at("07:42"), today: { sign_in_at: at("07:42").toISOString(), sign_out_at: null }, school });
-    expect(r).toMatchObject({ kind: "duplicate", reason: "recent_tap" });
+    expect(r).toMatchObject({ kind: "duplicate", reason: "already_signed_in" });
+    // just after signing out, a second tap says "already signed out", never "already signed in"
+    const out = { sign_in_at: at("07:42").toISOString(), sign_out_at: at("14:01").toISOString() };
+    expect(decideTap({ tappedAt: at("14:02"), lastTapAt: at("14:01"), today: out, school })).toMatchObject({ kind: "duplicate", reason: "already_signed_out" });
     // even a first sign-in is held back if the card was just tapped (e.g. a blocked→unblocked retry)
     expect(decideTap({ tappedAt: at("07:44"), lastTapAt: at("07:42"), today: null, school })).toMatchObject({ kind: "duplicate" });
   });

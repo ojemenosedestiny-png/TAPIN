@@ -18,6 +18,8 @@ let GET_KIOSK: (req: NextRequest) => Promise<Response>;
 const ids: Record<string, string> = {};
 const token = generateDeviceToken();
 const UID = `0A${Date.now().toString(16).toUpperCase().slice(-8)}`.padEnd(10, "0");
+const TAIL = Date.now().toString(16).toUpperCase().slice(-8).padStart(8, "0");
+const SEVEN_UID = `04AFCF${TAIL}`; // a 7-byte card
 const BLOCKED_UID = `0B${Date.now().toString(16).toUpperCase().slice(-8)}`.padEnd(10, "0");
 
 // Yesterday in Lagos, so every test time is in the past but within the 72-hour window.
@@ -50,6 +52,8 @@ describe.skipIf(!enabled)("POST /api/tap", () => {
     ids.student2 = await ins("students", { school_id: ids.school, class_id: ids.class, admission_no: "T-2", first_name: "David", last_name: "Bello" });
     await ins("cards", { school_id: ids.school, uid: UID, holder_type: "student", holder_id: ids.student });
     await ins("cards", { school_id: ids.school, uid: BLOCKED_UID, holder_type: "student", holder_id: ids.student2, status: "blocked" });
+    ids.student3 = await ins("students", { school_id: ids.school, class_id: ids.class, admission_no: "T-7", first_name: "Destiny", last_name: "Carter" });
+    await ins("cards", { school_id: ids.school, uid: SEVEN_UID, holder_type: "student", holder_id: ids.student3 });
     ids.device = await ins("devices", { school_id: ids.school, name: "Main Gate", token_hash: hashDeviceToken(token) });
   }, 60_000);
 
@@ -71,6 +75,13 @@ describe.skipIf(!enabled)("POST /api/tap", () => {
     await new Promise((r) => setTimeout(r, 500));
     const { data } = await db.from("devices").select("last_seen").eq("id", ids.device).single();
     expect(data?.last_seen).not.toBeNull();
+  });
+
+  it("a 7-byte card misread in the middle bytes is still recognised; a different card is not", async () => {
+    const misread = `04B8CF${TAIL}`;
+    expect((await tap({ uid: misread, tapped_at: lagos("07:20") })).body).toMatchObject({ action: "signed_in", first_name: "Destiny" });
+    const other = `04AFCF${TAIL.slice(0, 2)}${((parseInt(TAIL.slice(2), 16) + 1) % 0x1000000).toString(16).toUpperCase().padStart(6, "0")}`;
+    expect((await tap({ uid: other, tapped_at: lagos("07:21") })).body).toMatchObject({ action: "unknown" });
   });
 
   it("unknown card → unknown, and the tap is logged for the admin", async () => {
@@ -105,7 +116,7 @@ describe.skipIf(!enabled)("POST /api/tap", () => {
   });
 
   it("a tap within 5 minutes is a duplicate", async () => {
-    expect((await tap({ uid: UID, tapped_at: lagos("07:45") })).body).toMatchObject({ action: "duplicate", reason: "recent_tap" });
+    expect((await tap({ uid: UID, tapped_at: lagos("07:45") })).body).toMatchObject({ action: "duplicate", reason: "already_signed_in" });
   });
 
   it("tapping again before closing does not sign out", async () => {

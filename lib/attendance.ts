@@ -1,7 +1,7 @@
 /**
  * Sign-in / sign-out / duplicate rules (build plan §4 step 5). Pure functions — unit tested.
  *
- *   Tap within 5 minutes of the last tap      → duplicate (ignored)
+ *   Tap within 5 minutes of the last tap      → duplicate (ignored; the reason says whether they're in or out)
  *   No sign-in today                          → sign in (late if after resumption time)
  *   Signed in, at/after closing time          → sign out
  *   Signed in, before closing, early release  → sign out (early)
@@ -36,7 +36,9 @@ export function decideTap(opts: {
   const time = localTime(tappedAt, school.timeZone);
 
   if (lastTapAt && Math.abs(tappedAt.getTime() - lastTapAt.getTime()) < DUPLICATE_WINDOW_MS) {
-    return { kind: "duplicate", reason: "recent_tap", date };
+    // Say where they actually stand: "already signed out" just after a goodbye, not "already signed in".
+    const reason = today?.sign_out_at ? "already_signed_out" : today?.sign_in_at ? "already_signed_in" : "recent_tap";
+    return { kind: "duplicate", reason, date };
   }
   if (!today?.sign_in_at) {
     return { kind: "sign_in", late: time > hhmm(school.resumptionTime), date };

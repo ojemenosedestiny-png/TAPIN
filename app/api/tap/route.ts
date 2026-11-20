@@ -3,7 +3,7 @@ import { runAfter } from "@/lib/background";
 import { z } from "zod";
 import { authenticateKiosk, type KioskDevice } from "@/lib/kiosk-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normaliseUid } from "@/lib/nfc";
+import { cardKey, normaliseUid } from "@/lib/nfc";
 import { decideTap, resolveTapTime } from "@/lib/attendance";
 import { greetingForHour } from "@/lib/greeting";
 import { friendlyTime, localDate, localHour } from "@/lib/time";
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 
   const uid = normaliseUid(parsed.data.uid);
   // Speed: every database call is a round trip, so independent lookups go out together.
-  const [{ data: prev }, { data: card }] = await Promise.all([
+  const [{ data: prev }, { data: exact }] = await Promise.all([
     parsed.data.client_id
       ? db.from("tap_events").select("result, late").eq("device_id", device.id).eq("client_id", parsed.data.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
     const action = PLAIN_RESULTS.includes(prev.result as TapAction) ? (prev.result as TapAction) : "duplicate";
     return json({ action, late: prev.late, time, replayed: true });
   }
+  // A misread (middle bytes wrong, see cardKey) still finds the card, when exactly one card here matches.
+  const card = exact ?? (uid ? await misreadCard(db, school.id, uid) : null);
 
   // Set once a staff tap passes the school's check (PIN, photo): recorded on that person's taps.
   let staffCheck: { pinChecked: boolean | null; photoPath: string | null } | null = null;
@@ -417,6 +419,22 @@ async function loadHolder(db: Db, type: string, id: string) {
  * Decides and records the tap. Writes are conditional, so two kiosks tapping the same
  * card at the same moment can't create two sign-ins or overwrite a sign-out.
  */
+type CardRow = { id: string; holder_type: string; holder_id: string; status: string };
+
+/**
+ * The card a misread UID belongs to: same length, same maker byte and the same last 3 bytes (cardKey), and the
+ * only such card in the school. Anything less certain stays "not recognised".
+ */
+async function misreadCard(db: Db, schoolId: string, uid: string): Promise<CardRow | null> {
+  const key = cardKey(uid);
+  if (key === uid) return null;
+  const { data } = await db.from("cards").select("id, uid, holder_type, holder_id, status").eq("school_id", schoolId).like("uid", `%${key}`).limit(5);
+  const same = (data ?? []).filter((c) => c.uid.length === uid.length && c.uid.slice(0, 2) === uid.slice(0, 2));
+  if (same.length !== 1) return null;
+  const { id, holder_type, holder_id, status } = same[0]!;
+  return { id, holder_type, holder_id, status };
+}
+
 /** What applyTap needs to decide: the last tap, today's attendance row and any early release. Read-only. */
 async function readTapState(db: Db, device: KioskDevice, holderType: string, holderId: string, tappedAt: Date) {
   const school = device.school;

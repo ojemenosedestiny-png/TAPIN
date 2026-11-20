@@ -19,6 +19,14 @@ describe("normaliseUid", () => {
 });
 
 describe("tap debouncer", () => {
+  it("a misread of the same 7-byte card (middle bytes wrong) is the same tap", () => {
+    let t = 0;
+    const should = createTapDebouncer(2000, () => t);
+    expect(should("04AFCFA76F2681")).toBe(true);
+    t = 400;
+    expect(should("04B8CFA76F2681")).toBe(false);
+    expect(should("04AFCFA76F2699")).toBe(true); // a different card
+  });
   it("treats the same UID within 2 seconds as one tap", () => {
     let t = 0;
     const should = createTapDebouncer(2000, () => t);

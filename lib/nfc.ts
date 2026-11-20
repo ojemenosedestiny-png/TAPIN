@@ -13,6 +13,15 @@ export function normaliseUid(raw: string | null | undefined): string | null {
   return hex;
 }
 
+/**
+ * The part of a UID that a phone reads reliably. Some 7-byte cards (seen on real kiosks) come back with the
+ * middle bytes wrong when the card is at the edge of the antenna (04AFCFA7…6F2681 read as 04B8CFA7…6F2681),
+ * while the last 3 bytes stay right. Two reads with the same key are treated as the same card.
+ */
+export function cardKey(uid: string): string {
+  return uid.length >= 14 ? uid.slice(-6) : uid;
+}
+
 /** Last 4 characters, for showing a card without exposing its full UID. */
 export function uidTail(uid: string): string {
   return uid.slice(-4);
@@ -25,7 +34,8 @@ export function uidTail(uid: string): string {
 export function createTapDebouncer(windowMs = 2000, now: () => number = Date.now) {
   let lastUid: string | null = null;
   let lastAt = -Infinity;
-  return (uid: string): boolean => {
+  return (raw: string): boolean => {
+    const uid = cardKey(raw); // a misread of the card just tapped is the same tap, not a new one
     const t = now();
     if (uid === lastUid && t - lastAt < windowMs) {
       lastAt = t; // a card held still keeps re-reading; keep extending the window

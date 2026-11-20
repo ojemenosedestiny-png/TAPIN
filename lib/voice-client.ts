@@ -10,6 +10,7 @@ import type { Phrase } from "@/lib/voice-phrases";
 const CACHE = "tapin-voice-v2"; // v2: slower, calmer voice. Clips saved by v1 are cleared below.
 if (typeof caches !== "undefined") void caches.delete("tapin-voice-v1").catch(() => {});
 let current: AudioBufferSourceNode | null = null;
+let latest = 0; // only the newest tap's words are spoken; an older clip that arrives late stays silent
 let voiceMissing = false; // the server said no voice is set up: stop asking for this page load
 
 function cacheKey(p: Phrase): string {
@@ -77,6 +78,7 @@ async function playBuffer(audio: ArrayBuffer): Promise<boolean> {
  * device voice speaks instead, and the clip is still saved for next time.
  */
 export async function sayPhrase(p: Phrase, words: string, { token, delayMs = 0, waitMs = 1500 }: { token?: string; delayMs?: number; waitMs?: number } = {}) {
+  const turn = ++latest;
   const startedAt = Date.now();
   const cached = await fromCache(p);
   const audio = cached ?? (await Promise.race([
@@ -85,7 +87,13 @@ export async function sayPhrase(p: Phrase, words: string, { token, delayMs = 0, 
   ]));
   const wait = Math.max(0, delayMs - (Date.now() - startedAt));
   if (wait) await new Promise((r) => setTimeout(r, wait));
-  if (audio && (await playBuffer(audio))) return;
+  if (turn !== latest) return; // a newer tap is speaking
+  if (audio) {
+    try { window.speechSynthesis?.cancel(); } catch { /* no device voice */ }
+    if (await playBuffer(audio)) return;
+  }
+  try { current?.stop(); } catch { /* already ended */ }
+  current = null;
   speak(words);
 }
 
