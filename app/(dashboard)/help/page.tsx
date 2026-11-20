@@ -97,9 +97,10 @@ export default async function HelpPage() {
             <h3 className="font-semibold">Before day one</h3>
             <ul>
               <li><strong>Written consent</strong> from parents: print the <Link href="/help/consent-form" className="text-brand hover:underline">consent form</Link>, then record each one on the student’s profile (or “Yes” in the Consent Received import column). Photos can’t be added until consent is recorded.</li>
-              <li>Share the <Link href="/privacy" className="text-brand hover:underline">privacy notice</Link> with parents, and sign a data processing agreement with the school. Check the retention period under Settings → Privacy and data.</li>
+              <li>Share the <Link href="/privacy" className="text-brand hover:underline">privacy notice</Link> with parents, and sign the <Link href="/help/agreement" className="text-brand hover:underline">service and data agreement</Link> with the proprietor. Check the retention period under Settings → Privacy and data.</li>
               <li>Every student has a class, a guardian phone number, a photo and a verified card. Use the Students page filter “Not verified” to find gaps.</li>
-              <li><strong>SMS:</strong> the Termii sender ID is approved and the DND (transactional) route is on. Send yourself a test by tapping your own staff card.</li>
+              <li><strong>WhatsApp alerts:</strong> under Alerts, send a test of each alert (arrival, departure, late, absence) to your own phone, and sign in once at the parent page to check the code arrives.</li>
+              <li><strong>Parents know the TapIn number:</strong> the consent form has a WhatsApp card for parents to keep. Ask them to save the number and send “Hi” so they can see the menu.</li>
               <li>The kiosk is pinned, charging, and tested with five cards at the real gate.</li>
             </ul>
             <h3 className="pt-2 font-semibold">Day one at the gate</h3>
