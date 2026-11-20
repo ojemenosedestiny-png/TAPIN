@@ -44,6 +44,23 @@ describe("Meta WhatsApp", () => {
     ] }] });
   });
 
+  it("templates made with named variables send each value under its name", async () => {
+    vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "EAAtest");
+    vi.stubEnv("WHATSAPP_PHONE_NUMBER_ID", "123");
+    vi.stubEnv("WHATSAPP_TEMPLATE_DEPARTURE", "tapin_departure:child_name,school_name,time");
+    const t = metaTemplateFor("departure")!;
+    expect(t).toEqual({ name: "tapin_departure", params: 3, names: ["child_name", "school_name", "time"] });
+    expect(parseMetaTemplate(metaTemplateId(t))).toEqual(t);
+    const g = ok();
+    await sendMetaTemplate("+2348031234567", t, { "1": "Ada", "2": "Bright Stars", "3": "2:15 PM", "4": "extra" }, g);
+    const body = JSON.parse((g as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]![1].body as string);
+    expect(body.template.components).toEqual([{ type: "body", parameters: [
+      { type: "text", parameter_name: "child_name", text: "Ada" },
+      { type: "text", parameter_name: "school_name", text: "Bright Stars" },
+      { type: "text", parameter_name: "time", text: "2:15 PM" },
+    ] }]);
+  });
+
   it("sign-in codes use an Authentication template: the code in the body and in the Copy code button", async () => {
     vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "EAAtest");
     vi.stubEnv("WHATSAPP_PHONE_NUMBER_ID", "123");
