@@ -68,7 +68,7 @@ const Icon = ({ children, color = "#0F766E" }: { children: React.ReactNode; colo
 const FEATURES: { title: string; body: string; icon: React.ReactNode; warn?: boolean }[] = [
   { title: "Photo check at the gate", body: "Every tap shows the cardholder's photo, so a borrowed card is spotted straight away.", icon: <Icon><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2" /><path d="M15 10h3M15 13h3" /></Icon> },
   { title: "A warm voice greeting", body: "“Good morning, David.” “Goodbye, take care.” Children hear their name every day.", icon: <Icon><path d="M11 5L6 9H3v6h3l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></Icon> },
-  { title: "Arrival and departure alerts", body: "Parents get the exact time their child signed in and out, by WhatsApp or SMS, under the school's own name.", icon: <Icon><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></Icon> },
+  { title: "Arrival and departure alerts", body: "Parents get the exact time their child signed in and out, on WhatsApp, with the school's name in every message.", icon: <Icon><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></Icon> },
   { title: "Automatic absence alerts", body: "Not in by the cutoff? Parents are asked to check in. Weekends and holidays are skipped.", warn: true, icon: <Icon color="#B45309"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" /></Icon> },
   { title: "Keeps working offline", body: "Network down? The kiosk still greets every child and sends everything once it reconnects.", icon: <Icon><path d="M2 8.8a15 15 0 0 1 20 0" /><path d="M5 12.5a10 10 0 0 1 14 0" /><path d="M8.5 16a5 5 0 0 1 7 0" /><circle cx="12" cy="19.5" r="1" /></Icon> },
   { title: "Live dashboard for principals", body: "Who is present, absent or late, by class, in real time. Export termly reports in one click.", icon: <Icon><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Icon> },
@@ -113,7 +113,7 @@ export default async function Home() {
             </div>
             <div className="ticks">
               <span><Tick />Works offline</span>
-              <span><Tick />WhatsApp or SMS to any phone</span>
+              <span><Tick />WhatsApp alerts, no app needed</span>
               <span><Tick />Set up in days</span>
             </div>
           </div>
@@ -151,7 +151,7 @@ export default async function Home() {
         <div className="wrap grid">
           <div data-reveal><b>Seconds, not minutes</b><span>From card tap to the parent&apos;s message on a normal connection</span></div>
           <div data-reveal style={d(1)}><b>No internet? No problem</b><span>Taps are saved on the kiosk and sent when the network returns</span></div>
-          <div data-reveal style={d(2)}><b>Any phone</b><span>Parents need no app. Alerts arrive by WhatsApp or SMS</span></div>
+          <div data-reveal style={d(2)}><b>Any phone</b><span>Parents need no new app. Alerts arrive on WhatsApp</span></div>
           <div data-reveal style={d(3)}><b>Data protected</b><span>Built to Nigeria Data Protection Act standards</span></div>
         </div>
       </section>

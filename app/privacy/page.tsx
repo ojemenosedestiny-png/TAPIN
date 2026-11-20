@@ -29,8 +29,9 @@ export default function PrivacyPage() {
           <li><strong>A photo</strong> — shown on the gate screen when the card is tapped, so staff can see that the right child is using the card. Only taken after a parent gives written consent.</li>
           <li><strong>The ID card&apos;s serial number</strong> — nothing is written to the card. It holds no name, photo or phone number.</li>
           <li><strong>Arrival and departure times</strong> — the school&apos;s attendance record.</li>
-          <li><strong>Parents&apos; and guardians&apos; names and mobile numbers</strong> — to send arrival, departure, late and absence text messages.</li>
-          <li><strong>Staff names, photos and times</strong> for staff who sign in at the gate.</li>
+          <li><strong>Parents&apos; and guardians&apos; names and mobile numbers</strong> — to send arrival, departure, late and absence alerts by WhatsApp, and the one-time codes parents use to sign in.</li>
+          <li><strong>Messages parents send to the TapIn WhatsApp number</strong> — for example asking about attendance, reporting an early pickup or asking for a pickup code — so the assistant can answer. These are deleted after 180 days.</li>
+          <li><strong>Staff names and times</strong> for staff who sign in at the gate, and a photo only if the school chooses to take one.</li>
         </ul>
         <p>We collect nothing else: no location tracking, no fingerprints, no advertising, and the information is never sold.</p>
 
@@ -38,13 +39,13 @@ export default function PrivacyPage() {
         <ul>
           <li>The school&apos;s administrators see their own school only. Class teachers see their own classes only, and don&apos;t see parents&apos; phone numbers.</li>
           <li>The gate screen shows only the child who just tapped: photo, name, class and time.</li>
-          <li>Text messages are sent through Termii, a Nigerian SMS provider, which receives the phone number and the message.</li>
+          <li>Alerts and sign-in codes are sent by WhatsApp through Meta&apos;s WhatsApp Business Platform, which receives the phone number and the message. If a school also turns on text messages, those are sent through Termii, a Nigerian SMS provider, which receives the same.</li>
           <li>If the school uses a recorded voice at the gate, the greeting (for example &ldquo;Good morning, Chioma&rdquo;) is made by ElevenLabs, which receives only the child&apos;s first name. TapIn keeps the recording, so each name is sent once.</li>
           <li>Data is stored with Supabase (database and private photo storage), encrypted in transit and at rest. Photos are only ever shown through short-lived private links.</li>
         </ul>
 
         <h2>How long it is kept</h2>
-        <p>While a child is at the school. When a child leaves, their records — attendance, card, photo, messages, and parent details that no other child uses — are <strong>deleted automatically</strong> after the period the school sets (12 months unless the school chooses otherwise, and never more than 7 years).</p>
+        <p>While a child is at the school. When a child leaves, their records — attendance, card, photo, alerts, and parent details that no other child uses — are <strong>deleted automatically</strong> after the period the school sets (12 months unless the school chooses otherwise, and never more than 7 years).</p>
 
         <h2>Your rights</h2>
         <p>Under the Nigeria Data Protection Act 2023 you can ask the school to show you the information held about your child or you, correct it, or delete it; you can <strong>withdraw consent</strong> for the photo at any time, and it is deleted straight away; and you can object or complain to the Nigeria Data Protection Commission (ndpc.gov.ng).</p>

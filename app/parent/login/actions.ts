@@ -10,7 +10,7 @@ import { LAST_ACTIVE_COOKIE, LAST_ACTIVE_OPTIONS } from "@/lib/auth/idle";
 
 export type ParentLoginState = { step: "phone" | "code"; phone?: string; error?: string; info?: string };
 
-const SENT = "If this number is registered with a school, a 6-digit code is on its way by text message.";
+const SENT = "If this number is registered with a school, a 6-digit code is on its way by WhatsApp.";
 
 /** Step 1: phone number → code. Only guardians' numbers get one; the answer is the same either way. */
 export async function requestCode(_prev: ParentLoginState, formData: FormData): Promise<ParentLoginState> {
@@ -40,7 +40,7 @@ export async function verifyCode(_prev: ParentLoginState, formData: FormData): P
   const phone = normaliseNgPhone(String(formData.get("phone") ?? ""));
   const token = String(formData.get("code") ?? "").replace(/\s/g, "");
   if (!phone) return { step: "phone", error: "Start again with your number." };
-  if (!/^\d{6}$/.test(token)) return { step: "code", phone, error: "Enter the 6-digit code from the text message." };
+  if (!/^\d{6}$/.test(token)) return { step: "code", phone, error: "Enter the 6-digit code we sent you on WhatsApp." };
   if (!(await checkRateLimitShared(`parent-verify:${phone}`, { max: 6, windowMs: 15 * 60_000 })).ok) {
     return { step: "code", phone, error: "Too many wrong codes. Ask for a new code in 15 minutes." };
   }
