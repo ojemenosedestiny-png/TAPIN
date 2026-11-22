@@ -1080,6 +1080,8 @@ function PickupConfirm({ data, error, onActivity, onCancel, onConfirm }: {
   const [busy, setBusy] = useState(false);
   const picker = data.picker;
   const ready = children.filter((c) => c.matched).length;
+  // Big families (5+ children): smaller rows in two columns, so the whole list and Release fit on one screen.
+  const many = children.length > 4;
 
   return (
     <KioskStage>
@@ -1102,20 +1104,21 @@ function PickupConfirm({ data, error, onActivity, onCancel, onConfirm }: {
           </div>
 
           <p className="mt-6 font-heading text-3xl font-extrabold tracking-tight text-brand">{ready ? "Check each face, then release" : "Now tap each child's card"}</p>
-          <ul className="mt-4 flex flex-col gap-2.5">
+          {many && <p className="mt-1 text-xl font-medium text-slate-600">{ready} of {children.length} ready</p>}
+          <ul className={cn("mt-4", many ? "grid max-h-[46dvh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2" : "flex flex-col gap-2.5")}>
             {children.map((c) => (
-              <li key={c.id} className={cn("flex items-center gap-4 rounded-2xl p-3 ring-2 transition-colors", c.matched ? "bg-green-50 ring-green-600" : "bg-slate-50 ring-transparent")}>
-                <span className="size-16 shrink-0 overflow-hidden rounded-full bg-slate-200">
+              <li key={c.id} className={cn("flex items-center rounded-2xl ring-2 transition-colors", many ? "gap-3 p-2" : "gap-4 p-3", c.matched ? "bg-green-50 ring-green-600" : "bg-slate-50 ring-transparent")}>
+                <span className={cn("shrink-0 overflow-hidden rounded-full bg-slate-200", many ? "size-12" : "size-16")}>
                   {c.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={c.photo_url} alt="" className="size-full object-cover" />
                   ) : <span className="flex size-full items-center justify-center text-xl font-semibold text-slate-600">{initials(c.name)}</span>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-2xl font-semibold">{c.name}</span>
-                  <span className="block text-lg text-slate-500">{c.class ?? ""}</span>
+                  <span className={cn("block truncate font-semibold", many ? "text-xl" : "text-2xl")}>{c.name}</span>
+                  <span className={cn("block text-slate-500", many ? "text-base" : "text-lg")}>{c.class ?? ""}</span>
                 </span>
-                <span className={cn("shrink-0 rounded-full px-4 py-1.5 text-lg font-bold",
+                <span className={cn("shrink-0 rounded-full font-bold", many ? "px-3 py-1 text-base" : "px-4 py-1.5 text-lg",
                   c.matched ? "bg-green-600 text-white" : c.state === "in_school" ? "bg-slate-200 text-slate-700" : "bg-slate-100 text-slate-500")}>
                   {c.matched ? "Ready" : c.state === "in_school" ? "Tap card" : c.state === "signed_out" ? "Already gone" : "Not in today"}
                 </span>
