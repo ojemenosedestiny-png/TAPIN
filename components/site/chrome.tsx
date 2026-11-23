@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo, TapInWord } from "@/components/brand/logo";
 import type { WebPricing } from "@/lib/pricing";
 import { ThemeCycleButton, ThemeToggle } from "@/components/theme/theme";
+import { SiteIcon, SocialLinks } from "@/components/site/social";
 
 /** Top bar of the public site, on the deep teal header. */
 export function SiteHeader({ active }: { active?: "home" | "pricing" }) {
@@ -38,6 +39,7 @@ export function SiteFooter({ contact: c }: { contact: WebPricing["contact"] }) {
             <TapInWord className="text-[22px]" />
           </span>
           <p style={{ margin: 0, fontSize: 15, color: "var(--slate)" }}>Keeping every child safe and accounted for.</p>
+          <SocialLinks />
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 56, fontSize: 15 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -46,10 +48,13 @@ export function SiteFooter({ contact: c }: { contact: WebPricing["contact"] }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <p style={{ margin: 0, fontWeight: 700 }}>Contact</p>
-            <span style={{ color: "var(--slate)" }}>{c.city}</span>
-            {c.phone && <a href={`tel:${c.phone.replace(/\s/g, "")}`}>{c.phone}</a>}
-            {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
-            <Link href="/#demo">Book a free demo</Link>
+            <ul className="contact-list">
+              {c.email && <li><a href={`mailto:${c.email}`}><SiteIcon name="mail" />{c.email}</a></li>}
+              {c.whatsapp && <li><a href={`https://wa.me/${c.whatsapp}`} target="_blank" rel="noopener noreferrer"><SiteIcon name="whatsapp" />Chat on WhatsApp</a></li>}
+              {c.phone && <li><a href={`tel:${c.phone.replace(/\s/g, "")}`}><SiteIcon name="phone" />{c.phone}</a></li>}
+              <li><span><SiteIcon name="pin" />{c.city}</span></li>
+            </ul>
+            <Link href="/#demo" className="demo-link">Book a free demo →</Link>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <p style={{ margin: 0, fontWeight: 700 }}>Account</p>

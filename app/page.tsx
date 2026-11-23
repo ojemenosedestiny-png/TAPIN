@@ -7,7 +7,7 @@ import { BookDemo } from "@/components/site/book-demo";
 import { CountUp } from "@/components/site/count-up";
 import { naira } from "@/lib/pricing";
 import { loadPricing } from "@/lib/pricing-data";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SOCIAL } from "@/lib/site";
 import "./site.css";
 
 // Signed-in staff and parents never see this page: proxy.ts sends them to their own home first.
@@ -41,6 +41,7 @@ function jsonLd(contact: { phone: string | null; email: string | null; city: str
     description: SITE_DESCRIPTION, areaServed: "NG",
     address: { "@type": "PostalAddress", addressLocality: contact.city.split(",")[0], addressCountry: "NG" },
     ...(contact.email ? { email: contact.email } : {}),
+    ...(Object.values(SOCIAL).some(Boolean) ? { sameAs: Object.values(SOCIAL).filter(Boolean) } : {}),
     ...(contact.phone ? { contactPoint: { "@type": "ContactPoint", telephone: contact.phone, contactType: "sales", areaServed: "NG", availableLanguage: "en" } } : {}),
   };
   const app = {

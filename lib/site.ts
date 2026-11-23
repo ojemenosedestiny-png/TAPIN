@@ -19,3 +19,18 @@ export const PRIVATE_PATHS = [
   "/pickup", "/lessons", "/emergency", "/orders", "/invoices", "/platform", "/enroll", "/my-report", "/account", "/activity",
   "/help", "/setup",
 ];
+
+export type SocialNetwork = "facebook" | "instagram" | "x" | "linkedin" | "tiktok" | "youtube";
+
+/**
+ * TapIn's social media pages: full links, e.g. "https://www.instagram.com/tapinsafe". Leave "" to hide one.
+ * They show as icons in the website footer and tell Google these pages belong to TapIn.
+ */
+export const SOCIAL: Record<SocialNetwork, string> = {
+  facebook: "",
+  instagram: "",
+  x: "",
+  linkedin: "",
+  tiktok: "",
+  youtube: "",
+};
