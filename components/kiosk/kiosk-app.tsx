@@ -639,12 +639,16 @@ function localHour(timeZone = "Africa/Lagos") {
   return Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone }).format(new Date()));
 }
 
-/** The light kiosk: one white card on a soft mint ground, like the kiosk on the TapIn website. */
+/** Brand gradients: deep teal into TapIn teal, with a mint light and a gold glow. Shared by the kiosk screens. */
+const BRAND_GROUND = "bg-[linear-gradient(150deg,#031c1a_0%,#08322e_42%,#0d5f58_78%,#0f766e_100%)]";
+const DANGER_GROUND = "bg-[linear-gradient(150deg,#5f1111_0%,#991b1b_50%,#dc2626_100%)]";
+
+/** The kiosk: one white card on the deep brand gradient, so names and photos stay crisp at the gate. */
 function KioskStage({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center gap-6 overflow-hidden bg-[#edf3f1] px-4 py-8 text-slate-900">
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(1000px_700px_at_85%_-15%,rgb(45_212_191/0.22),transparent_60%),radial-gradient(800px_600px_at_0%_110%,rgb(245_158_11/0.10),transparent_60%)]" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.35] [background-image:radial-gradient(rgb(15_118_110/0.18)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
+    <div className={cn("relative flex min-h-dvh flex-col items-center justify-center gap-6 overflow-hidden px-4 py-8 text-slate-900", BRAND_GROUND)}>
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_650px_at_88%_-12%,rgb(94_234_212/0.30),transparent_60%),radial-gradient(760px_560px_at_-5%_112%,rgb(245_158_11/0.24),transparent_62%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-50 [background-image:radial-gradient(rgb(255_255_255/0.10)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_at_center,black_25%,transparent_72%)]" />
       {children}
       {footer}
     </div>
@@ -653,7 +657,9 @@ function KioskStage({ children, footer }: { children: React.ReactNode; footer?: 
 
 function KioskCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("relative w-[min(94vw,46rem)] overflow-hidden rounded-[36px] bg-white px-7 pb-8 pt-6 shadow-[0_50px_100px_-40px_rgb(12_74_68/0.45),0_18px_40px_-24px_rgb(12_74_68/0.25)] ring-1 ring-slate-900/[0.06] sm:px-10", className)}>
+    <div className={cn("relative w-[min(94vw,46rem)] overflow-hidden rounded-[36px] bg-white px-7 pb-8 pt-6 shadow-[0_60px_120px_-40px_rgb(0_0_0/0.65),0_20px_44px_-22px_rgb(2_44_40/0.6)] ring-1 ring-white/40 sm:px-10", className)}>
+      {/* A thin brand stripe along the top: teal into mint into gold. */}
+      <span aria-hidden className="absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(90deg,#0f766e,#2dd4bf_55%,#f59e0b)]" />
       {children}
     </div>
   );
@@ -682,7 +688,7 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
 }) {
   const action = "flex items-center gap-2 rounded-full bg-white px-5 py-3 text-base font-semibold text-slate-700 shadow-sm ring-1 ring-slate-900/10 transition hover:bg-slate-50 active:scale-95";
   return (
-    <KioskStage footer={<PoweredBy className="relative" />}>
+    <KioskStage footer={<PoweredBy onDark className="relative" />}>
       <KioskCard className="kiosk-pop">
         <CardTop
           left={
@@ -729,7 +735,7 @@ function Idle({ school, deviceName, scanning, supported, nfcError, onStart, onTe
             </>
           ) : (
             <>
-              <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-brand px-10 text-2xl font-semibold text-white shadow-[0_20px_40px_-16px_rgb(15_118_110/0.8)] transition-transform active:scale-95">
+              <button onClick={onStart} className="flex h-20 items-center gap-3 rounded-2xl bg-[linear-gradient(135deg,#14b8a6,#0f766e_55%,#0b4f49)] px-10 text-2xl font-semibold text-white shadow-[0_20px_40px_-16px_rgb(15_118_110/0.8)] transition-transform active:scale-95">
                 <Nfc className="size-8" aria-hidden /> Start scanning
               </button>
               <p className="max-w-md text-center text-lg text-slate-500">
@@ -802,7 +808,7 @@ function Drain({ className }: { className?: string }) {
 function Result({ data, place }: { data: TapResponse; place: string }) {
   if (data.action === "not_authorised") {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+      <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center text-white", DANGER_GROUND)} role="alert">
         <ShieldX className="size-32" aria-hidden />
         <p className="text-5xl font-semibold sm:text-6xl">Not authorised</p>
         <p className="text-3xl font-medium">{data.name}</p>
@@ -813,7 +819,7 @@ function Result({ data, place }: { data: TapResponse; place: string }) {
   }
   if (data.action === "unknown" || data.action === "blocked") {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+      <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center text-white", DANGER_GROUND)} role="alert">
         <XCircle className="size-32" aria-hidden />
         <p className="text-5xl font-semibold sm:text-6xl">Card not recognised</p>
         <p className="text-2xl text-white/90">Please see the admin office.</p>
@@ -824,7 +830,7 @@ function Result({ data, place }: { data: TapResponse; place: string }) {
 
   if (data.action === "staff_refused") {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+      <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center text-white", DANGER_GROUND)} role="alert">
         <ShieldX className="size-28" aria-hidden />
         <p className="text-5xl font-semibold sm:text-6xl">Not checked in</p>
         <p className="text-3xl font-medium">{data.name}</p>
@@ -836,7 +842,7 @@ function Result({ data, place }: { data: TapResponse; place: string }) {
 
   if (data.action === "pickup_refused") {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-danger px-6 text-center text-white" role="alert">
+      <div className={cn("flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center text-white", DANGER_GROUND)} role="alert">
         <ShieldX className="size-28" aria-hidden />
         <p className="text-6xl font-semibold sm:text-7xl">Do not release</p>
         <p className="text-4xl font-semibold">{data.child}</p>
@@ -1387,7 +1393,7 @@ function QrScan({ error, onCancel, onCode, onCodeEntry }: { error?: string; onCa
 /** Over whatever is on screen, the moment a card is read, until the answer comes back. */
 function Reading() {
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 bg-ink/85 px-6 text-center text-white" role="status" aria-live="polite">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-6 bg-[linear-gradient(150deg,rgb(3_28_26/0.95),rgb(13_95_88/0.93))] px-6 text-center text-white backdrop-blur-sm" role="status" aria-live="polite">
       <Nfc className="size-24 animate-pulse text-brand-light" aria-hidden />
       <p className="text-5xl font-semibold">Reading card…</p>
     </div>
@@ -1396,7 +1402,7 @@ function Reading() {
 
 function SavedOffline() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-amber-500 px-6 text-center text-amber-950" role="status">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-[linear-gradient(150deg,#fcd34d,#f59e0b_55%,#d97706)] px-6 text-center text-amber-950" role="status">
       <CloudOff className="size-28" aria-hidden />
       <p className="text-5xl font-semibold">Tap saved</p>
       <p className="max-w-xl text-2xl">No connection right now. Your tap will be sent as soon as the kiosk is back online.</p>
